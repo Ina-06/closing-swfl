@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/*
+  Closing — design tokens
+  Light surface, colored accents. Every later phase pulls from here.
+  Semantic names only: never write a raw hex in a component.
+*/
+@theme {
+  /* Surfaces */
+  --color-canvas: #f4f6f9;
+  --color-surface: #ffffff;
+  --color-sunken: #eceff4;
+
+  /* Ink */
+  --color-ink: #0e1419;
+  --color-ink-muted: #59636f;
+  --color-ink-faint: #8a94a1;
+  --color-ink-inverse: #ffffff;
+
+  /* Lines */
+  --color-line: #e1e6ec;
+  --color-line-strong: #c8d0da;
+
+  /* Brand — primary actions, dispatcher chrome */
+  --color-brand: #2d54e0;
+  --color-brand-hover: #2445bd;
+  --color-brand-soft: #e9eefe;
+  --color-brand-line: #c2d0fb;
+
+  /* Arrived — closer confirmations, success */
+  --color-arrived: #0b8a5c;
+  --color-arrived-soft: #e0f5ec;
+  --color-arrived-line: #b4e4d0;
+
+  /* Overdue — driver past ETA */
+  --color-overdue: #d61f4b;
+  --color-overdue-soft: #ffeef2;
+  --color-overdue-line: #fbc7d3;
+
+  /* Warn — soft, inline, never blocking (returns mismatch) */
+  --color-warn: #a35a06;
+  --color-warn-soft: #fef4e4;
+  --color-warn-line: #f6ddb2;
+
+  /* BUD tag */
+  --color-bud: #6d33d6;
+  --color-bud-soft: #f1eaff;
+  --color-bud-line: #dcc9fb;
+
+  /* Radii */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.25rem;
+
+  /* Type */
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Every number in this app lines up: ETAs, van numbers, counts, clock-outs. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+    border-radius: var(--radius-xs);
+  }
+}
+
+@layer utilities {
+  /* Notch / home-indicator padding for the closer's phone chrome. */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
