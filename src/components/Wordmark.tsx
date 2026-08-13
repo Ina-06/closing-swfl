@@ -1,9 +1,8 @@
 import { STATION_CODE } from "@/lib/constants";
 
 /**
- * The mark: three rows of the sheet, the last one filled — the grid completing
- * as drivers come in. Used in both role headers so the two halves of the app
- * read as one product.
+ * The mark: the sheet, checked off. Used in both role headers so the two
+ * halves of the app read as one product.
  */
 export function Mark({ className = "size-8" }: { className?: string }) {
   return (

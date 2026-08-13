@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { RoleGate } from "@/components/RoleGate";
+import { SignOutButton } from "@/components/SignOutButton";
 import { StationDate } from "@/components/StationDate";
 import { Wordmark } from "@/components/Wordmark";
 
@@ -19,6 +21,7 @@ export default function DispatchLayout({
 
           <div className="flex items-center gap-3">
             <StationDate className="tnum hidden font-mono text-xs text-ink-muted sm:inline" />
+            <SignOutButton />
             <span className="rounded-full border border-brand-line bg-brand-soft px-2.5 py-1 text-[11px] font-semibold text-brand">
               Dispatcher
             </span>
@@ -27,7 +30,7 @@ export default function DispatchLayout({
       </header>
 
       <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
-        {children}
+        <RoleGate allow={["dispatcher"]}>{children}</RoleGate>
       </main>
     </div>
   );

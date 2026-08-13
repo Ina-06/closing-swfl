@@ -5,7 +5,7 @@ export const metadata = { title: "Closer — Closing SWFL" };
 export default function CloserPage() {
   return (
     <Placeholder
-      eyebrow="Phase 0 · shell"
+      eyebrow="Phase 1 · signed in"
       title="Closer"
       blurb="This is Karim's screen. Open it on a real phone, not a narrow desktop window — tap targets and one-handed reach are the actual requirements here."
       roadmap={[

@@ -14,9 +14,9 @@ Two roles, one codebase:
 | --- | --- |
 | Framework | Next.js 16 (App Router), TypeScript, React 19 |
 | Styling | Tailwind CSS v4 |
-| Database / realtime | Firebase Firestore *(Phase 1)* |
+| Database / realtime | Firebase Firestore |
 | File storage | Firebase Storage *(Phase 6)* |
-| Privileged server work | Firebase Admin SDK in route handlers *(Phase 1)* |
+| Privileged server work | Firebase Admin SDK in route handlers |
 | PDF | `@react-pdf/renderer`, Node runtime *(Phase 7)* |
 | Spreadsheet | `exceljs`, server-side *(Phase 6)* |
 | Hosting | Vercel |
@@ -25,10 +25,14 @@ Two roles, one codebase:
 
 ```bash
 npm install
+cp .env.example .env.local   # then fill it in
 npm run dev
 ```
 
 Open http://localhost:3000.
+
+Without `.env.local` the login screen tells you what is missing instead of
+pretending to work.
 
 To check the closer screen from your phone on the same Wi-Fi, run
 `npm run dev -- -H 0.0.0.0` and visit `http://<your-laptop-ip>:3000/closer`.
@@ -38,8 +42,9 @@ To check the closer screen from your phone on the same Wi-Fi, run
 ```
 src/
   app/
-    layout.tsx            fonts + design tokens, wraps everything
-    page.tsx              role chooser (Phase 1 replaces with the login)
+    layout.tsx            fonts, design tokens, AuthProvider
+    page.tsx              login — one key, three role buttons
+    api/login/route.ts    server-side key check → Firebase custom token
     (dispatch)/           desktop chrome
       layout.tsx
       dispatch/page.tsx
@@ -47,8 +52,13 @@ src/
       layout.tsx
       closer/page.tsx
   components/
+    RoleGate.tsx          keeps the wrong role off the wrong screen
   lib/
     constants.ts          station timezone, metrics, date helpers
+    auth/AuthProvider.tsx session state + role claim
+    firebase/client.ts    browser SDK (public config)
+    firebase/admin.ts     Admin SDK — server only, never imported by a client
+firestore.rules           the actual security boundary
 ```
 
 `(dispatch)` and `(closer)` are route groups: they give each role its own
@@ -65,13 +75,21 @@ persistent chrome without adding a segment to the URL.
 - **Nothing typed is ever lost.** Raw input is stored verbatim alongside any
   parsed structure; parse failures warn softly inline and still save.
 - **Sessions are never deleted.** Closing sets `status: 'closed'`.
+- **The key is checked on the server.** `/api/login` compares it to
+  `APP_ACCESS_KEY` and mints a custom token carrying a `role` claim;
+  `firestore.rules` enforces what each role may read and write.
+
+## Firestore rules
+
+`firestore.rules` is not applied by deploying the app. After editing it, paste
+it into Firebase console → Firestore Database → Rules → Publish.
 
 ## Phases
 
 | | Phase | State |
 | --- | --- | --- |
 | 0 | Scaffold and deploy | ✅ |
-| 1 | Firebase wiring and auth | — |
+| 1 | Firebase wiring and auth | ✅ |
 | 2 | Driver database and roster entry | — |
 | 3 | Dispatcher entry form | — |
 | 4 | Closer live list | — |

@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# the template carries names only, never values
+!.env.example
 
 # secrets — the Firebase service account key must never reach a public repo
 *serviceAccount*.json

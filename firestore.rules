@@ -1,0 +1,115 @@
+rules_version = '2';
+
+// Closing — SWFL
+//
+// This file is the actual security boundary. The login screen and the RoleGate
+// component are convenience; these rules are what stop someone who has the
+// project id (it ships in the client bundle, by design) from reading or
+// writing station data.
+//
+// Two principles run through the whole file:
+//   1. Field ownership. The dispatcher owns what the driver texted in; the
+//      closer owns what happened at the station. Neither can overwrite the
+//      other's columns, so a stale phone can never clobber a live edit.
+//   2. Nothing is ever deleted except a mistaken entry, and only by the
+//      dispatcher. Sessions are permanent — closing sets status, it does not
+//      remove the night.
+//
+// Paste this into Firebase console → Firestore Database → Rules → Publish.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // The role claim is minted server-side in /api/login and signed by the
+    // service account. A client cannot forge or edit it.
+    function role() {
+      return request.auth != null ? request.auth.token.get('role', '') : '';
+    }
+
+    function signedIn() {
+      return role() in ['dispatcher', 'closer', 'onetime'];
+    }
+
+    function isDispatcher() {
+      return role() == 'dispatcher';
+    }
+
+    // A one-time key is a closer with an expiry — same permissions.
+    function isCloser() {
+      return role() in ['closer', 'onetime'];
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // The roster. Read by both screens, maintained by the dispatcher.
+    // Never deleted — entries denormalize fullName, but a driver row that
+    // vanishes still breaks the management screen. Deactivate instead.
+    match /drivers/{driverId} {
+      allow read: if signedIn();
+      allow create, update: if isDispatcher();
+      allow delete: if false;
+    }
+
+    match /sessions/{sessionId} {
+      // The closer's only session-level job is End Day: flip the status and
+      // attach the PDF. Everything else about the night is the dispatcher's.
+      function closerSessionFields() {
+        return changedKeys().hasOnly([
+          'status', 'closedAt', 'pdfUrl', 'updatedAt', 'updatedBy'
+        ]);
+      }
+
+      allow read: if signedIn();
+      allow create: if isDispatcher();
+      allow update: if isDispatcher() || (isCloser() && closerSessionFields());
+      allow delete: if false;
+
+      match /entries/{entryId} {
+        // What the driver texted the dispatcher.
+        function dispatcherFields() {
+          return changedKeys().hasOnly([
+            'seq', 'driverId', 'fullName', 'isBud',
+            'eta', 'returnsRaw', 'returnsCount', 'returnsReasons',
+            'returnsMismatch', 'performance', 'metric', 'infractions',
+            'rescues', 'updatedAt', 'updatedBy'
+          ]);
+        }
+
+        // What happened when the van pulled in.
+        function closerFields() {
+          return changedKeys().hasOnly([
+            'status', 'clockOut', 'van', 'vanIssues',
+            'cell', 'key', 'fuel', 'addedByCloser',
+            'updatedAt', 'updatedBy'
+          ]);
+        }
+
+        allow read: if signedIn();
+
+        // Both roles create: the dispatcher as drivers text in, the closer
+        // when someone arrives unannounced.
+        allow create: if signedIn();
+
+        allow update: if (isDispatcher() && dispatcherFields())
+                      || (isCloser() && closerFields());
+
+        // Only for an entry typed by mistake, and only from the dispatcher's
+        // table. The closer has no delete path anywhere.
+        allow delete: if isDispatcher();
+      }
+    }
+
+    // One-time closer codes (Phase 8). Written and verified only by the Admin
+    // SDK, which bypasses these rules — so no client gets near the hashes.
+    match /accessKeys/{keyId} {
+      allow read, write: if false;
+    }
+
+    // Anything not named above is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

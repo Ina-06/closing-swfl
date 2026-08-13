@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { RoleGate } from "@/components/RoleGate";
+import { SignOutButton } from "@/components/SignOutButton";
 import { StationDate } from "@/components/StationDate";
 import { Mark } from "@/components/Wordmark";
 
@@ -24,13 +26,19 @@ export default function CloserLayout({
             </span>
           </Link>
 
-          <span className="rounded-full border border-arrived-line bg-arrived-soft px-2.5 py-1 text-[11px] font-semibold text-arrived">
-            Closer
-          </span>
+          <div className="flex items-center gap-1.5">
+            <SignOutButton />
+            <span className="rounded-full border border-arrived-line bg-arrived-soft px-2.5 py-1 text-[11px] font-semibold text-arrived">
+              Closer
+            </span>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-lg px-4 py-6 pb-safe">{children}</main>
+      <main className="mx-auto max-w-lg px-4 py-6 pb-safe">
+        {/* One-time keys land here too — they are a closer with an expiry. */}
+        <RoleGate allow={["closer", "onetime"]}>{children}</RoleGate>
+      </main>
     </div>
   );
 }
