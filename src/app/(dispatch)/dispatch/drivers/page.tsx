@@ -55,7 +55,7 @@ export default function DriversPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="max-w-3xl space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <Link

@@ -15,7 +15,7 @@ export default function DispatchLayout({
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-5 sm:px-8">
+        <div className="mx-auto flex h-14 max-w-[1600px] items-center justify-between gap-4 px-5 sm:px-8">
           <div className="flex items-center gap-6">
             <Link href="/dispatch" className="rounded-sm">
               <Wordmark />
@@ -36,7 +36,7 @@ export default function DispatchLayout({
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
+      <main className="mx-auto max-w-[1600px] px-5 py-8 sm:px-8 sm:py-12">
         <RoleGate allow={["dispatcher"]}>{children}</RoleGate>
       </main>
     </div>

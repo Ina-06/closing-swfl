@@ -187,6 +187,13 @@ export function RescuesStepper({
       </button>
       <input
         value={draft ?? formatRescues(value)}
+        onFocus={(event) => {
+          // Start from an empty field on zero, and select whatever is there
+          // otherwise. Without this the standing "0" sat in the box and typing
+          // "-13" produced "-130" — the digits landed in front of it.
+          setDraft(value === 0 ? "" : String(value));
+          event.currentTarget.select();
+        }}
         onChange={(event) => {
           // Keep a leading sign and digits only, and allow the in-between
           // states ("", "-", "+") that typing a signed number has to pass through.
@@ -201,6 +208,7 @@ export function RescuesStepper({
           if (Number.isFinite(parsed)) onChange(clampRescues(parsed));
         }}
         onBlur={() => setDraft(null)}
+        placeholder="0"
         aria-label="Rescues — positive given, negative received"
         inputMode="numeric"
         className={`tnum border-x border-line-strong bg-transparent text-center font-mono font-bold outline-none focus:bg-brand-soft/40 ${

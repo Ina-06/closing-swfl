@@ -87,6 +87,8 @@ export function EntryForm({
 
   const parsed = parseReturns(form.returns);
   const preview = describeReturns(parsed);
+  /** A clock-out time has been typed, so this row is heading in as done. */
+  const clockingOut = form.clockOutManual.trim().length > 0;
 
   /** The picker's selection, or an exact typed match if they never opened it. */
   const resolved =
@@ -143,7 +145,10 @@ export function EntryForm({
           driverId: resolved.driverId,
           fullName: resolved.fullName,
           roster: resolved.roster,
-          eta: form.eta.trim(),
+          // A driver who has already clocked out has no ETA — he is not on his
+          // way, he is done. Storing one would put a time on the sheet that
+          // never meant anything.
+          eta: clockedOut ? "" : form.eta.trim(),
           performance: form.performance,
           metric: form.metric,
           infractions: form.infractions.trim(),
@@ -204,7 +209,9 @@ export function EntryForm({
               placeholder="9:45"
               autoComplete="off"
               spellCheck={false}
-              className="tnum h-11 w-full py-0 font-mono sm:w-24"
+              className={`tnum h-11 w-full py-0 font-mono sm:w-24 ${
+                clockingOut ? "text-ink-faint line-through" : ""
+              }`}
             />
           </div>
 
@@ -356,18 +363,16 @@ export function EntryForm({
           variant="arrived"
           size="lg"
           loading={saving}
-          disabled={!form.clockOutManual.trim()}
-          title={
-            form.clockOutManual.trim()
-              ? undefined
-              : "Fill in the clocked-out time first"
-          }
+          disabled={!clockingOut}
+          title={clockingOut ? undefined : "Fill in the clocked-out time first"}
           onClick={() => void submit(true)}
         >
           Add clocked out
         </Button>
         <span className="text-[12px] text-ink-faint">
-          Enter saves and jumps back to the name.
+          {clockingOut
+            ? "Adding clocked out drops the ETA — he is already done."
+            : "Enter saves and jumps back to the name."}
         </span>
       </div>
     </form>

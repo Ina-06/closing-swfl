@@ -54,20 +54,22 @@ export function EntriesTable({
       ) : null}
 
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-        <table className="w-full min-w-[1240px] table-fixed border-collapse text-left">
+        {/* Sized to fit a laptop without sideways scrolling. The overflow is a
+            fallback for genuinely narrow windows, not the normal case. */}
+        <table className="w-full min-w-[1300px] table-fixed border-collapse text-left">
           <thead>
             <tr className="border-b border-line text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
               <Th className="w-9 text-right">#</Th>
-              <Th className="w-52">Name</Th>
-              <Th className="w-24">ETA</Th>
-              <Th className="w-64">Returns</Th>
+              <Th className="w-44">Name</Th>
+              <Th className="w-20">ETA</Th>
+              <Th className="w-52">Returns</Th>
               <Th className="w-20">Perf</Th>
               <Th className="w-24">Metric</Th>
               <Th className="w-32">Rescues</Th>
-              <Th className="w-40">Infractions</Th>
-              <Th className="w-44">Note</Th>
-              <Th className="w-32">Clocked out</Th>
-              <Th className="w-24" />
+              <Th className="w-36">Infractions</Th>
+              <Th className="w-40">Note</Th>
+              <Th className="w-28">Clocked out</Th>
+              <Th className="w-20" />
             </tr>
           </thead>
           <tbody>

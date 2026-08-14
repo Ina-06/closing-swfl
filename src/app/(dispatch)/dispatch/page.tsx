@@ -43,15 +43,19 @@ export default function DispatchPage() {
     );
   }
 
+  // The roster is a column of names — it does not want the full width the
+  // live sheet needs.
   return (
-    <RosterSetup
-      nightKey={nightKey}
-      drivers={drivers}
-      uid={uid}
-      existing={editingRoster && session ? session : undefined}
-      onDone={() => setEditingRoster(false)}
-      onCancel={editingRoster ? () => setEditingRoster(false) : undefined}
-    />
+    <div className="max-w-4xl">
+      <RosterSetup
+        nightKey={nightKey}
+        drivers={drivers}
+        uid={uid}
+        existing={editingRoster && session ? session : undefined}
+        onDone={() => setEditingRoster(false)}
+        onCancel={editingRoster ? () => setEditingRoster(false) : undefined}
+      />
+    </div>
   );
 }
 
