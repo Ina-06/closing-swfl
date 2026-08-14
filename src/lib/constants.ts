@@ -93,6 +93,85 @@ export function stationTimeLabel(at: Date): string {
   }).format(at);
 }
 
+/** A stamped clock-out as a 24-hour `HH:mm`, for `<input type="time">`. */
+export function stationTimeInputValue(at: Date): string {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: STATION_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(at);
+
+  const part = (type: string) =>
+    parts.find((candidate) => candidate.type === type)?.value ?? "00";
+
+  return `${part("hour")}:${part("minute")}`;
+}
+
+/**
+ * How far the station is from UTC at a given instant.
+ *
+ * Read from the formatter rather than hard-coded, so the two nights a year
+ * when the clocks move are not special cases.
+ */
+function stationOffsetMinutes(at: Date): number {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: STATION_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(at);
+
+  const part = (type: string) =>
+    Number(parts.find((candidate) => candidate.type === type)?.value ?? "0");
+
+  const asIfUtc = Date.UTC(
+    part("year"),
+    part("month") - 1,
+    part("day"),
+    part("hour"),
+    part("minute"),
+  );
+
+  // Compare against the same instant floored to the minute, so the seconds
+  // the formatter dropped do not leak into the offset.
+  const flooredAt = Math.floor(at.getTime() / 60_000) * 60_000;
+  return Math.round((asIfUtc - flooredAt) / 60_000);
+}
+
+/**
+ * The real instant behind a wall-clock time typed on a given night.
+ *
+ * Karim corrects a clock-out by typing `00:14`, and that has to land fourteen
+ * minutes after midnight on the night that *started* the evening before — the
+ * same rollover stationNightKey uses. Resolved twice because the offset
+ * depends on the instant and the instant depends on the offset.
+ */
+export function stationInstant(
+  nightKey: string,
+  hours: number,
+  minutes: number,
+): Date {
+  const calendar = new Date(`${nightKey}T00:00:00Z`);
+  if (hours < NIGHT_ROLLOVER_HOUR) {
+    calendar.setUTCDate(calendar.getUTCDate() + 1);
+  }
+
+  const wall = Date.UTC(
+    calendar.getUTCFullYear(),
+    calendar.getUTCMonth(),
+    calendar.getUTCDate(),
+    hours,
+    minutes,
+  );
+
+  const guess = new Date(wall - stationOffsetMinutes(new Date(wall)) * 60_000);
+  return new Date(wall - stationOffsetMinutes(guess) * 60_000);
+}
+
 /** Long-form date for headers and the PDF, e.g. "Wed 12 Aug 2026". */
 export function stationDateLabel(at: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-GB", {

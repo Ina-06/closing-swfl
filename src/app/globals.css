@@ -102,4 +102,28 @@
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  /* Sticks directly beneath the closer's header, notch included, so the
+     arrived counter is on screen no matter how far down the list he is. */
+  .top-below-header {
+    top: calc(3.5rem + env(safe-area-inset-top));
+  }
+
+  /* The closer's sheet comes up from the bottom edge it was dragged from.
+     The motion is the only thing telling him where it came from and where
+     dismissing it will send it — that is the whole job. */
+  @keyframes sheet-up {
+    from {
+      transform: translateY(12%);
+      opacity: 0.6;
+    }
+  }
+  .animate-sheet {
+    animation: sheet-up 180ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-sheet {
+      animation: none;
+    }
+  }
 }

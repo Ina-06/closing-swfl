@@ -4,6 +4,8 @@ import { SignOutButton } from "@/components/SignOutButton";
 import { StationDate } from "@/components/StationDate";
 import { Mark } from "@/components/Wordmark";
 
+export const metadata = { title: "Closer — Closing SWFL" };
+
 /**
  * Closer chrome — phone first, and only phone. Sticky compact header so the
  * arrived counter never scrolls away, safe-area padding for the notch and the
