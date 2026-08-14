@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { RosterSetup } from "@/components/dispatch/RosterSetup";
-import { SessionSummary } from "@/components/dispatch/SessionSummary";
+import { TonightBoard } from "@/components/dispatch/TonightBoard";
 import { ErrorNote } from "@/components/ui/Field";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useDrivers } from "@/lib/db/drivers";
@@ -33,9 +33,11 @@ export default function DispatchPage() {
 
   if (session && !editingRoster) {
     return (
-      <SessionSummary
-        session={session}
+      <TonightBoard
         nightKey={nightKey}
+        session={session}
+        drivers={drivers}
+        uid={uid}
         onEditRoster={() => setEditingRoster(true)}
       />
     );

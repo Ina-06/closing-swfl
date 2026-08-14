@@ -1,4 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
+import type { ReturnsReason } from "@/lib/returns";
+import type { Metric } from "@/lib/constants";
 
 /**
  * A person on the roster. The full name is canonical and is copied onto the
@@ -32,6 +34,70 @@ export type RosterEntry = {
 };
 
 export type SessionStatus = "open" | "allReturning" | "closed";
+
+/**
+ * One driver's line on tonight's sheet.
+ *
+ * Split down the middle by who owns what: the dispatcher owns everything the
+ * driver said on the phone, the closer owns everything that happened in the
+ * yard. firestore.rules enforces that split, so a stale phone can never
+ * overwrite a live edit on the other side.
+ *
+ * fullName is a copy, not a reference. Renaming or deleting a driver later
+ * leaves this line reading exactly as it does tonight.
+ */
+export type Entry = {
+  id: string;
+  /** Row number on the PDF. Survives a deletion — it is max+1, not a count. */
+  seq: number;
+  driverId: string;
+  fullName: string;
+  isBud: boolean;
+  isTrainer: boolean;
+  isRescuer: boolean;
+
+  // Dispatcher-owned
+  /** Typed plainly, e.g. "9:45". Never parsed, never a picker. */
+  eta: string;
+  /** Verbatim, always. See lib/returns. */
+  returnsRaw: string;
+  returnsCount: number | null;
+  returnsReasons: ReturnsReason[];
+  returnsMismatch: boolean;
+  performance: "up" | "down" | null;
+  metric: Metric | null;
+  infractions: string;
+  /** Signed: +2 gave two rescues, -1 received one. */
+  rescues: number;
+
+  // Closer-owned
+  status: "enroute" | "arrived";
+  clockOut: Timestamp | null;
+  van: string;
+  vanIssues: string;
+  cell: boolean | null;
+  key: boolean | null;
+  fuel: boolean | null;
+  /** Turned up without being announced. The dispatcher fills the rest in after. */
+  addedByCloser: boolean;
+
+  updatedAt: Timestamp | null;
+  updatedBy: string;
+};
+
+/** The dispatcher's half of an entry — the only fields this role may write. */
+export type EntryDispatchFields = Pick<
+  Entry,
+  | "eta"
+  | "returnsRaw"
+  | "returnsCount"
+  | "returnsReasons"
+  | "returnsMismatch"
+  | "performance"
+  | "metric"
+  | "infractions"
+  | "rescues"
+>;
 
 export type Session = {
   /** Document id and date, both `YYYY-MM-DD` — see stationNightKey. */

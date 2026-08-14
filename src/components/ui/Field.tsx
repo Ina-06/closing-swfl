@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type { ComponentPropsWithRef } from "react";
 
 /* 16px on the control itself — anything smaller makes iOS Safari zoom on focus. */
 const CONTROL =
@@ -28,17 +28,18 @@ export function Label({
   );
 }
 
+/* React 19 passes ref straight through as a prop — no forwardRef needed. */
 export function TextInput({
   className = "",
   ...props
-}: InputHTMLAttributes<HTMLInputElement>) {
+}: ComponentPropsWithRef<"input">) {
   return <input {...props} className={`${CONTROL} ${className}`} />;
 }
 
 export function TextArea({
   className = "",
   ...props
-}: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+}: ComponentPropsWithRef<"textarea">) {
   return <textarea {...props} className={`${CONTROL} ${className}`} />;
 }
 

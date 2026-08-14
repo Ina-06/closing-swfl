@@ -71,7 +71,7 @@ service cloud.firestore {
         // What the driver texted the dispatcher.
         function dispatcherFields() {
           return changedKeys().hasOnly([
-            'seq', 'driverId', 'fullName', 'isBud',
+            'seq', 'driverId', 'fullName', 'isBud', 'isTrainer', 'isRescuer',
             'eta', 'returnsRaw', 'returnsCount', 'returnsReasons',
             'returnsMismatch', 'performance', 'metric', 'infractions',
             'rescues', 'updatedAt', 'updatedBy'

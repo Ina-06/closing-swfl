@@ -109,7 +109,7 @@ it into Firebase console → Firestore Database → Rules → Publish.
 | 0 | Scaffold and deploy | ✅ |
 | 1 | Firebase wiring and auth | ✅ |
 | 2 | Driver database and roster entry | ✅ |
-| 3 | Dispatcher entry form | — |
+| 3 | Dispatcher entry form | ✅ |
 | 4 | Closer live list | — |
 | 5 | Closer detail sheet | — |
 | 6 | All Returning + returns spreadsheet | — |
