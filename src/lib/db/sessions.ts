@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import type { DocumentData } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
 import { stationNightKey } from "@/lib/constants";
 import type { RosterEntry, Session } from "@/lib/types";
@@ -9,18 +10,54 @@ import type { RosterEntry, Session } from "@/lib/types";
 const COLLECTION = "sessions";
 
 /**
+ * Read a session document defensively.
+ *
+ * Firestore delivers a local snapshot the instant a write is queued, so the
+ * UI can briefly see a half-written document. Every field gets a default here
+ * rather than being trusted — a missing `roster` used to crash the summary
+ * screen the moment a session was created.
+ */
+function toSession(data: DocumentData, id: string): Session {
+  const roster: RosterEntry[] = Array.isArray(data.roster)
+    ? data.roster.map((row: DocumentData) => ({
+        driverId: String(row?.driverId ?? ""),
+        fullName: String(row?.fullName ?? ""),
+        isBud: row?.isBud === true,
+        isTrainer: row?.isTrainer === true,
+        isRescuer: row?.isRescuer === true,
+      }))
+    : [];
+
+  return {
+    date: typeof data.date === "string" ? data.date : id,
+    managedBy: typeof data.managedBy === "string" ? data.managedBy : "",
+    status:
+      data.status === "closed" || data.status === "allReturning"
+        ? data.status
+        : "open",
+    totalExpected:
+      typeof data.totalExpected === "number" ? data.totalExpected : roster.length,
+    roster,
+    allReturningAt: data.allReturningAt ?? null,
+    closedAt: data.closedAt ?? null,
+    pdfUrl: data.pdfUrl ?? null,
+    returnsXlsxUrl: data.returnsXlsxUrl ?? null,
+  };
+}
+
+/**
  * Tonight's session, live, or null if the roster has not been set up yet.
  *
- * The id is the night key, not the calendar date — see stationNightKey. The
- * key is resolved after mount so a phone that sits through the rollover hour
- * picks up the new night when it comes back to the foreground.
+ * The id is the night key, not the calendar date — see stationNightKey. It is
+ * resolved after mount and re-resolved on focus, so a phone that sits through
+ * the rollover hour picks up the new night when it comes back.
  */
 export function useTonightSession() {
   const [nightKey, setNightKey] = useState<string | null>(null);
   /**
-   * The snapshot is stamped with the night it belongs to. Loading is then
-   * derived rather than toggled, so the rollover to a new night can never
-   * leave last night's roster on screen while the new one is still resolving.
+   * The snapshot is stamped with the night it belongs to, so loading is
+   * derived rather than toggled. The rollover to a new night can never leave
+   * last night's roster on screen while the new one is still resolving.
    */
   const [snapshot, setSnapshot] = useState<{
     key: string;
@@ -43,7 +80,9 @@ export function useTonightSession() {
       (document) => {
         setSnapshot({
           key: nightKey,
-          session: document.exists() ? (document.data() as Session) : null,
+          session: document.exists()
+            ? toSession(document.data(), document.id)
+            : null,
         });
         setError(null);
       },
@@ -66,7 +105,6 @@ export function useTonightSession() {
 
 type RosterInput = {
   nightKey: string;
-  wave: string;
   managedBy: string;
   roster: RosterEntry[];
   updatedBy: string;
@@ -75,14 +113,17 @@ type RosterInput = {
 /**
  * Create tonight's session, or update the roster on one that already exists.
  *
- * `merge: true` and the explicit field list matter: re-saving the roster after
- * All Returning has been called must not reset status, and must not wipe the
+ * Deliberately a single write. Splitting it in two published a session
+ * document with no `roster` field for the moment between them, which every
+ * live listener saw. One document, one snapshot, no half-built night.
+ *
+ * `merge: true` and the explicit field list matter too: re-saving the roster
+ * after All Returning has been called must not reset the status or wipe the
  * pdf and spreadsheet urls. Nothing here can remove a session — there is no
  * delete path in the app at all.
  */
 export async function saveRoster({
   nightKey,
-  wave,
   managedBy,
   roster,
   updatedBy,
@@ -91,7 +132,6 @@ export async function saveRoster({
     doc(getDb(), COLLECTION, nightKey),
     {
       date: nightKey,
-      wave: wave.trim(),
       managedBy: managedBy.trim(),
       roster,
       totalExpected: roster.length,
@@ -102,21 +142,25 @@ export async function saveRoster({
   );
 }
 
-/** Fills in the fields a brand new session needs, without touching an existing one. */
 export async function createSession(input: RosterInput) {
   await setDoc(
     doc(getDb(), COLLECTION, input.nightKey),
     {
+      date: input.nightKey,
+      managedBy: input.managedBy.trim(),
+      roster: input.roster,
+      totalExpected: input.roster.length,
       status: "open",
       allReturningAt: null,
       closedAt: null,
       pdfUrl: null,
       returnsXlsxUrl: null,
       createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      updatedBy: input.updatedBy,
     },
     { merge: true },
   );
-  await saveRoster(input);
 }
 
 export async function touchSession(nightKey: string, updatedBy: string) {

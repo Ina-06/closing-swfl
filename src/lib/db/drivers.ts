@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   onSnapshot,
   orderBy,
@@ -39,12 +40,12 @@ export function useDrivers() {
         setDrivers(
           snapshot.docs.map((document) => {
             const data = document.data();
+            const fullName = typeof data.fullName === "string" ? data.fullName : "";
             return {
               id: document.id,
-              fullName: data.fullName ?? "",
-              nameKey: data.nameKey ?? nameKey(data.fullName ?? ""),
-              active: data.active !== false,
-              isBudDefault: data.isBudDefault === true,
+              fullName,
+              nameKey:
+                typeof data.nameKey === "string" ? data.nameKey : nameKey(fullName),
               createdAt: data.createdAt ?? null,
             };
           }),
@@ -58,18 +59,19 @@ export function useDrivers() {
   return { drivers, error, loading: drivers === null };
 }
 
-export async function addDriver(
-  fullName: string,
-  options: { isBudDefault?: boolean } = {},
-): Promise<string> {
+/**
+ * The driver record holds a name and nothing else.
+ *
+ * BUD, TRN and RES describe a night rather than a person, so they live on the
+ * session roster where they are set — not here.
+ */
+export async function addDriver(fullName: string): Promise<string> {
   const trimmed = fullName.trim().replace(/\s+/g, " ");
   if (!trimmed) throw new Error("A driver needs a name.");
 
   const created = await addDoc(collection(getDb(), COLLECTION), {
     fullName: trimmed,
     nameKey: nameKey(trimmed),
-    active: true,
-    isBudDefault: options.isBudDefault === true,
     createdAt: serverTimestamp(),
   });
 
@@ -80,19 +82,24 @@ export async function renameDriver(id: string, fullName: string) {
   const trimmed = fullName.trim().replace(/\s+/g, " ");
   if (!trimmed) throw new Error("A driver needs a name.");
 
-  // Sheets already written keep the name they were written with — entries
-  // carry their own copy of fullName. This only affects nights from here on.
+  // Sheets already written keep the name they were written with — the session
+  // roster and every entry carry their own copy. This only affects nights from
+  // here on.
   await updateDoc(doc(getDb(), COLLECTION, id), {
     fullName: trimmed,
     nameKey: nameKey(trimmed),
   });
 }
 
-/** Drivers are deactivated, never deleted — old sheets still refer to them. */
-export async function setDriverActive(id: string, active: boolean) {
-  await updateDoc(doc(getDb(), COLLECTION, id), { active });
+/**
+ * Remove a driver from the database for good.
+ *
+ * Safe precisely because names are denormalised: past sessions and their
+ * entries hold their own copy of the full name, so a closed sheet reads
+ * exactly the same after the driver is gone. Sessions themselves are still
+ * never deletable.
+ */
+export async function deleteDriver(id: string) {
+  await deleteDoc(doc(getDb(), COLLECTION, id));
 }
 
-export async function setDriverBudDefault(id: string, isBudDefault: boolean) {
-  await updateDoc(doc(getDb(), COLLECTION, id), { isBudDefault });
-}

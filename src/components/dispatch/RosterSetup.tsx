@@ -3,21 +3,29 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote, Label, SoftWarning, TextArea, TextInput } from "@/components/ui/Field";
+import { FLAGS, FLAG_TITLE } from "@/components/ui/FlagToggle";
 import { RosterRow, type RosterDraft } from "@/components/dispatch/RosterRow";
 import { addDriver } from "@/lib/db/drivers";
-import { createSession } from "@/lib/db/sessions";
+import { createSession, saveRoster } from "@/lib/db/sessions";
 import { findSuggestion, nameKey, parseRoster } from "@/lib/names";
-import type { Driver, Session } from "@/lib/types";
+import type { Driver, RosterEntry, Session } from "@/lib/types";
 
 let draftCounter = 0;
-function newDraft(name: string, isBud = false, budTouched = false): RosterDraft {
+function newDraft(
+  name: string,
+  flags: Partial<RosterDraft["flags"]> = {},
+): RosterDraft {
   draftCounter += 1;
-  return { id: `row-${draftCounter}`, name, isBud, budTouched };
+  return {
+    id: `row-${draftCounter}`,
+    name,
+    flags: { bud: false, trn: false, res: false, ...flags },
+  };
 }
 
 /**
  * The dispatcher's first screen of the night: paste the roster out of Cortex,
- * check what it matched, create the session.
+ * check what it matched, start the night.
  *
  * Nothing is written to Firestore until the last button. Up to that point the
  * whole roster is local state the dispatcher can edit freely.
@@ -42,10 +50,17 @@ export function RosterSetup({
     existing ? "review" : "paste",
   );
   const [pasted, setPasted] = useState("");
-  const [wave, setWave] = useState(existing?.wave ?? "");
   const [managedBy, setManagedBy] = useState(existing?.managedBy ?? "");
   const [rows, setRows] = useState<RosterDraft[]>(() =>
-    existing ? existing.roster.map((r) => newDraft(r.fullName, r.isBud, true)) : [],
+    existing
+      ? existing.roster.map((entry) =>
+          newDraft(entry.fullName, {
+            bud: entry.isBud,
+            trn: entry.isTrainer,
+            res: entry.isRescuer,
+          }),
+        )
+      : [],
   );
   const [addingId, setAddingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -70,14 +85,21 @@ export function RosterSetup({
           row,
           match,
           suggestion: match ? null : findSuggestion(row.name, drivers),
-          isBud: row.budTouched ? row.isBud : (match?.isBudDefault ?? row.isBud),
+          // Flags are whatever the dispatcher set on this row. Nothing on the
+          // driver record overrides them — who is a BUD, training or on
+          // rescues is a fact about tonight.
+          flags: row.flags,
         };
       }),
     [rows, driverByKey, drivers],
   );
 
   const unmatched = resolved.filter((item) => !item.match);
-  const budCount = resolved.filter((item) => item.isBud).length;
+  const counts = {
+    bud: resolved.filter((item) => item.flags.bud).length,
+    trn: resolved.filter((item) => item.flags.trn).length,
+    res: resolved.filter((item) => item.flags.res).length,
+  };
 
   function updateRow(id: string, next: RosterDraft) {
     setRows((current) => current.map((row) => (row.id === id ? next : row)));
@@ -90,7 +112,7 @@ export function RosterSetup({
     setAddingId(id);
     setError(null);
     try {
-      await addDriver(item.row.name, { isBudDefault: item.isBud });
+      await addDriver(item.row.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add that driver.");
     } finally {
@@ -104,7 +126,7 @@ export function RosterSetup({
     try {
       for (const item of unmatched) {
         if (!item.row.name.trim()) continue;
-        await addDriver(item.row.name, { isBudDefault: item.isBud });
+        await addDriver(item.row.name);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not add those drivers.");
@@ -123,23 +145,29 @@ export function RosterSetup({
     setSaving(true);
     setError(null);
     try {
-      const roster = [];
+      const roster: RosterEntry[] = [];
       for (const item of usable) {
         // Anything still unrecognised joins the database now — the dispatcher
         // pasted it out of Cortex, so it is a real driver either way.
         const driverId =
           item.match?.id ??
-          (await addDriver(item.row.name, { isBudDefault: item.isBud }));
+          (await addDriver(item.row.name));
 
         roster.push({
           driverId,
           // The stored spelling wins, so the sheet stays consistent night to night.
           fullName: item.match?.fullName ?? item.row.name.trim(),
-          isBud: item.isBud,
+          isBud: item.flags.bud,
+          isTrainer: item.flags.trn,
+          isRescuer: item.flags.res,
         });
       }
 
-      await createSession({ nightKey, wave, managedBy, roster, updatedBy: uid });
+      // Editing an existing night only touches the roster fields. Going
+      // through createSession would reset the status and wipe the pdf url on a
+      // session that has already had All Returning called.
+      const write = existing ? saveRoster : createSession;
+      await write({ nightKey, managedBy, roster, updatedBy: uid });
       onDone();
     } catch (err) {
       setError(
@@ -167,25 +195,14 @@ export function RosterSetup({
         </header>
 
         <div className="space-y-5 px-5 py-5 sm:px-7">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="wave">Wave</Label>
-              <TextInput
-                id="wave"
-                value={wave}
-                onChange={(event) => setWave(event.target.value)}
-                placeholder="Cycle 1"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="managed-by">Managed by</Label>
-              <TextInput
-                id="managed-by"
-                value={managedBy}
-                onChange={(event) => setManagedBy(event.target.value)}
-                placeholder="Who is running the wave"
-              />
-            </div>
+          <div className="max-w-sm space-y-1.5">
+            <Label htmlFor="managed-by">Managed by</Label>
+            <TextInput
+              id="managed-by"
+              value={managedBy}
+              onChange={(event) => setManagedBy(event.target.value)}
+              placeholder="Who is running the wave"
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -241,7 +258,10 @@ export function RosterSetup({
             {existing ? "Edit the roster" : "Check the roster"}
           </h1>
           <p className="tnum font-mono text-[12px] text-ink-muted">
-            {rows.length} drivers · {budCount} BUD
+            {rows.length} drivers
+            {FLAGS.filter((flag) => counts[flag] > 0)
+              .map((flag) => ` · ${counts[flag]} ${flag.toUpperCase()}`)
+              .join("")}
           </p>
         </div>
         {unmatched.length > 0 ? (
@@ -254,6 +274,14 @@ export function RosterSetup({
             Every name matched a driver in the database.
           </p>
         )}
+        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-faint">
+          {FLAGS.map((flag) => (
+            <span key={flag}>
+              <span className="font-mono font-semibold">{flag.toUpperCase()}</span>{" "}
+              {FLAG_TITLE[flag].toLowerCase()}
+            </span>
+          ))}
+        </p>
       </header>
 
       <ul className="max-h-[55vh] overflow-y-auto">
@@ -261,7 +289,7 @@ export function RosterSetup({
           <RosterRow
             key={item.row.id}
             index={index}
-            draft={{ ...item.row, isBud: item.isBud }}
+            draft={{ ...item.row, flags: item.flags }}
             match={item.match}
             suggestion={item.suggestion}
             adding={addingId === item.row.id}
@@ -295,20 +323,15 @@ export function RosterSetup({
         {unmatched.length > 0 ? (
           <SoftWarning>
             {unmatched.length === 1 ? "One name is" : `${unmatched.length} names are`}{" "}
-            still unrecognised. You can create the session anyway — they will be
+            still unrecognised. You can start the night anyway — they will be
             added to the driver database as they are spelled here.
           </SoftWarning>
         ) : null}
 
-        {!wave.trim() || !managedBy.trim() ? (
+        {!managedBy.trim() ? (
           <SoftWarning>
-            {!wave.trim() && !managedBy.trim()
-              ? "Wave and Managed by are"
-              : !wave.trim()
-                ? "Wave is"
-                : "Managed by is"}{" "}
-            empty — that part of the PDF header will be blank. You can fill it
-            in later.
+            Managed by is empty — that part of the PDF header will be blank. You
+            can fill it in later.
           </SoftWarning>
         ) : null}
 

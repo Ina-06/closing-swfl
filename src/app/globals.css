@@ -42,10 +42,19 @@
   --color-warn-soft: #fef4e4;
   --color-warn-line: #f6ddb2;
 
-  /* BUD tag */
+  /* Roster tags — BUD leaves early, TRN is training, RES is on rescues.
+     Three clearly different hues so they read at a glance in a dense list. */
   --color-bud: #6d33d6;
   --color-bud-soft: #f1eaff;
   --color-bud-line: #dcc9fb;
+
+  --color-trn: #0d7490;
+  --color-trn-soft: #e2f4f9;
+  --color-trn-line: #b7e0ec;
+
+  --color-res: #b8256f;
+  --color-res-soft: #fdeaf3;
+  --color-res-line: #f7c6dd;
 
   /* Radii */
   --radius-xs: 0.25rem;

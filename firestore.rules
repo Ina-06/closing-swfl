@@ -44,12 +44,13 @@ service cloud.firestore {
     }
 
     // The roster. Read by both screens, maintained by the dispatcher.
-    // Never deleted — entries denormalize fullName, but a driver row that
-    // vanishes still breaks the management screen. Deactivate instead.
+    //
+    // Deletable, unlike sessions: the session roster and every entry carry
+    // their own copy of the full name, so removing a driver here leaves every
+    // sheet already written reading exactly as it did before.
     match /drivers/{driverId} {
       allow read: if signedIn();
-      allow create, update: if isDispatcher();
-      allow delete: if false;
+      allow create, update, delete: if isDispatcher();
     }
 
     match /sessions/{sessionId} {
