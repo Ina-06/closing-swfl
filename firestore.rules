@@ -69,12 +69,19 @@ service cloud.firestore {
 
       match /entries/{entryId} {
         // What the driver texted the dispatcher.
+        //
+        // `status` and `clockOutManual` are here as well as on the closer's
+        // list: task drivers and BUDs often report their own clock-out over
+        // the phone, and the dispatcher marks them done from their end. The
+        // stamped `clockOut` timestamp stays closer-only — that one is
+        // evidence, not hearsay.
         function dispatcherFields() {
           return changedKeys().hasOnly([
             'seq', 'driverId', 'fullName', 'isBud', 'isTrainer', 'isRescuer',
             'eta', 'returnsRaw', 'returnsCount', 'returnsReasons',
             'returnsMismatch', 'performance', 'metric', 'infractions',
-            'rescues', 'updatedAt', 'updatedBy'
+            'rescues', 'notes', 'clockOutManual', 'status',
+            'updatedAt', 'updatedBy'
           ]);
         }
 

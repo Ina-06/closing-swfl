@@ -69,8 +69,19 @@ export type Entry = {
   infractions: string;
   /** Signed: +2 gave two rescues, -1 received one. */
   rescues: number;
+  /** Anything Karim needs to know about this driver. Surfaced on his card. */
+  notes: string;
+  /**
+   * A clock-out the driver reported to the dispatcher, typed by hand.
+   *
+   * Separate from `clockOut` on purpose. That one is stamped by the server the
+   * moment Karim taps Arrived; this one is hearsay relayed over the phone, and
+   * the two should never be mistaken for each other.
+   */
+  clockOutManual: string;
 
   // Closer-owned
+  /** Either side may set this — the dispatcher clocks out task drivers early. */
   status: "enroute" | "arrived";
   clockOut: Timestamp | null;
   van: string;
@@ -97,6 +108,9 @@ export type EntryDispatchFields = Pick<
   | "metric"
   | "infractions"
   | "rescues"
+  | "notes"
+  | "clockOutManual"
+  | "status"
 >;
 
 export type Session = {

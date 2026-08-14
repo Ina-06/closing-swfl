@@ -61,6 +61,8 @@ function toEntry(data: DocumentData, id: string): Entry {
     metric: METRIC_VALUES.has(data.metric) ? data.metric : null,
     infractions: string(data.infractions),
     rescues: typeof data.rescues === "number" ? data.rescues : 0,
+    notes: string(data.notes),
+    clockOutManual: string(data.clockOutManual),
 
     status: data.status === "arrived" ? "arrived" : "enroute",
     clockOut: data.clockOut ?? null,
@@ -161,10 +163,13 @@ export async function addEntry(
     metric: input.metric,
     infractions: input.infractions,
     rescues: input.rescues,
+    notes: input.notes,
+    clockOutManual: input.clockOutManual,
 
     // The closer's half, initialised so their list has something to sort and
-    // render before anyone has arrived.
-    status: "enroute",
+    // render before anyone has arrived. A driver the dispatcher already clocked
+    // out arrives here as 'arrived' — Karim sees him done, not waiting.
+    status: input.status,
     clockOut: null,
     van: "",
     vanIssues: "",

@@ -9,14 +9,24 @@ export const APP_NAME = "Closing";
 export const STATION_CODE = "SWFL";
 export const STATION_TIMEZONE = "America/New_York";
 
-/** Metric options, in order from best to worst finish. */
+/**
+ * Metric options, in order from best to worst finish.
+ *
+ * The stored value is the compact code; the label is what the station says out
+ * loud and is what appears in the UI and on the PDF. Codes already written to
+ * past sheets (OI, A, JA, JB, B, WB) are all still in this list, so widening
+ * the scale did not orphan a single entry.
+ */
 export const METRICS = [
-  { value: "OI", label: "O.I.", title: "On it" },
+  { value: "FA", label: "F.A.", title: "Far above" },
+  { value: "WA", label: "W.A.", title: "Well above" },
   { value: "A", label: "A", title: "Above" },
-  { value: "JA", label: "JA", title: "Just above" },
-  { value: "JB", label: "JB", title: "Just below" },
+  { value: "JA", label: "J.A.", title: "Just above" },
+  { value: "OI", label: "O.I.", title: "On it" },
+  { value: "JB", label: "J.B.", title: "Just below" },
   { value: "B", label: "B", title: "Below" },
-  { value: "WB", label: "WB", title: "Well below" },
+  { value: "WB", label: "W.B.", title: "Well below" },
+  { value: "FB", label: "F.B.", title: "Far below" },
 ] as const;
 
 export type Metric = (typeof METRICS)[number]["value"];
@@ -66,6 +76,21 @@ export function stationNightKey(at: Date = new Date()): string {
     calendar.setUTCDate(calendar.getUTCDate() - 1);
   }
   return calendar.toISOString().slice(0, 10);
+}
+
+/**
+ * A stamped clock-out, rendered in the station timezone.
+ *
+ * Never the device timezone: the phone that stamped it, the laptop reading it
+ * and the PDF must all print the same time.
+ */
+export function stationTimeLabel(at: Date): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: STATION_TIMEZONE,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(at);
 }
 
 /** Long-form date for headers and the PDF, e.g. "Wed 12 Aug 2026". */

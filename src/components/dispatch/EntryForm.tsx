@@ -19,10 +19,12 @@ import type { Driver, Entry, Session } from "@/lib/types";
 
 const BLANK = {
   eta: "",
+  clockOutManual: "",
   returns: "",
   performance: null as "up" | "down" | null,
   metric: null as Metric | null,
   infractions: "",
+  notes: "",
   rescues: 0,
 };
 
@@ -112,7 +114,12 @@ export function EntryForm({
     }
   }
 
-  async function submit() {
+  /**
+   * `clockedOut` is the green path: the driver phoned in his own clock-out, so
+   * the row lands on Karim's phone already done rather than as one more
+   * person he is waiting for.
+   */
+  async function submit(clockedOut = false) {
     if (saving) return;
 
     if (!resolved) {
@@ -140,7 +147,10 @@ export function EntryForm({
           performance: form.performance,
           metric: form.metric,
           infractions: form.infractions.trim(),
+          notes: form.notes.trim(),
           rescues: form.rescues,
+          clockOutManual: clockedOut ? form.clockOutManual.trim() : "",
+          status: clockedOut ? "arrived" : "enroute",
           ...returnsFields(parsed),
         },
         uid,
@@ -183,18 +193,37 @@ export function EntryForm({
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor="eta">ETA</Label>
-          <TextInput
-            id="eta"
-            ref={etaRef}
-            value={form.eta}
-            onChange={(event) => setForm({ ...form, eta: event.target.value })}
-            placeholder="9:45"
-            autoComplete="off"
-            spellCheck={false}
-            className="tnum h-11 w-full py-0 font-mono sm:w-28"
-          />
+        <div className="flex gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="eta">ETA</Label>
+            <TextInput
+              id="eta"
+              ref={etaRef}
+              value={form.eta}
+              onChange={(event) => setForm({ ...form, eta: event.target.value })}
+              placeholder="9:45"
+              autoComplete="off"
+              spellCheck={false}
+              className="tnum h-11 w-full py-0 font-mono sm:w-24"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="clock-out" hint="optional">
+              Clocked out
+            </Label>
+            <TextInput
+              id="clock-out"
+              value={form.clockOutManual}
+              onChange={(event) =>
+                setForm({ ...form, clockOutManual: event.target.value })
+              }
+              placeholder="10:15"
+              autoComplete="off"
+              spellCheck={false}
+              className="tnum h-11 w-full py-0 font-mono sm:w-24"
+            />
+          </div>
         </div>
       </div>
 
@@ -267,18 +296,34 @@ export function EntryForm({
         </div>
       </div>
 
-      <div className="mt-4 space-y-1.5">
-        <Label htmlFor="infractions">Infractions</Label>
-        <TextInput
-          id="infractions"
-          value={form.infractions}
-          onChange={(event) =>
-            setForm({ ...form, infractions: event.target.value })
-          }
-          placeholder="None"
-          autoComplete="off"
-          className="h-11 py-0"
-        />
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="infractions">Infractions</Label>
+          <TextInput
+            id="infractions"
+            value={form.infractions}
+            onChange={(event) =>
+              setForm({ ...form, infractions: event.target.value })
+            }
+            placeholder="None"
+            autoComplete="off"
+            className="h-11 py-0"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="notes" hint="shows on Karim's phone">
+            Note
+          </Label>
+          <TextInput
+            id="notes"
+            value={form.notes}
+            onChange={(event) => setForm({ ...form, notes: event.target.value })}
+            placeholder="Only if Karim needs to know something"
+            autoComplete="off"
+            className="h-11 py-0"
+          />
+        </div>
       </div>
 
       {duplicate ? (
@@ -305,6 +350,21 @@ export function EntryForm({
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Button type="submit" variant="primary" size="lg" loading={saving}>
           Add to sheet
+        </Button>
+        <Button
+          type="button"
+          variant="arrived"
+          size="lg"
+          loading={saving}
+          disabled={!form.clockOutManual.trim()}
+          title={
+            form.clockOutManual.trim()
+              ? undefined
+              : "Fill in the clocked-out time first"
+          }
+          onClick={() => void submit(true)}
+        >
+          Add clocked out
         </Button>
         <span className="text-[12px] text-ink-faint">
           Enter saves and jumps back to the name.

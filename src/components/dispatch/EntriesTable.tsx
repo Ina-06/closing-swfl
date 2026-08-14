@@ -8,6 +8,7 @@ import {
   RescuesStepper,
 } from "@/components/dispatch/EntryControls";
 import { removeEntry, returnsFields, updateEntry } from "@/lib/db/entries";
+import { stationTimeLabel } from "@/lib/constants";
 import { describeReturns, parseReturns } from "@/lib/returns";
 import type { Entry } from "@/lib/types";
 
@@ -53,7 +54,7 @@ export function EntriesTable({
       ) : null}
 
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-        <table className="w-full min-w-[1040px] table-fixed border-collapse text-left">
+        <table className="w-full min-w-[1240px] table-fixed border-collapse text-left">
           <thead>
             <tr className="border-b border-line text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
               <Th className="w-9 text-right">#</Th>
@@ -62,9 +63,10 @@ export function EntriesTable({
               <Th className="w-64">Returns</Th>
               <Th className="w-20">Perf</Th>
               <Th className="w-24">Metric</Th>
-              <Th className="w-28">Rescues</Th>
-              <Th className="w-44">Infractions</Th>
-              <Th className="w-24">Status</Th>
+              <Th className="w-32">Rescues</Th>
+              <Th className="w-40">Infractions</Th>
+              <Th className="w-44">Note</Th>
+              <Th className="w-32">Clocked out</Th>
               <Th className="w-24" />
             </tr>
           </thead>
@@ -121,6 +123,7 @@ function EntryRow({
 
   const parsed = parseReturns(entry.returnsRaw);
   const arrived = entry.status === "arrived";
+  const stamped = entry.clockOut !== null;
 
   return (
     <tr className="border-b border-line align-middle last:border-0">
@@ -210,15 +213,53 @@ function EntryRow({
       </td>
 
       <td className="px-3 py-2">
-        <span
-          className={`inline-block rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-            arrived
-              ? "border-arrived-line bg-arrived-soft text-arrived"
-              : "border-line bg-sunken text-ink-faint"
-          }`}
-        >
-          {arrived ? "Arrived" : "En route"}
-        </span>
+        <CellInput
+          value={entry.notes}
+          onCommit={(notes) => save({ notes })}
+          placeholder="—"
+          ariaLabel={`Note for ${entry.fullName}, shown to the closer`}
+        />
+      </td>
+
+      <td className="px-3 py-2">
+        {stamped ? (
+          // Stamped by the closer tapping Arrived. Not editable from here —
+          // that time is the record, and it is his to correct.
+          <span className="flex flex-col gap-0.5">
+            <span className="tnum font-mono text-[13px] font-semibold text-arrived">
+              {stationTimeLabel(entry.clockOut!.toDate())}
+            </span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-faint">
+              Stamped
+            </span>
+          </span>
+        ) : (
+          <>
+            <CellInput
+              value={entry.clockOutManual}
+              onCommit={(clockOutManual) =>
+                save({
+                  clockOutManual,
+                  // Typing a time here is what marks him done; clearing it puts
+                  // him back on Karim's waiting list.
+                  status: clockOutManual.trim() ? "arrived" : "enroute",
+                })
+              }
+              placeholder="—"
+              ariaLabel={`Clock-out reported for ${entry.fullName}`}
+              className="tnum font-mono"
+            />
+            <span
+              className={`mt-0.5 inline-block rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${
+                arrived
+                  ? "border-arrived-line bg-arrived-soft text-arrived"
+                  : "border-line bg-sunken text-ink-faint"
+              }`}
+            >
+              {arrived ? "Clocked out" : "En route"}
+            </span>
+          </>
+        )}
       </td>
 
       <td className="px-3 py-2 text-right">

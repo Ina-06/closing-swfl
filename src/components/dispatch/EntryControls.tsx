@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { METRICS, type Metric } from "@/lib/constants";
 
 /**
@@ -140,6 +141,17 @@ export function MetricSelect({
  * The sign is the whole point, so it is always shown, including on zero, and
  * the value stays typeable for the rare five-rescue night.
  */
+const RESCUE_LIMIT = 999;
+
+function clampRescues(next: number) {
+  return Math.max(-RESCUE_LIMIT, Math.min(RESCUE_LIMIT, next));
+}
+
+function formatRescues(value: number) {
+  if (value === 0) return "0";
+  return value > 0 ? `+${value}` : String(value);
+}
+
 export function RescuesStepper({
   value,
   onChange,
@@ -149,35 +161,56 @@ export function RescuesStepper({
   onChange: (next: number) => void;
   size?: "sm" | "md";
 }) {
-  const clamp = (next: number) => Math.max(-99, Math.min(99, next));
+  /**
+   * While the field has focus the text is whatever was typed, not a formatted
+   * number. Without that, typing a minus sign was impossible: a lone "-" is
+   * not a number, so it was being wiped on the very next render before the
+   * digits could be typed.
+   */
+  const [draft, setDraft] = useState<string | null>(null);
   const button = size === "sm" ? "w-7 text-[15px]" : "w-10 text-[18px]";
+
+  function step(by: number) {
+    setDraft(null);
+    onChange(clampRescues(value + by));
+  }
 
   return (
     <div className="inline-flex items-stretch overflow-hidden rounded-lg border border-line-strong bg-surface">
       <button
         type="button"
-        aria-label="One fewer rescue given"
-        onClick={() => onChange(clamp(value - 1))}
+        aria-label="One fewer rescue"
+        onClick={() => step(-1)}
         className={`${button} font-bold text-ink-muted transition-colors hover:bg-sunken hover:text-ink`}
       >
         −
       </button>
       <input
-        value={value === 0 ? "0" : value > 0 ? `+${value}` : String(value)}
+        value={draft ?? formatRescues(value)}
         onChange={(event) => {
-          const parsed = Number(event.target.value.replace(/[^\d-]/g, ""));
-          onChange(Number.isFinite(parsed) ? clamp(parsed) : 0);
+          // Keep a leading sign and digits only, and allow the in-between
+          // states ("", "-", "+") that typing a signed number has to pass through.
+          const text = event.target.value.replace(/[^\d+-]/g, "").replace(/(?!^)[+-]/g, "");
+          setDraft(text);
+
+          if (text === "" || text === "-" || text === "+") {
+            onChange(0);
+            return;
+          }
+          const parsed = Number(text);
+          if (Number.isFinite(parsed)) onChange(clampRescues(parsed));
         }}
-        aria-label="Rescues, signed"
+        onBlur={() => setDraft(null)}
+        aria-label="Rescues — positive given, negative received"
         inputMode="numeric"
         className={`tnum border-x border-line-strong bg-transparent text-center font-mono font-bold outline-none focus:bg-brand-soft/40 ${
-          size === "sm" ? "w-9 py-1 text-[13px]" : "w-12 py-2 text-[15px]"
+          size === "sm" ? "w-12 py-1 text-[13px]" : "w-16 py-2 text-[15px]"
         } ${value === 0 ? "text-ink-faint" : "text-ink"}`}
       />
       <button
         type="button"
-        aria-label="One more rescue given"
-        onClick={() => onChange(clamp(value + 1))}
+        aria-label="One more rescue"
+        onClick={() => step(1)}
         className={`${button} font-bold text-ink-muted transition-colors hover:bg-sunken hover:text-ink`}
       >
         +

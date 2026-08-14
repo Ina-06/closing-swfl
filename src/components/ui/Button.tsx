@@ -1,11 +1,14 @@
 import type { ButtonHTMLAttributes } from "react";
 
-type Variant = "primary" | "secondary" | "ghost";
+type Variant = "primary" | "arrived" | "secondary" | "ghost";
 type Size = "sm" | "md" | "lg";
 
 const VARIANTS: Record<Variant, string> = {
   primary:
     "bg-brand text-ink-inverse hover:bg-brand-hover border border-transparent",
+  /* Green means done — the same green the closer's Arrived button uses. */
+  arrived:
+    "bg-arrived text-ink-inverse hover:brightness-110 border border-transparent",
   secondary:
     "bg-surface text-ink border border-line-strong hover:border-ink-faint hover:bg-sunken",
   ghost:
