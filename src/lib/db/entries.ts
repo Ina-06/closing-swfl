@@ -135,8 +135,9 @@ export type NewEntry = EntryDispatchFields & {
 /**
  * Add a driver to tonight's sheet.
  *
- * seq is max+1 rather than a count, so removing a mistyped row never makes two
- * drivers share a number on the PDF.
+ * seq is a sort key, not the row number: max+1 so two drivers can never share
+ * one, even after a removal. What appears in the `#` column is the position in
+ * the list, which stays contiguous no matter what has been removed.
  */
 export async function addEntry(
   nightKey: string,

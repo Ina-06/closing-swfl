@@ -73,11 +73,15 @@ export function EntriesTable({
             </tr>
           </thead>
           <tbody>
-            {entries.map((entry) => (
+            {entries.map((entry, index) => (
               <EntryRow
                 key={entry.id}
                 nightKey={nightKey}
                 entry={entry}
+                /* Position in the list, not the stored seq. Removing a row and
+                   re-adding the driver must not leave a hole in the numbering —
+                   this column is the row number on the sheet. */
+                row={index + 1}
                 uid={uid}
                 onError={setError}
               />
@@ -102,11 +106,14 @@ function Th({
 function EntryRow({
   nightKey,
   entry,
+  row,
   uid,
   onError,
 }: {
   nightKey: string;
   entry: Entry;
+  /** 1-based position on the sheet. Always contiguous. */
+  row: number;
   uid: string;
   onError: (message: string | null) => void;
 }) {
@@ -130,7 +137,7 @@ function EntryRow({
   return (
     <tr className="border-b border-line align-middle last:border-0">
       <td className="tnum px-3 py-2 text-right font-mono text-[12px] text-ink-faint">
-        {entry.seq}
+        {row}
       </td>
 
       <td className="px-3 py-2">

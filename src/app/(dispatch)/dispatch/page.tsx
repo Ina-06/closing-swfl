@@ -46,7 +46,7 @@ export default function DispatchPage() {
   // The roster is a column of names — it does not want the full width the
   // live sheet needs.
   return (
-    <div className="max-w-4xl">
+    <div className="mx-auto max-w-4xl">
       <RosterSetup
         nightKey={nightKey}
         drivers={drivers}
