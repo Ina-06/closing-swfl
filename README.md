@@ -79,6 +79,21 @@ persistent chrome without adding a segment to the URL.
   `APP_ACCESS_KEY` and mints a custom token carrying a `role` claim;
   `firestore.rules` enforces what each role may read and write.
 
+## The `jose` override
+
+`package.json` pins `jose` to v5. Do not remove it without testing a deployed
+build.
+
+`firebase-admin` 14 depends on `jwks-rsa` 4, which does `require('jose')` from
+CommonJS while asking for `jose` 6 — and `jose` 6 is ESM-only. Node throws
+`ERR_REQUIRE_ESM` the moment `firebase-admin/auth` is imported, so every login
+500s. It does not reproduce on a recent local Node, which supports
+`require(esm)`; it only shows up on the deployment runtime. `jose` 5 still
+ships a CommonJS build and has the four functions `jwks-rsa` calls.
+
+To reproduce the old failure on purpose:
+`node --no-experimental-require-module -e "require('firebase-admin/auth')"`.
+
 ## Firestore rules
 
 `firestore.rules` is not applied by deploying the app. After editing it, paste
