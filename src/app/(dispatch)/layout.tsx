@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NavLink } from "@/components/dispatch/NavLink";
 import { RoleGate } from "@/components/RoleGate";
 import { SignOutButton } from "@/components/SignOutButton";
 import { StationDate } from "@/components/StationDate";
@@ -15,9 +16,15 @@ export default function DispatchLayout({
     <div className="min-h-dvh">
       <header className="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-5 sm:px-8">
-          <Link href="/" className="rounded-sm">
-            <Wordmark />
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link href="/dispatch" className="rounded-sm">
+              <Wordmark />
+            </Link>
+            <nav className="flex items-center gap-1 text-[13px] font-semibold">
+              <NavLink href="/dispatch">Tonight</NavLink>
+              <NavLink href="/dispatch/drivers">Drivers</NavLink>
+            </nav>
+          </div>
 
           <div className="flex items-center gap-3">
             <StationDate className="tnum hidden font-mono text-xs text-ink-muted sm:inline" />

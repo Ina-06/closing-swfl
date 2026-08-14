@@ -1,21 +1,64 @@
-import { Placeholder } from "@/components/Placeholder";
+"use client";
 
-export const metadata = { title: "Dispatch — Closing SWFL" };
+import { useState } from "react";
+import { RosterSetup } from "@/components/dispatch/RosterSetup";
+import { SessionSummary } from "@/components/dispatch/SessionSummary";
+import { ErrorNote } from "@/components/ui/Field";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { useDrivers } from "@/lib/db/drivers";
+import { useTonightSession } from "@/lib/db/sessions";
 
 export default function DispatchPage() {
+  const auth = useAuth();
+  const { drivers, loading: driversLoading, error: driversError } = useDrivers();
+  const { nightKey, session, loading: sessionLoading, error: sessionError } =
+    useTonightSession();
+  const [editingRoster, setEditingRoster] = useState(false);
+
+  const uid = auth.status === "signedIn" ? auth.uid : "";
+  const error = driversError ?? sessionError;
+
+  if (error) {
+    return (
+      <ErrorNote>
+        Could not reach the database: {error}. If this says permission denied,
+        the Firestore rules may not be published yet.
+      </ErrorNote>
+    );
+  }
+
+  if (driversLoading || sessionLoading || !nightKey || !drivers) {
+    return <LoadingPanel />;
+  }
+
+  if (session && !editingRoster) {
+    return (
+      <SessionSummary
+        session={session}
+        nightKey={nightKey}
+        onEditRoster={() => setEditingRoster(true)}
+      />
+    );
+  }
+
   return (
-    <Placeholder
-      eyebrow="Phase 1 · signed in"
-      title="Dispatcher"
-      blurb="Roster paste, per-driver entry, and the live table all live on this route. You are authenticated as the dispatcher — the next phase starts putting real data behind this screen."
-      roadmap={[
-        { phase: 2, label: "Paste the Cortex roster, match names, flag BUDs" },
-        { phase: 3, label: "Per-driver entry: ETA, returns, performance, metric, infractions, rescues" },
-        { phase: 3, label: "Live table with inline editing — ETAs change constantly" },
-        { phase: 6, label: "All Returning button and the returns spreadsheet" },
-        { phase: 7, label: "Archive of past sessions with PDF re-download" },
-        { phase: 8, label: "Generate a one-time closer key" },
-      ]}
+    <RosterSetup
+      nightKey={nightKey}
+      drivers={drivers}
+      uid={uid}
+      existing={editingRoster && session ? session : undefined}
+      onDone={() => setEditingRoster(false)}
+      onCancel={editingRoster ? () => setEditingRoster(false) : undefined}
+    />
+  );
+}
+
+function LoadingPanel() {
+  return (
+    <div
+      className="h-64 animate-pulse rounded-xl border border-line bg-surface"
+      aria-busy="true"
+      aria-label="Loading tonight's roster"
     />
   );
 }

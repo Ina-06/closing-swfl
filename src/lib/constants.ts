@@ -33,6 +33,41 @@ export function stationDateKey(at: Date = new Date()): string {
   }).format(at);
 }
 
+/**
+ * Before this hour, we are still on the previous night's sheet.
+ *
+ * The close runs late. When Karim stamps the last van in at 00:40, that driver
+ * belongs to the night that started the evening before — not to a brand new,
+ * empty session. Every session id goes through stationNightKey, never through
+ * the raw calendar date.
+ */
+export const NIGHT_ROLLOVER_HOUR = 4;
+
+/** The session id for the night a given moment belongs to. */
+export function stationNightKey(at: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: STATION_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(at);
+
+  const part = (type: string) =>
+    parts.find((candidate) => candidate.type === type)?.value ?? "";
+
+  // Build the date in UTC purely as a calendar, so subtracting a day cannot
+  // trip over a daylight saving boundary.
+  const calendar = new Date(
+    `${part("year")}-${part("month")}-${part("day")}T00:00:00Z`,
+  );
+  if (Number(part("hour")) < NIGHT_ROLLOVER_HOUR) {
+    calendar.setUTCDate(calendar.getUTCDate() - 1);
+  }
+  return calendar.toISOString().slice(0, 10);
+}
+
 /** Long-form date for headers and the PDF, e.g. "Wed 12 Aug 2026". */
 export function stationDateLabel(at: Date = new Date()): string {
   return new Intl.DateTimeFormat("en-GB", {

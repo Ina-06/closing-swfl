@@ -72,6 +72,9 @@ persistent chrome without adding a segment to the URL.
   the `tnum` class so digits line up.
 - **One timezone.** All times render through `STATION_TIMEZONE`. The device
   clock is never trusted, and clock-out uses `serverTimestamp()`.
+- **One night, not one date.** Session ids come from `stationNightKey()`, which
+  counts anything before 4am as still belonging to the previous night. A van
+  stamped in at 00:40 lands on the sheet it belongs to.
 - **Nothing typed is ever lost.** Raw input is stored verbatim alongside any
   parsed structure; parse failures warn softly inline and still save.
 - **Sessions are never deleted.** Closing sets `status: 'closed'`.
@@ -105,7 +108,7 @@ it into Firebase console → Firestore Database → Rules → Publish.
 | --- | --- | --- |
 | 0 | Scaffold and deploy | ✅ |
 | 1 | Firebase wiring and auth | ✅ |
-| 2 | Driver database and roster entry | — |
+| 2 | Driver database and roster entry | ✅ |
 | 3 | Dispatcher entry form | — |
 | 4 | Closer live list | — |
 | 5 | Closer detail sheet | — |
