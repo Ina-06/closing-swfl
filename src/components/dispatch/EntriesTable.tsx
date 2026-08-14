@@ -161,13 +161,25 @@ function EntryRow({
       </td>
 
       <td className="px-3 py-2">
-        <CellInput
-          value={entry.eta}
-          onCommit={(eta) => save({ eta })}
-          placeholder="9:45"
-          ariaLabel={`ETA for ${entry.fullName}`}
-          className="tnum font-mono"
-        />
+        {arrived ? (
+          /* Once he is clocked out the ETA is meaningless, so it comes off the
+             sheet. The stored value is left alone rather than deleted — clear
+             the clock-out and it is back, exactly as it was typed. */
+          <span
+            className="block px-2 text-[14px] text-ink-faint"
+            title={entry.eta ? `ETA was ${entry.eta}` : undefined}
+          >
+            —
+          </span>
+        ) : (
+          <CellInput
+            value={entry.eta}
+            onCommit={(eta) => save({ eta })}
+            placeholder="9:45"
+            ariaLabel={`ETA for ${entry.fullName}`}
+            className="tnum font-mono"
+          />
+        )}
       </td>
 
       <td className="px-3 py-2">
