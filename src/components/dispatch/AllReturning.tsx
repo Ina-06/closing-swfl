@@ -36,7 +36,11 @@ export function AllReturning({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [archived, setArchived] = useState(true);
+  const [archive, setArchive] = useState<{
+    ok: boolean;
+    bucket: string;
+    reason: string;
+  }>({ ok: true, bucket: "", reason: "" });
 
   const called = session.status !== "open";
   const withReturns = returnsRows(entries).length;
@@ -48,7 +52,14 @@ export function AllReturning({
     await saveAs(response, `returns-${nightKey}.xlsx`);
 
     const rows = Number(response.headers.get("X-Returns-Rows") ?? withReturns);
-    setArchived(response.headers.get("X-Returns-Archived") !== "0");
+    const read = (name: string) =>
+      decodeURIComponent(response.headers.get(name) ?? "");
+
+    setArchive({
+      ok: response.headers.get("X-Returns-Archived") !== "0",
+      bucket: read("X-Returns-Bucket"),
+      reason: read("X-Returns-Archive-Error"),
+    });
     return rows;
   }
 
@@ -179,12 +190,20 @@ export function AllReturning({
         </p>
       ) : null}
 
-      {!archived ? (
+      {!archive.ok ? (
         <div className="mt-3">
+          {/* The reason comes from the server rather than being guessed here.
+              There are four or five different things that stop an upload and
+              they have four or five different fixes. */}
           <SoftWarning>
-            The file downloaded, but it could not be saved to Firebase Storage —
-            so it will not be in the archive. Usually that means Storage has not
-            been switched on for the project yet.
+            <strong>The file downloaded but was not archived.</strong> Nothing
+            is lost — the spreadsheet in your downloads is the same file — but
+            it will not be in the Phase 7 archive.
+            <span className="mt-1.5 block font-mono text-[12px] leading-relaxed">
+              bucket: {archive.bucket || "(none)"}
+              <br />
+              {archive.reason || "no reason reported"}
+            </span>
           </SoftWarning>
         </div>
       ) : null}

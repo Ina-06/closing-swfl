@@ -122,9 +122,13 @@ export async function POST(request: Request) {
    * say so on the screen, which is what the header below is for.
    */
   let saved = false;
+  let archiveError = "";
+  let bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? "(not set)";
   try {
+    const bucket = getAdminBucket();
+    bucketName = bucket.name;
     const path = `sessions/${nightKey}/${filename}`;
-    const file = getAdminBucket().file(path);
+    const file = bucket.file(path);
     await file.save(buffer, {
       contentType:
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -145,6 +149,7 @@ export async function POST(request: Request) {
     saved = true;
   } catch (error) {
     console.error("Could not save the spreadsheet to Storage:", error);
+    archiveError = error instanceof Error ? error.message : String(error);
   }
 
   return new Response(new Uint8Array(buffer), {
@@ -154,9 +159,15 @@ export async function POST(request: Request) {
       "Content-Disposition": `attachment; filename="${filename}"`,
       "Cache-Control": "no-store",
       /* Read by the dispatcher's screen so it can report what actually
-         happened rather than assuming it worked. */
+         happened rather than assuming it worked. Encoded and capped because a
+         header has to be short, single-line ASCII — the full text is in the
+         server log either way. Only the dispatcher can reach this route. */
       "X-Returns-Rows": String(rows.length),
       "X-Returns-Archived": saved ? "1" : "0",
+      "X-Returns-Bucket": encodeURIComponent(bucketName),
+      "X-Returns-Archive-Error": encodeURIComponent(
+        archiveError.replace(/\s+/g, " ").slice(0, 300),
+      ),
     },
   });
 }
