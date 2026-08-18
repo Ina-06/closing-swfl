@@ -18,6 +18,7 @@ import {
   stationInstant,
   stationTimeInputValue,
   stationTimeLabel,
+  type MetricTone,
 } from "@/lib/constants";
 import { lateLabel } from "@/lib/eta";
 import type { Entry } from "@/lib/types";
@@ -264,7 +265,7 @@ export function ArrivalSheet({
             </svg>
           </Button>
           <p className="mt-2 text-center text-[12px] text-ink-faint">
-            Everything here saves as you type.
+            The van details save as soon as you leave the box.
           </p>
         </div>
       </div>
@@ -275,10 +276,10 @@ export function ArrivalSheet({
 /**
  * What Karim fills in at the van.
  *
- * Nothing here has a Save button. Every field writes itself a beat after he
- * stops typing, and again the moment it loses focus or the sheet closes, so
- * there is no state in which what is on the screen is not what is in the
- * database.
+ * Nothing here has a Save button. A field writes itself the moment he is done
+ * with it — Enter, a tap elsewhere, or closing the sheet — so there is no state
+ * in which what is on the screen is not on its way to the database, and nothing
+ * commits while he is still mid-number.
  */
 function VanPanel({
   entry,
@@ -310,6 +311,16 @@ function VanPanel({
         value={van.value}
         onChange={(event) => van.change(event.target.value)}
         onBlur={van.flush}
+        /* Enter closes the keyboard and saves, so the phone behaves the way he
+           expects a number field to. Prevented first because a bare Enter in a
+           lone text input would otherwise try to submit something. */
+        enterKeyHint="done"
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            event.currentTarget.blur();
+          }
+        }}
         /* Van numbers carry letters as often as digits, so this stays a full
            keyboard — but capitalised, because that is how they are painted on
            the side of the van and how they end up on the sheet. */
@@ -354,14 +365,8 @@ function VanPanel({
  * is the honest rendering: these are facts, not controls someone switched off.
  */
 function FromDispatch({ entry }: { entry: Entry }) {
-  const rescues =
-    entry.rescues > 0
-      ? `${entry.rescues} given`
-      : entry.rescues < 0
-        ? `${Math.abs(entry.rescues)} received`
-        : "None";
-
   const metric = METRICS.find((option) => option.value === entry.metric);
+  const infraction = entry.infractions.trim();
 
   const blank =
     !entry.returnsRaw.trim() &&
@@ -387,8 +392,22 @@ function FromDispatch({ entry }: { entry: Entry }) {
             value={<Performance direction={entry.performance} metric={metric} />}
           />
           <Row term="Returns" value={entry.returnsRaw.trim() || "None"} />
-          <Row term="Infractions" value={entry.infractions.trim() || "None"} />
-          <Row term="Rescues" value={rescues} />
+          <Row
+            term="Infractions"
+            value={
+              infraction ? (
+                /* An infraction is the one thing on this sheet Karim has to
+                   act on, so it does not sit in the list looking like the
+                   rest of it. */
+                <span className="-my-0.5 block rounded-md border border-warn-line bg-warn-soft px-2 py-1.5 font-semibold text-warn">
+                  {infraction}
+                </span>
+              ) : (
+                "None"
+              )
+            }
+          />
+          <Row term="Rescues" value={<Rescues count={entry.rescues} />} />
         </dl>
       )}
     </section>
@@ -396,11 +415,45 @@ function FromDispatch({ entry }: { entry: Entry }) {
 }
 
 /**
+ * Rescues, signed.
+ *
+ * Green for a driver who went out and covered someone else's route, red for one
+ * who had to be covered. The sign is the whole meaning of the number, and a
+ * bare "-1" on a phone in the dark is too easy to read as a 1.
+ */
+function Rescues({ count }: { count: number }) {
+  if (count === 0) return <>None</>;
+
+  const gave = count > 0;
+
+  return (
+    <span
+      className={`inline-block rounded-md border px-2 py-0.5 font-semibold ${
+        gave
+          ? "border-arrived-line bg-arrived-soft text-arrived"
+          : "border-overdue-line bg-overdue-soft text-overdue"
+      }`}
+    >
+      {Math.abs(count)} {gave ? "given" : "received"}
+    </span>
+  );
+}
+
+/** The scale reads as a scale: green down to amber, orange, red, then darker. */
+const METRIC_TONE: Record<MetricTone, string> = {
+  good: "border-arrived-line bg-arrived-soft text-arrived",
+  warn: "border-warn-line bg-warn-soft text-warn",
+  caution: "border-caution-line bg-caution-soft text-caution",
+  bad: "border-overdue-line bg-overdue-soft text-overdue",
+  critical: "border-critical-line bg-critical-soft text-critical",
+};
+
+/**
  * Which way the driver's week is going, and where he sits on the scale.
  *
  * For Karim's eyes only — it is not a column on the paper sheet, so it will not
- * appear on the PDF. He is about to talk to this person; the arrow is the part
- * of that conversation he wants before he opens his mouth.
+ * appear on the PDF. He is about to talk to this person; the arrow and the
+ * colour are the part of that conversation he wants before he opens his mouth.
  */
 function Performance({
   direction,
@@ -425,13 +478,7 @@ function Performance({
       {metric ? (
         <span
           title={metric.title}
-          className={`rounded-md border px-2 py-0.5 font-mono text-[14px] font-bold ${
-            direction === "up"
-              ? "border-arrived-line bg-arrived-soft text-arrived"
-              : direction === "down"
-                ? "border-overdue-line bg-overdue-soft text-overdue"
-                : "border-line bg-surface text-ink"
-          }`}
+          className={`rounded-md border px-2 py-0.5 font-mono text-[14px] font-bold ${METRIC_TONE[metric.tone]}`}
         >
           {metric.label}
         </span>
@@ -462,22 +509,24 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * A text field that saves itself.
+ * A text field that saves itself when he is finished with it.
  *
- * Never lose typed text is a rule for this whole app, and a phone sheet is
- * where it is easiest to break: he types half a van number and the screen goes
- * off, or his thumb catches the backdrop. So writes settle 700ms after the last
- * keystroke, and anything still pending is flushed on blur and again when the
- * sheet unmounts.
+ * It used to write on a timer a beat after the last keystroke. That was wrong
+ * for a van number: he is reading digits off the side of a van and glancing
+ * back at the phone, and a field that commits itself mid-pause feels like it
+ * has been taken off him. Now nothing happens until he leaves the box — Enter,
+ * a tap somewhere else, or Done.
  *
- * The drafts start from the entry and are never re-synced, which is safe
- * because the sheet is keyed by driver — a different driver is a different
- * component — and because the rules make the closer the only writer of these
- * fields.
+ * The unmount flush is what keeps "never lose typed text" true anyway: if the
+ * sheet is dismissed with a half-typed number in the field, that number is
+ * still written on the way out.
+ *
+ * Drafts start from the entry and are never re-synced, which is safe because
+ * the sheet is keyed by driver — a different driver is a different component —
+ * and because the rules make the closer the only writer of these fields.
  */
 function useSavedField(initial: string, save: (next: string) => void) {
   const [value, setValue] = useState(initial);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const state = useRef({ typed: initial, written: initial, save });
 
   useEffect(() => {
@@ -485,10 +534,6 @@ function useSavedField(initial: string, save: (next: string) => void) {
   });
 
   const flush = useCallback(() => {
-    if (timer.current) {
-      clearTimeout(timer.current);
-      timer.current = null;
-    }
     const current = state.current;
     if (current.typed.trim() === current.written.trim()) return;
     current.written = current.typed;
@@ -500,8 +545,6 @@ function useSavedField(initial: string, save: (next: string) => void) {
   function change(next: string) {
     setValue(next);
     state.current.typed = next;
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(flush, 700);
   }
 
   return { value, change, flush };

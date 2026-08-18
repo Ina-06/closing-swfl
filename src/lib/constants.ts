@@ -16,20 +16,25 @@ export const STATION_TIMEZONE = "America/New_York";
  * loud and is what appears in the UI and on the PDF. Codes already written to
  * past sheets (OI, A, JA, JB, B, WB) are all still in this list, so widening
  * the scale did not orphan a single entry.
+ *
+ * `tone` is here rather than in a component so the scale and how it reads are
+ * defined in one place. On it and everything above it is fine and shows green;
+ * below that it darkens a step at a time to the bottom.
  */
 export const METRICS = [
-  { value: "FA", label: "F.A.", title: "Far above" },
-  { value: "WA", label: "W.A.", title: "Well above" },
-  { value: "A", label: "A", title: "Above" },
-  { value: "JA", label: "J.A.", title: "Just above" },
-  { value: "OI", label: "O.I.", title: "On it" },
-  { value: "JB", label: "J.B.", title: "Just below" },
-  { value: "B", label: "B", title: "Below" },
-  { value: "WB", label: "W.B.", title: "Well below" },
-  { value: "FB", label: "F.B.", title: "Far below" },
+  { value: "FA", label: "F.A.", title: "Far above", tone: "good" },
+  { value: "WA", label: "W.A.", title: "Well above", tone: "good" },
+  { value: "A", label: "A", title: "Above", tone: "good" },
+  { value: "JA", label: "J.A.", title: "Just above", tone: "good" },
+  { value: "OI", label: "O.I.", title: "On it", tone: "good" },
+  { value: "JB", label: "J.B.", title: "Just below", tone: "warn" },
+  { value: "B", label: "B", title: "Below", tone: "caution" },
+  { value: "WB", label: "W.B.", title: "Well below", tone: "bad" },
+  { value: "FB", label: "F.B.", title: "Far below", tone: "critical" },
 ] as const;
 
 export type Metric = (typeof METRICS)[number]["value"];
+export type MetricTone = (typeof METRICS)[number]["tone"];
 
 /** Roles a session can be signed in under. */
 export const ROLES = ["dispatcher", "closer", "onetime"] as const;

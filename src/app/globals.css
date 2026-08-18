@@ -42,6 +42,17 @@
   --color-warn-soft: #fef4e4;
   --color-warn-line: #f6ddb2;
 
+  /* The two steps the metric scale needs that nothing else on the app does:
+     an orange between the amber warning and the overdue red, and a red below
+     it for the bottom of the scale. */
+  --color-caution: #bd4108;
+  --color-caution-soft: #fff0e6;
+  --color-caution-line: #fbd0b4;
+
+  --color-critical: #7d0d2a;
+  --color-critical-soft: #ffe1e8;
+  --color-critical-line: #f1a8bb;
+
   /* Roster tags — BUD leaves early, TRN is training, RES is on rescues.
      Three clearly different hues so they read at a glance in a dense list. */
   --color-bud: #6d33d6;

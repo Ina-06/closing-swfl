@@ -75,6 +75,13 @@ export function WaitingCard({
                 Unannounced
               </span>
             ) : null}
+            {/* Worth knowing before he walks over, not after he opens the
+                sheet. The infraction itself is in there. */}
+            {entry.infractions.trim() ? (
+              <span className="rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
+                Infraction
+              </span>
+            ) : null}
           </span>
         </span>
 
