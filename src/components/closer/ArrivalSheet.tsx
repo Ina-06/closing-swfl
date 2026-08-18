@@ -415,26 +415,28 @@ function FromDispatch({ entry }: { entry: Entry }) {
 }
 
 /**
- * Rescues, signed.
+ * Rescues, signed and nothing else.
  *
- * Green for a driver who went out and covered someone else's route, red for one
- * who had to be covered. The sign is the whole meaning of the number, and a
- * bare "-1" on a phone in the dark is too easy to read as a 1.
+ * Green for packages this driver picked up off someone else, red for packages
+ * that had to be taken off him. The sign carries the whole meaning, so the
+ * number keeps its `+` — a bare "23" would be the same glyphs as "-23" minus
+ * the one character that matters.
  */
 function Rescues({ count }: { count: number }) {
   if (count === 0) return <>None</>;
 
-  const gave = count > 0;
+  const took = count > 0;
 
   return (
     <span
-      className={`inline-block rounded-md border px-2 py-0.5 font-semibold ${
-        gave
+      className={`tnum inline-block rounded-md border px-2 py-0.5 font-mono text-[15px] font-bold ${
+        took
           ? "border-arrived-line bg-arrived-soft text-arrived"
           : "border-overdue-line bg-overdue-soft text-overdue"
       }`}
     >
-      {Math.abs(count)} {gave ? "given" : "received"}
+      {took ? "+" : "-"}
+      {Math.abs(count)}
     </span>
   );
 }

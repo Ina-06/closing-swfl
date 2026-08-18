@@ -67,7 +67,7 @@ export type Entry = {
   performance: "up" | "down" | null;
   metric: Metric | null;
   infractions: string;
-  /** Signed: +2 gave two rescues, -1 received one. */
+  /** Signed, in packages: +23 he picked up, -11 taken off him. */
   rescues: number;
   /** Anything Karim needs to know about this driver. Surfaced on his card. */
   notes: string;

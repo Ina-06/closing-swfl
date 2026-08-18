@@ -136,7 +136,7 @@ export function MetricSelect({
 }
 
 /**
- * Rescues — signed. `+2` gave two, `-1` received one.
+ * Rescues — signed, in packages. `+23` he picked up, `-11` taken off him.
  *
  * The sign is the whole point, so it is always shown, including on zero, and
  * the value stays typeable for the rare five-rescue night.
@@ -209,7 +209,7 @@ export function RescuesStepper({
         }}
         onBlur={() => setDraft(null)}
         placeholder="0"
-        aria-label="Rescues — positive given, negative received"
+        aria-label="Rescues in packages — positive picked up, negative taken off him"
         inputMode="numeric"
         className={`tnum border-x border-line-strong bg-transparent text-center font-mono font-bold outline-none focus:bg-brand-soft/40 ${
           size === "sm" ? "w-12 py-1 text-[13px]" : "w-16 py-2 text-[15px]"
