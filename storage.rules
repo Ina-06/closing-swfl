@@ -1,0 +1,24 @@
+rules_version = '2';
+
+// Closing — SWFL, Storage
+//
+// Nothing in this app reaches Storage from a browser. The spreadsheet and,
+// from Phase 7, the PDF are written by the Admin SDK inside our own API
+// routes, and handed back either as a download or as a signed URL with an
+// expiry on it. The Admin SDK bypasses these rules entirely, so closing the
+// door on clients costs us nothing and removes a whole class of accident.
+//
+// It matters here more than usual: these files carry every driver's full name.
+// A bucket left on the default "any signed-in user" rule would mean anyone
+// holding the station key could pull the archive straight out of Storage,
+// past every field-ownership rule in firestore.rules.
+//
+// Paste into Firebase console → Storage → Rules → Publish.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

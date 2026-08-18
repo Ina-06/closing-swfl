@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/Field";
+import { AllReturning } from "@/components/dispatch/AllReturning";
 import { EntriesTable } from "@/components/dispatch/EntriesTable";
 import { EntryForm } from "@/components/dispatch/EntryForm";
 import { useEntries } from "@/lib/db/entries";
@@ -102,12 +103,19 @@ export function TonightBoard({
 
       <EntriesTable nightKey={nightKey} entries={entries} uid={uid} />
 
+      <AllReturning
+        nightKey={nightKey}
+        session={session}
+        entries={entries}
+        uid={uid}
+      />
+
       <div className="flex flex-wrap items-center gap-3 pt-1">
         <Button variant="secondary" onClick={onEditRoster}>
           Edit the roster
         </Button>
         <span className="text-[12px] text-ink-faint">
-          All Returning and the returns spreadsheet arrive in Phase 6.
+          End Day and the PDF arrive in Phase 7.
         </span>
       </div>
     </div>

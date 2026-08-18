@@ -163,6 +163,24 @@ export async function createSession(input: RosterInput) {
   );
 }
 
+/**
+ * The wave is over — everyone still out is on their way back.
+ *
+ * Written from the client rather than from the spreadsheet route on purpose.
+ * This is the half that reaches Karim's phone, and it reaches it through the
+ * listener he already has open, in the time it takes Firestore to acknowledge
+ * one field. Making it wait on a workbook being generated would put a
+ * spreadsheet in front of the thing it is announcing.
+ */
+export async function markAllReturning(nightKey: string, updatedBy: string) {
+  await updateDoc(doc(getDb(), COLLECTION, nightKey), {
+    status: "allReturning",
+    allReturningAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  });
+}
+
 export async function touchSession(nightKey: string, updatedBy: string) {
   await updateDoc(doc(getDb(), COLLECTION, nightKey), {
     updatedAt: serverTimestamp(),

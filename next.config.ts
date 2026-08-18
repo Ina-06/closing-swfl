@@ -10,7 +10,13 @@ const nextConfig: NextConfig = {
    * package.json did — but it keeps the Admin SDK out of the bundler's hands,
    * which is where that class of failure comes from.
    */
-  serverExternalPackages: ["firebase-admin"],
+  /**
+   * exceljs is here for the same reason: a CommonJS library over a pile of
+   * stream and zip packages. It bundled cleanly, but so did the Admin SDK, and
+   * that one still failed on the first real request. Loading it from
+   * node_modules keeps the workbook route out of that class of failure.
+   */
+  serverExternalPackages: ["firebase-admin", "exceljs"],
 };
 
 export default nextConfig;

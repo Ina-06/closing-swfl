@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { AddDriverSheet } from "@/components/closer/AddDriverSheet";
+import { AllReturningBanner } from "@/components/closer/AllReturningBanner";
 import { ArrivalSheet } from "@/components/closer/ArrivalSheet";
 import { DoneCard, WaitingCard } from "@/components/closer/DriverCard";
 import { ErrorNote } from "@/components/ui/Field";
@@ -128,6 +129,12 @@ export function CloserBoard({
   return (
     <div className="space-y-4">
       <div className="sticky top-below-header z-10 -mx-4 border-b border-line bg-canvas/95 px-4 pb-3 pt-1 backdrop-blur-md">
+        {/* Inside the sticky block, so "stays at the top" is literal — it does
+            not scroll away while he works down the list. */}
+        {session.status === "allReturning" ? (
+          <AllReturningBanner nightKey={nightKey} expected={total} />
+        ) : null}
+
         <div className="flex items-center justify-between gap-3">
           <p className="tnum font-mono text-[26px] font-bold leading-none tracking-tight">
             {done.length}
