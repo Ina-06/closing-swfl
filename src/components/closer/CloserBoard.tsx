@@ -237,7 +237,9 @@ export function CloserBoard({
           uid={uid}
           onAdded={(entryId) => {
             setAdding(false);
-            // Straight into his sheet, so Arrived is the next thing he taps.
+            // He is already stamped, so this opens on the arrived sheet — the
+            // van number and checks are the next thing, and the time is there
+            // to correct if it needs it.
             setOpenId(entryId);
           }}
           onClose={() => setAdding(false)}

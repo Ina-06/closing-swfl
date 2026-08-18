@@ -232,7 +232,10 @@ export function ArrivalSheet({
             )}
           </div>
 
-          <VanPanel entry={entry} onSave={writeYard} />
+          {/* Only once he is in. Karim records the van with it in front of him,
+              so on a driver still out these fields are five controls he cannot
+              use standing between him and the one he can. */}
+          {arrived ? <VanPanel entry={entry} onSave={writeYard} /> : null}
 
           <FromDispatch entry={entry} />
         </div>

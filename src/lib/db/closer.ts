@@ -111,6 +111,10 @@ export async function saveYard(
 /**
  * A driver who turned up without being announced.
  *
+ * He lands stamped, not waiting. The only way Karim knows to add someone is
+ * that the van is in front of him, so adding *is* the arrival — making him tap
+ * Arrived afterwards would be asking him to confirm something he just did.
+ *
  * The dispatcher's half is written empty rather than omitted, so every entry
  * has the same shape however it was born. `addedByCloser` is what marks the row
  * as half-written — the dispatcher fills in the ETA and returns afterwards, and
@@ -148,10 +152,11 @@ export async function addCloserEntry(
     notes: "",
     clockOutManual: "",
 
-    // He is on the list, not yet stamped. The stamp is a deliberate tap on the
-    // sheet that opens straight after this — evidence, never a side effect.
-    status: "enroute",
-    clockOut: null,
+    // Stamped by the server, exactly as tapping Arrived would. His sheet opens
+    // straight after this so the time can be corrected if he was standing there
+    // a while before Karim got the phone out.
+    status: "arrived",
+    clockOut: serverTimestamp(),
     van: "",
     vanIssues: "",
     cell: null,

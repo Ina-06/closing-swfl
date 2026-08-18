@@ -12,9 +12,9 @@ import type { Entry, RosterEntry, Session } from "@/lib/types";
  * A driver nobody told Karim about.
  *
  * It happens most nights — someone swaps a route, or the dispatcher was on the
- * other line when he called. The van is in the yard either way, so this has to
- * be a ten-second job: type three letters, tap the name, and the sheet for that
- * driver opens with Arrived under his thumb.
+ * other line when he called. The van is already in the yard, which is the only
+ * reason Karim knows to add him, so picking a name stamps the clock-out there
+ * and then and drops him straight into his sheet to record the van.
  *
  * A phone list rather than the dispatcher's combobox on purpose. There is no
  * keyboard to arrow through with, and every row here is a real tap target.
@@ -166,7 +166,8 @@ export function AddDriverSheet({
                 Add a driver
               </h2>
               <p className="mt-1 text-[13px] text-ink-muted">
-                Someone dispatch hasn&rsquo;t entered yet.
+                Someone dispatch hasn&rsquo;t entered. Picking a name clocks him
+                out now.
               </p>
             </div>
 
