@@ -91,7 +91,12 @@ export function useTonightSession() {
         setSnapshot({
           key: nightKey,
           session: document.exists()
-            ? toSession(document.data(), document.id)
+            ? toSession(
+                // Same reason as the entries listener: closedAt is a server
+                // timestamp, and End Day happens in the yard.
+                document.data({ serverTimestamps: "estimate" }),
+                document.id,
+              )
             : null,
         });
         setError(null);

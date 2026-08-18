@@ -5,7 +5,13 @@ import {
   setPersistence,
   type Auth,
 } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from "firebase/firestore";
 
 /**
  * Browser-side Firebase.
@@ -65,9 +71,35 @@ export function getClientAuth(): Auth {
   return authInstance;
 }
 
+/**
+ * Firestore, with the night cached on the device.
+ *
+ * The yard is a metal building with vans in it and the signal comes and goes.
+ * With persistence on, a tap on Arrived is written to IndexedDB immediately,
+ * shows on screen immediately, and goes to the server whenever the phone next
+ * has a connection — including after the browser has been closed and reopened.
+ * Reads work the same way, so a dead spot shows last night's list rather than
+ * an empty screen.
+ *
+ * initializeFirestore rather than getFirestore, because the cache has to be
+ * configured before anything touches the instance. The multi-tab manager is
+ * there because the dispatcher keeps two windows open, and without it the
+ * second one refuses to start.
+ */
 export function getDb(): Firestore {
   if (!dbInstance) {
-    dbInstance = getFirestore(getFirebaseApp());
+    const app = getFirebaseApp();
+    try {
+      dbInstance = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager(),
+        }),
+      });
+    } catch {
+      // Already initialised, or a browser with no IndexedDB — private windows
+      // on some phones. Working without a cache beats not working.
+      dbInstance = getFirestore(app);
+    }
   }
   return dbInstance;
 }

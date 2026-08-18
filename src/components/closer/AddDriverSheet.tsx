@@ -104,6 +104,21 @@ export function AddDriverSheet({
     roster?: RosterEntry;
   }) {
     if (busy) return;
+
+    /**
+     * He is already on the sheet.
+     *
+     * Adding a second row for one driver is the one mistake this screen can
+     * make that nobody notices until the PDF, so it does not happen — the tap
+     * opens the row he already has instead. That is what he wanted anyway; the
+     * name was in front of him and he pressed it.
+     */
+    const already = entries.find((entry) => entry.driverId === driver.driverId);
+    if (already) {
+      onAdded(already.id);
+      return;
+    }
+
     setBusy(true);
     setError(null);
     try {
@@ -244,8 +259,8 @@ export function AddDriverSheet({
                   {option.roster?.isRescuer ? <FlagTag flag="res" /> : null}
 
                   {option.entered ? (
-                    <span className="shrink-0 rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
-                      On sheet
+                    <span className="shrink-0 rounded-full border border-line bg-sunken px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint">
+                      Open
                     </span>
                   ) : null}
                 </button>

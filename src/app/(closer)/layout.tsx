@@ -2,6 +2,7 @@ import Link from "next/link";
 import { RoleGate } from "@/components/RoleGate";
 import { SignOutButton } from "@/components/SignOutButton";
 import { StationDate } from "@/components/StationDate";
+import { SyncDot } from "@/components/closer/SyncDot";
 import { Mark } from "@/components/Wordmark";
 
 export const metadata = { title: "Closer — Closing SWFL" };
@@ -29,6 +30,7 @@ export default function CloserLayout({
           </Link>
 
           <div className="flex items-center gap-1.5">
+            <SyncDot />
             <SignOutButton />
             <span className="rounded-full border border-arrived-line bg-arrived-soft px-2.5 py-1 text-[11px] font-semibold text-arrived">
               Closer

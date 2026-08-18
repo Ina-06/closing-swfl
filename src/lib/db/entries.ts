@@ -14,6 +14,7 @@ import {
 } from "firebase/firestore";
 import type { DocumentData } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
+import { setQueued } from "@/lib/sync";
 import { METRICS } from "@/lib/constants";
 import type { Entry, EntryDispatchFields, RosterEntry } from "@/lib/types";
 import type { ParsedReturns } from "@/lib/returns";
@@ -91,16 +92,32 @@ export function useEntries(nightKey: string | null) {
 
     return onSnapshot(
       query(entriesCollection(nightKey), orderBy("seq")),
+      // Metadata changes carry hasPendingWrites, which is the only way to know
+      // a tap has not reached the server yet. Without this the callback fires
+      // on data alone and the sync dot would never come on.
+      { includeMetadataChanges: true },
       (result) => {
+        setQueued(result.metadata.hasPendingWrites);
         setSnapshot({
           key: nightKey,
           entries: result.docs.map((document) =>
-            toEntry(document.data(), document.id),
+            /**
+             * "estimate" matters more than it looks.
+             *
+             * A clock-out is written as serverTimestamp(), which has no value
+             * until the server has seen it. Offline that is null, and the card
+             * would show a driver as clocked out with no time against him —
+             * exactly the moment Karim most needs to trust the screen. The
+             * estimate is the phone's clock, replaced by the real one the
+             * instant it syncs.
+             */
+            toEntry(document.data({ serverTimestamps: "estimate" }), document.id),
           ),
         });
         setError(null);
       },
       (snapshotError) => {
+        setQueued(false);
         setSnapshot({ key: nightKey, entries: [] });
         setError(snapshotError.message);
       },

@@ -108,7 +108,7 @@ export function DoneCard({
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-center gap-3 rounded-xl border border-line bg-sunken/70 px-3.5 py-2.5 text-left transition-colors active:brightness-[0.97]"
+      className="flex w-full items-center gap-3 rounded-xl border border-line bg-sunken/70 px-3.5 py-3 text-left transition-colors active:brightness-[0.97]"
     >
       <span className="w-[68px] shrink-0">
         <span className="tnum block font-mono text-[15px] font-bold leading-none text-arrived">

@@ -165,7 +165,7 @@ export function CloserBoard({
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="flex min-h-9 items-center gap-1 rounded-full border border-brand-line bg-brand-soft px-3 text-[13px] font-bold text-brand active:brightness-[0.97]"
+              className="flex min-h-11 items-center gap-1 rounded-full border border-brand-line bg-brand-soft px-3.5 text-[13px] font-bold text-brand active:brightness-[0.97]"
             >
               <span aria-hidden="true" className="text-[16px] leading-none">
                 +
@@ -216,7 +216,7 @@ export function CloserBoard({
                   type="button"
                   aria-pressed={sort === option.key}
                   onClick={() => setSort(option.key)}
-                  className={`min-h-8 rounded-md px-2.5 text-[12px] font-semibold transition-colors ${
+                  className={`min-h-11 rounded-md px-3 text-[12px] font-semibold transition-colors ${
                     sort === option.key
                       ? "bg-brand text-ink-inverse"
                       : "text-ink-muted"
@@ -303,7 +303,7 @@ export function CloserBoard({
       <p className="pt-1 text-center">
         <Link
           href="/closer/archive"
-          className="inline-flex min-h-10 items-center px-3 text-[13px] font-semibold text-ink-muted"
+          className="inline-flex min-h-11 items-center px-4 text-[13px] font-semibold text-ink-muted"
         >
           Past nights
         </Link>

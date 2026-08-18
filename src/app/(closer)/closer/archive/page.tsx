@@ -16,7 +16,7 @@ export default function CloserArchivePage() {
       <header>
         <Link
           href="/closer"
-          className="inline-flex min-h-9 items-center gap-1 text-[13px] font-semibold text-brand"
+          className="-ml-2 inline-flex min-h-11 items-center gap-1 px-2 text-[13px] font-semibold text-brand"
         >
           <span aria-hidden="true">←</span> Tonight
         </Link>
