@@ -22,7 +22,13 @@ type AuthState =
   /** The NEXT_PUBLIC_FIREBASE_* vars are missing. Only reachable by whoever is deploying. */
   | { status: "unconfigured" }
   | { status: "signedOut" }
-  | { status: "signedIn"; role: Role; uid: string };
+  | {
+      status: "signedIn";
+      role: Role;
+      uid: string;
+      /** When a one-time code's session dies. Null for the permanent roles. */
+      keyExpiresAt: number | null;
+    };
 
 type AuthContextValue = AuthState & {
   signIn: (key: string, role: Role) => Promise<void>;
@@ -63,7 +69,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      setState({ status: "signedIn", role: claims.role, uid: user.uid });
+      const keyExpiresAt =
+        typeof claims.keyExp === "number" ? claims.keyExp : null;
+
+      /**
+       * A spent one-time code.
+       *
+       * firestore.rules already refuses this session, so the only thing left to
+       * do is say so plainly rather than leave a stand-in staring at a screen
+       * of permission errors.
+       */
+      if (claims.role === "onetime" && (keyExpiresAt ?? 0) <= Date.now()) {
+        await firebaseSignOut(getClientAuth());
+        setState({ status: "signedOut" });
+        return;
+      }
+
+      setState({
+        status: "signedIn",
+        role: claims.role,
+        uid: user.uid,
+        keyExpiresAt,
+      });
     });
   }, []);
 

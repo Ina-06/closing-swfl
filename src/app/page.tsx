@@ -36,6 +36,9 @@ export default function LoginPage() {
   const router = useRouter();
 
   const [key, setKey] = useState("");
+  /** The station key and a one-time code are different things, so different fields. */
+  const [mode, setMode] = useState<"station" | "onetime">("station");
+  const [code, setCode] = useState("");
   const [pending, setPending] = useState<Role | null>(null);
   const [error, setError] = useState<string | null>(null);
   const lastRole = useLastRole();
@@ -49,17 +52,23 @@ export default function LoginPage() {
 
   async function submit(role: Role) {
     if (pending) return;
-    if (!key.trim()) {
-      setError("Enter the access key.");
-      fieldRef.current?.focus();
+
+    const secret = role === "onetime" ? code.trim() : key.trim();
+    if (!secret) {
+      setError(role === "onetime" ? "Enter the code." : "Enter the access key.");
+      if (role !== "onetime") fieldRef.current?.focus();
       return;
     }
 
     setPending(role);
     setError(null);
     try {
-      await auth.signIn(key.trim(), role);
-      window.localStorage.setItem(LAST_ROLE_KEY, role);
+      await auth.signIn(secret, role);
+      // A borrowed session is not this device's habit, so it is not
+      // remembered — the next person to open this page gets the normal screen.
+      if (role !== "onetime") {
+        window.localStorage.setItem(LAST_ROLE_KEY, role);
+      }
       router.replace(HOME_FOR_ROLE[role]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not sign in.");
@@ -86,6 +95,22 @@ export default function LoginPage() {
 
         {auth.status === "unconfigured" ? (
           <SetupNotice />
+        ) : mode === "onetime" ? (
+          <OneTimeForm
+            code={code}
+            onCode={(next) => {
+              setCode(next);
+              setError(null);
+            }}
+            error={error}
+            pending={pending === "onetime"}
+            onSubmit={() => void submit("onetime")}
+            onBack={() => {
+              setMode("station");
+              setCode("");
+              setError(null);
+            }}
+          />
         ) : (
           <form
             className="mt-7"
@@ -181,11 +206,13 @@ export default function LoginPage() {
                 </div>
                 <button
                   type="button"
-                  disabled
-                  title="Arrives in Phase 8"
-                  className="shrink-0 cursor-not-allowed rounded-lg border border-line px-3.5 py-2 text-[13px] font-semibold text-ink-faint"
+                  onClick={() => {
+                    setMode("onetime");
+                    setError(null);
+                  }}
+                  className="shrink-0 rounded-lg border border-line-strong px-3.5 py-2 text-[13px] font-semibold text-ink transition-colors hover:border-ink-faint hover:bg-sunken"
                 >
-                  Not yet
+                  Use a code
                 </button>
               </div>
             </div>
@@ -193,6 +220,91 @@ export default function LoginPage() {
         )}
       </main>
     </div>
+  );
+}
+
+/**
+ * Six digits, read out over the phone.
+ *
+ * Its own screen rather than reusing the key field: they are different secrets
+ * with different lifetimes, and a numeric keypad on a stand-in's phone matters
+ * more here than saving a component.
+ */
+function OneTimeForm({
+  code,
+  onCode,
+  error,
+  pending,
+  onSubmit,
+  onBack,
+}: {
+  code: string;
+  onCode: (next: string) => void;
+  error: string | null;
+  pending: boolean;
+  onSubmit: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <form
+      className="mt-7"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit();
+      }}
+    >
+      <label
+        htmlFor="one-time-code"
+        className="block text-[12px] font-semibold uppercase tracking-[0.1em] text-ink-faint"
+      >
+        One-time code
+      </label>
+      <input
+        id="one-time-code"
+        value={code}
+        // Digits only, whatever gets pasted or typed in.
+        onChange={(event) => onCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        enterKeyHint="go"
+        autoFocus
+        disabled={pending}
+        placeholder="000000"
+        className="tnum mt-2 h-16 w-full rounded-lg border border-line-strong bg-surface text-center font-mono text-[30px] font-bold tracking-[0.35em] text-ink outline-none transition-colors placeholder:font-normal placeholder:text-line-strong focus:border-brand disabled:opacity-60"
+      />
+
+      {error ? (
+        <p
+          role="alert"
+          className="mt-2.5 rounded-md border border-overdue-line bg-overdue-soft px-3 py-2 text-[13px] font-medium text-overdue"
+        >
+          {error}
+        </p>
+      ) : (
+        <p className="mt-2.5 text-[12px] leading-relaxed text-ink-faint">
+          Works once, and stops working twelve hours after it was issued.
+        </p>
+      )}
+
+      <button
+        type="submit"
+        disabled={pending || code.length < 6}
+        className="mt-5 flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-arrived text-[16px] font-semibold text-ink-inverse transition-[filter] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-55"
+      >
+        {pending ? (
+          <span className="size-4 animate-spin rounded-full border-2 border-current/30 border-t-current" />
+        ) : null}
+        Open the closer screen
+      </button>
+
+      <button
+        type="button"
+        onClick={onBack}
+        className="mt-3 min-h-10 w-full text-[13px] font-semibold text-ink-muted"
+      >
+        Back to the station key
+      </button>
+    </form>
   );
 }
 

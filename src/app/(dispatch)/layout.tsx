@@ -24,6 +24,7 @@ export default function DispatchLayout({
               <NavLink href="/dispatch">Tonight</NavLink>
               <NavLink href="/dispatch/drivers">Drivers</NavLink>
               <NavLink href="/dispatch/archive">Archive</NavLink>
+              <NavLink href="/dispatch/keys">Codes</NavLink>
             </nav>
           </div>
 

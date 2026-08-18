@@ -26,17 +26,39 @@ service cloud.firestore {
       return request.auth != null ? request.auth.token.get('role', '') : '';
     }
 
+    // A one-time code is a closer with a clock on it and a kill switch.
+    //
+    // Both are checked here rather than in the app, so neither depends on a
+    // phone behaving. `keyExp` is stamped into the token when the code is
+    // redeemed; `revokedAt` is read live, which is what lets the dispatcher cut
+    // off a stand-in who is already holding an open phone.
+    //
+    // get() inside rules is not itself subject to rules, so the accessKeys
+    // collection stays closed to every client while this can still read it.
+    function onetimeLive() {
+      let keyId = request.auth.token.get('keyId', '');
+      return request.auth.token.get('keyExp', 0) > request.time.toMillis()
+             && keyId != ''
+             && exists(/databases/$(database)/documents/accessKeys/$(keyId))
+             && get(/databases/$(database)/documents/accessKeys/$(keyId))
+                  .data.get('revokedAt', null) == null;
+    }
+
+    // Ordered so the two permanent roles never touch the lookup above. A
+    // mistake in it can cost a stand-in their session; it must never be able
+    // to cost Karim his.
     function signedIn() {
-      return role() in ['dispatcher', 'closer', 'onetime'];
+      return role() == 'dispatcher'
+             || role() == 'closer'
+             || (role() == 'onetime' && onetimeLive());
     }
 
     function isDispatcher() {
       return role() == 'dispatcher';
     }
 
-    // A one-time key is a closer with an expiry — same permissions.
     function isCloser() {
-      return role() in ['closer', 'onetime'];
+      return role() == 'closer' || (role() == 'onetime' && onetimeLive());
     }
 
     function changedKeys() {
@@ -115,8 +137,9 @@ service cloud.firestore {
       }
     }
 
-    // One-time closer codes (Phase 8). Written and verified only by the Admin
-    // SDK, which bypasses these rules — so no client gets near the hashes.
+    // One-time closer codes. Written and verified only by the Admin SDK, which
+    // bypasses these rules — so no client gets near the hashes, including the
+    // dispatcher's. Their screen goes through /api/keys instead.
     match /accessKeys/{keyId} {
       allow read, write: if false;
     }
