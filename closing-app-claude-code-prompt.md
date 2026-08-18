@@ -260,6 +260,35 @@ Firestore offline persistence enabled, with a sync indicator dot in the closer's
 
 Gate: I put the phone in airplane mode mid-shift, mark two drivers arrived, turn it back on, and confirm both sync.
 
+## Phase 10 — File storage, last
+
+Added after Phase 7, not in the original plan.
+
+Firebase Storage needs the Blaze plan, which needs a card, which I am not
+doing. So the PDF and the returns spreadsheet are never archived as files —
+the upload fails every time and the screen shows an amber warning saying so.
+
+Nothing is lost by this today. The archive screen **rebuilds** both files on
+demand from the night's entries in Firestore, so a night from three months ago
+still downloads. The only thing missing is a frozen copy of what was actually
+sent, and Karim may decide the WhatsApp group is that copy already.
+
+Three ways this can go, to be decided at the end:
+
+1. **Nothing.** Strip the Storage code, the two dead url fields and the amber
+   warnings. Optionally snapshot the rendered rows into Firestore at End Day —
+   about 2KB a night — so a rebuilt PDF is byte-identical to the one that was
+   posted rather than reflecting later edits.
+2. **Vercel Blob.** Already on Vercel, has a free allowance, no card. Same
+   upload-and-store-a-url shape as the Firebase code being replaced. Check
+   whether it can keep a file private — these carry full names, infractions
+   and van issues.
+3. **Firebase Storage after all**, if the Blaze plan turns out to be fine. The
+   code for this already exists and works; it needs no changes, only a bucket.
+
+Gate: whichever is chosen, End Day produces no warning and the archive returns
+the same file twice.
+
 ---
 
 ## Non-negotiables
