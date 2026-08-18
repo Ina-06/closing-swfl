@@ -5,6 +5,7 @@ import { AddDriverSheet } from "@/components/closer/AddDriverSheet";
 import { ArrivalSheet } from "@/components/closer/ArrivalSheet";
 import { DoneCard, WaitingCard } from "@/components/closer/DriverCard";
 import { ErrorNote } from "@/components/ui/Field";
+import { FlagTag } from "@/components/ui/FlagToggle";
 import { useEntries } from "@/lib/db/entries";
 import { etaMinutes, minutesLate, stationNowMinutes } from "@/lib/eta";
 import type { Entry, Session } from "@/lib/types";
@@ -106,7 +107,22 @@ export function CloserBoard({
     };
   }, [entries, sort]);
 
-  const total = Math.max(session.totalExpected, entries.length);
+  /**
+   * On the roster, but dispatch has not heard from him yet.
+   *
+   * Entries are created as drivers call in, so until then a name exists only on
+   * the session roster. Without this the count and the list disagreed — "5/6
+   * arrived, 0 still out" is arithmetic Karim cannot act on, because the sixth
+   * man was nowhere on his screen.
+   */
+  const pending = useMemo(() => {
+    const entered = new Set(entries.map((entry) => entry.driverId));
+    return session.roster.filter((row) => !entered.has(row.driverId));
+  }, [session.roster, entries]);
+
+  // Counts everyone expected tonight, including anyone the closer added who was
+  // never on the roster at all.
+  const total = Math.max(session.totalExpected, entries.length + pending.length);
   const open = openId ? (entries.find((e) => e.id === openId) ?? null) : null;
 
   return (
@@ -122,9 +138,16 @@ export function CloserBoard({
           </p>
 
           <div className="flex items-center gap-2.5">
+            {/* Whichever number is the reason the night is not over. Falling
+                back to the roster matters: with everyone on the sheet already
+                in, "0 still out" beside "5/6" reads like a broken counter. */}
             {waiting.length > 0 ? (
               <p className="text-[12px] font-semibold text-ink-muted">
                 {waiting.length} still out
+              </p>
+            ) : pending.length > 0 ? (
+              <p className="text-[12px] font-semibold text-ink-muted">
+                {pending.length} not called in
               </p>
             ) : null}
             {/* Lives in the sticky header rather than under the list: a van
@@ -160,12 +183,14 @@ export function CloserBoard({
 
       {error ? <ErrorNote>Lost the live feed: {error}</ErrorNote> : null}
 
-      {entries.length === 0 ? (
+      {entries.length === 0 && pending.length === 0 ? (
         <Empty
           title="Nobody on the sheet yet"
           blurb="Drivers appear here the moment dispatch enters one. Leave this open — it updates on its own."
         />
-      ) : (
+      ) : null}
+
+      {entries.length > 0 ? (
         <>
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
@@ -196,7 +221,9 @@ export function CloserBoard({
 
           {waiting.length === 0 ? (
             <p className="rounded-xl border border-arrived-line bg-arrived-soft px-4 py-3.5 text-[14px] font-semibold text-arrived">
-              Everyone on the sheet is in.
+              {pending.length > 0
+                ? "Everyone dispatch has entered is in."
+                : "Everyone on the sheet is in."}
             </p>
           ) : (
             <ul className="space-y-2">
@@ -227,7 +254,33 @@ export function CloserBoard({
             </section>
           ) : null}
         </>
-      )}
+      ) : null}
+
+      {pending.length > 0 ? (
+        <section className="space-y-2 pt-2">
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
+            Not called in · {pending.length}
+          </h2>
+          <p className="text-[12px] leading-relaxed text-ink-faint">
+            On tonight&rsquo;s roster, but they haven&rsquo;t given dispatch an
+            ETA yet. If one of them is in front of you, use{" "}
+            <span className="font-semibold text-brand">+ Driver</span>.
+          </p>
+          <ul className="flex flex-wrap gap-1.5">
+            {pending.map((row) => (
+              <li
+                key={row.driverId}
+                className="flex items-center gap-1.5 rounded-full border border-line bg-sunken px-2.5 py-1.5 text-[13px] font-medium text-ink-muted"
+              >
+                {row.fullName}
+                {row.isBud ? <FlagTag flag="bud" /> : null}
+                {row.isTrainer ? <FlagTag flag="trn" /> : null}
+                {row.isRescuer ? <FlagTag flag="res" /> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {adding ? (
         <AddDriverSheet
