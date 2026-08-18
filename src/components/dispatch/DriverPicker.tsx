@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { nameKey } from "@/lib/names";
 import type { RosterEntry } from "@/lib/types";
 
@@ -40,7 +40,6 @@ export function DriverPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
-  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const key = nameKey(value);
 
@@ -89,10 +88,7 @@ export function DriverPicker({
           setHighlight(0);
         }}
         onFocus={() => setOpen(true)}
-        onBlur={() => {
-          // Let a click on a row land before the list disappears.
-          blurTimer.current = setTimeout(() => setOpen(false), 120);
-        }}
+        onBlur={() => setOpen(false)}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown" || event.key === "ArrowUp") {
             event.preventDefault();
@@ -126,9 +122,16 @@ export function DriverPicker({
       {open && rows > 0 ? (
         <ul
           className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-line-strong bg-surface py-1 shadow-lg shadow-ink/5"
-          onMouseDown={() => {
-            if (blurTimer.current) clearTimeout(blurTimer.current);
-          }}
+          /*
+           * Never let a press in here blur the input.
+           *
+           * The list used to close on blur after a short delay, which meant a
+           * click only landed if the mouse button came back up fast enough.
+           * Holding it a moment — which is most clicks — closed the list under
+           * the cursor and the pick was lost. Killing the blur outright is the
+           * fix: focus stays in the field, and only the click matters.
+           */
+          onMouseDown={(event) => event.preventDefault()}
         >
           {matches.map((option, index) => (
             <li key={option.driverId}>

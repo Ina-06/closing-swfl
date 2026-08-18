@@ -14,6 +14,7 @@ import {
   type YardFields,
 } from "@/lib/db/closer";
 import {
+  METRICS,
   stationInstant,
   stationTimeInputValue,
   stationTimeLabel,
@@ -238,6 +239,33 @@ export function ArrivalSheet({
           {arrived ? <VanPanel entry={entry} onSave={writeYard} /> : null}
 
           <FromDispatch entry={entry} />
+
+          {/* There is nothing to submit — the van fields saved themselves as he
+              typed. This is the way out, and the line under it is there so he
+              knows he is not walking away from unsaved work. */}
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={onClose}
+            className="mt-6 min-h-14 w-full text-[16px]"
+          >
+            Done
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="size-5"
+              aria-hidden="true"
+            >
+              <path d="M5 12h13M13 6l6 6-6 6" />
+            </svg>
+          </Button>
+          <p className="mt-2 text-center text-[12px] text-ink-faint">
+            Everything here saves as you type.
+          </p>
         </div>
       </div>
     </div>
@@ -333,8 +361,14 @@ function FromDispatch({ entry }: { entry: Entry }) {
         ? `${Math.abs(entry.rescues)} received`
         : "None";
 
+  const metric = METRICS.find((option) => option.value === entry.metric);
+
   const blank =
-    !entry.returnsRaw.trim() && !entry.infractions.trim() && entry.rescues === 0;
+    !entry.returnsRaw.trim() &&
+    !entry.infractions.trim() &&
+    entry.rescues === 0 &&
+    entry.performance === null &&
+    !metric;
 
   return (
     <section className="mt-6">
@@ -348,6 +382,10 @@ function FromDispatch({ entry }: { entry: Entry }) {
         </p>
       ) : (
         <dl className="mt-2 divide-y divide-line rounded-xl border border-line bg-sunken/50">
+          <Row
+            term="Performance"
+            value={<Performance direction={entry.performance} metric={metric} />}
+          />
           <Row term="Returns" value={entry.returnsRaw.trim() || "None"} />
           <Row term="Infractions" value={entry.infractions.trim() || "None"} />
           <Row term="Rescues" value={rescues} />
@@ -357,7 +395,52 @@ function FromDispatch({ entry }: { entry: Entry }) {
   );
 }
 
-function Row({ term, value }: { term: string; value: string }) {
+/**
+ * Which way the driver's week is going, and where he sits on the scale.
+ *
+ * For Karim's eyes only — it is not a column on the paper sheet, so it will not
+ * appear on the PDF. He is about to talk to this person; the arrow is the part
+ * of that conversation he wants before he opens his mouth.
+ */
+function Performance({
+  direction,
+  metric,
+}: {
+  direction: Entry["performance"];
+  metric: (typeof METRICS)[number] | undefined;
+}) {
+  if (!direction && !metric) return <>Not set</>;
+
+  return (
+    <span className="flex items-center gap-2">
+      {direction ? (
+        <span
+          role="img"
+          aria-label={direction === "up" ? "Trending up" : "Trending down"}
+          className="text-[20px] leading-none"
+        >
+          {direction === "up" ? "📈" : "📉"}
+        </span>
+      ) : null}
+      {metric ? (
+        <span
+          title={metric.title}
+          className={`rounded-md border px-2 py-0.5 font-mono text-[14px] font-bold ${
+            direction === "up"
+              ? "border-arrived-line bg-arrived-soft text-arrived"
+              : direction === "down"
+                ? "border-overdue-line bg-overdue-soft text-overdue"
+                : "border-line bg-surface text-ink"
+          }`}
+        >
+          {metric.label}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function Row({ term, value }: { term: string; value: React.ReactNode }) {
   return (
     <div className="flex gap-3 px-3.5 py-2.5">
       <dt className="w-[86px] shrink-0 pt-0.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">

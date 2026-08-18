@@ -117,12 +117,18 @@ export function EntryForm({
   }
 
   /**
-   * `clockedOut` is the green path: the driver phoned in his own clock-out, so
-   * the row lands on Karim's phone already done rather than as one more
-   * person he is waiting for.
+   * A driver who phoned his own clock-out in lands on Karim's phone already
+   * done, rather than as one more person he is waiting for.
+   *
+   * That is decided by the time being typed, not by which button sent the
+   * form. Enter used to go through the plain path and silently drop both the
+   * time and the arrived status, so the row turned up on the phone still
+   * en route — with nothing on screen to say why.
    */
   async function submit(clockedOut = false) {
     if (saving) return;
+
+    const done = clockedOut || clockingOut;
 
     if (!resolved) {
       setError(
@@ -148,14 +154,14 @@ export function EntryForm({
           // A driver who has already clocked out has no ETA — he is not on his
           // way, he is done. Storing one would put a time on the sheet that
           // never meant anything.
-          eta: clockedOut ? "" : form.eta.trim(),
+          eta: done ? "" : form.eta.trim(),
           performance: form.performance,
           metric: form.metric,
           infractions: form.infractions.trim(),
           notes: form.notes.trim(),
           rescues: form.rescues,
-          clockOutManual: clockedOut ? form.clockOutManual.trim() : "",
-          status: clockedOut ? "arrived" : "enroute",
+          clockOutManual: done ? form.clockOutManual.trim() : "",
+          status: done ? "arrived" : "enroute",
           ...returnsFields(parsed),
         },
         uid,
