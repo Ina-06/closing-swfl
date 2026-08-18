@@ -140,7 +140,6 @@ function Night({
           {session.totalExpected}{" "}
           {session.totalExpected === 1 ? "driver" : "drivers"}
           {session.managedBy ? ` · ${session.managedBy}` : ""}
-          {session.shift ? ` · ${session.shift}` : ""}
         </p>
       </div>
 

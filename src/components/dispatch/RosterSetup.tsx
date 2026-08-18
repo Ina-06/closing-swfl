@@ -51,8 +51,6 @@ export function RosterSetup({
   );
   const [pasted, setPasted] = useState("");
   const [managedBy, setManagedBy] = useState(existing?.managedBy ?? "");
-  /** Only ever printed, in the PDF header beside the date. */
-  const [shift, setShift] = useState(existing?.shift ?? "");
   const [rows, setRows] = useState<RosterDraft[]>(() =>
     existing
       ? existing.roster.map((entry) =>
@@ -169,7 +167,7 @@ export function RosterSetup({
       // through createSession would reset the status and wipe the pdf url on a
       // session that has already had All Returning called.
       const write = existing ? saveRoster : createSession;
-      await write({ nightKey, managedBy, shift, roster, updatedBy: uid });
+      await write({ nightKey, managedBy, roster, updatedBy: uid });
       onDone();
     } catch (err) {
       setError(
@@ -197,28 +195,14 @@ export function RosterSetup({
         </header>
 
         <div className="space-y-5 px-5 py-5 sm:px-7">
-          <div className="grid max-w-xl gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="managed-by">Managed by</Label>
-              <TextInput
-                id="managed-by"
-                value={managedBy}
-                onChange={(event) => setManagedBy(event.target.value)}
-                placeholder="Who is running the wave"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="shift" hint="optional">
-                Shift
-              </Label>
-              <TextInput
-                id="shift"
-                value={shift}
-                onChange={(event) => setShift(event.target.value)}
-                placeholder="Cycle 1"
-              />
-            </div>
+          <div className="max-w-sm space-y-1.5">
+            <Label htmlFor="managed-by">Managed by</Label>
+            <TextInput
+              id="managed-by"
+              value={managedBy}
+              onChange={(event) => setManagedBy(event.target.value)}
+              placeholder="Who is running the wave"
+            />
           </div>
 
           <div className="space-y-1.5">

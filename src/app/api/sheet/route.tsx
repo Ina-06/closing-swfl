@@ -53,7 +53,6 @@ export async function POST(request: Request) {
   const sessionRef = db.collection("sessions").doc(nightKey);
 
   let managedBy = "";
-  let shift = "";
   let rows;
   try {
     const [session, entries] = await Promise.all([
@@ -65,7 +64,6 @@ export async function POST(request: Request) {
 
     const data = session.data() ?? {};
     managedBy = typeof data.managedBy === "string" ? data.managedBy : "";
-    shift = typeof data.shift === "string" ? data.shift : "";
     rows = sheetRows(entries.docs.map((doc) => doc.data() as Entry));
   } catch (error) {
     console.error("Could not read the night:", error);
@@ -78,7 +76,6 @@ export async function POST(request: Request) {
       <SheetDocument
         nightKey={nightKey}
         managedBy={managedBy}
-        shift={shift}
         rows={rows}
       />,
     );

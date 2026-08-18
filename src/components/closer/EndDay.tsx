@@ -11,24 +11,31 @@ import type { Entry, Session } from "@/lib/types";
 /**
  * End Day — the last thing Karim does before he goes home.
  *
- * It only becomes the loud button on the screen once every driver is in.
- * Before that it is still there, but it is a quiet one that makes him read the
- * list of who is missing first. Closing early is a real thing that happens —
- * someone is stuck an hour out and the sheet has to go up — so it is never
- * blocked, only shown its consequences.
+ * There is no button at all until every driver on the sheet is clocked out.
+ * Not a warning, not an override: a night is not over while a van is out, and
+ * a closer signing off on one that is not finished is not a thing the app
+ * should make possible.
+ *
+ * That is not a dead end. A driver who genuinely is not coming back to the
+ * yard gets clocked out by the dispatcher from their side, which is the right
+ * place for that call to be made — it is a decision about the night, not about
+ * the yard.
  */
 export function EndDay({
   nightKey,
   session,
   entries,
   waiting,
+  pending,
   uid,
 }: {
   nightKey: string;
   session: Session;
   entries: Entry[];
-  /** Drivers not yet clocked out, in the order the board is showing them. */
-  waiting: Entry[];
+  /** Drivers on the sheet not yet clocked out. Any at all hides this whole panel. */
+  waiting: number;
+  /** On the roster but never entered by dispatch — a note, not a blocker. */
+  pending: number;
   uid: string;
 }) {
   const [confirming, setConfirming] = useState(false);
@@ -40,7 +47,7 @@ export function EndDay({
 
   const closed = session.status === "closed";
   const filename = `closing-${nightKey}.pdf`;
-  const everyoneIn = waiting.length === 0 && entries.length > 0;
+  const everyoneIn = waiting === 0 && entries.length > 0;
 
   async function build(): Promise<Blob> {
     const response = await postAuthed("/api/sheet", { nightKey });
@@ -125,35 +132,33 @@ export function EndDay({
     );
   }
 
+  /**
+   * Nothing to show yet.
+   *
+   * A closer with vans still out has no decision to make here, so he is not
+   * given one — the counter at the top of his screen is already telling him
+   * what is left, and a disabled button underneath it would only be a second
+   * way of saying the same thing.
+   */
+  if (!everyoneIn) return null;
+
   return (
     <section className="mt-4 rounded-xl border border-line bg-surface px-4 py-4">
       <h2 className="text-[15px] font-bold tracking-tight">End day</h2>
       <p className="mt-0.5 text-[13px] text-ink-muted">
-        {everyoneIn
-          ? "Everyone is in. This closes the night and builds the sheet."
-          : entries.length === 0
-            ? "Nothing on the sheet to close yet."
-            : `${waiting.length} still out.`}
+        Everyone is in. This closes the night and builds the sheet.
       </p>
 
-      {confirming && waiting.length > 0 ? (
-        <div className="mt-3 space-y-2">
-          {/* Named before he can press it. A count is not something anyone can
-              check against the yard; a list is. */}
+      {/* On the roster but never entered by dispatch. Not a reason to stop him
+          — they were never his to clock out — but he should know before the
+          sheet goes up without them. */}
+      {pending > 0 ? (
+        <div className="mt-3">
           <SoftWarning>
-            Still out — closing now leaves them without a clock-out on the
-            sheet.
+            {pending} {pending === 1 ? "driver is" : "drivers are"} on tonight&rsquo;s
+            roster but never made it onto the sheet. They will not be on the
+            PDF.
           </SoftWarning>
-          <ul className="flex flex-wrap gap-1.5">
-            {waiting.map((entry) => (
-              <li
-                key={entry.id}
-                className="rounded-full border border-overdue-line bg-overdue-soft px-2.5 py-1 text-[13px] font-semibold text-overdue"
-              >
-                {entry.fullName}
-              </li>
-            ))}
-          </ul>
         </div>
       ) : null}
 
@@ -167,7 +172,7 @@ export function EndDay({
               onClick={() => void end()}
               className="min-h-14 flex-1 text-[16px]"
             >
-              {waiting.length > 0 ? "Close anyway" : "Close the night"}
+              Close the night
             </Button>
             <Button
               variant="secondary"
@@ -181,9 +186,8 @@ export function EndDay({
           </>
         ) : (
           <Button
-            variant={everyoneIn ? "arrived" : "secondary"}
+            variant="arrived"
             size="lg"
-            disabled={entries.length === 0}
             onClick={() => setConfirming(true)}
             className="min-h-14 w-full text-[16px]"
           >

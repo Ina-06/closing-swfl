@@ -41,7 +41,6 @@ function toSession(data: DocumentData, id: string): Session {
   return {
     date: typeof data.date === "string" ? data.date : id,
     managedBy: typeof data.managedBy === "string" ? data.managedBy : "",
-    shift: typeof data.shift === "string" ? data.shift : "",
     status:
       data.status === "closed" || data.status === "allReturning"
         ? data.status
@@ -117,7 +116,6 @@ export function useTonightSession() {
 type RosterInput = {
   nightKey: string;
   managedBy: string;
-  shift: string;
   roster: RosterEntry[];
   updatedBy: string;
 };
@@ -137,7 +135,6 @@ type RosterInput = {
 export async function saveRoster({
   nightKey,
   managedBy,
-  shift,
   roster,
   updatedBy,
 }: RosterInput) {
@@ -146,7 +143,6 @@ export async function saveRoster({
     {
       date: nightKey,
       managedBy: managedBy.trim(),
-      shift: shift.trim(),
       roster,
       totalExpected: roster.length,
       updatedAt: serverTimestamp(),
@@ -162,7 +158,6 @@ export async function createSession(input: RosterInput) {
     {
       date: input.nightKey,
       managedBy: input.managedBy.trim(),
-      shift: input.shift.trim(),
       roster: input.roster,
       totalExpected: input.roster.length,
       status: "open",

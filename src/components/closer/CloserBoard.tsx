@@ -295,7 +295,8 @@ export function CloserBoard({
         nightKey={nightKey}
         session={session}
         entries={entries}
-        waiting={waiting}
+        waiting={waiting.length}
+        pending={pending.length}
         uid={uid}
       />
 

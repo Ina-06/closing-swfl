@@ -152,13 +152,10 @@ function Head({ label, width, centre }: { label: string; width: number; centre?:
 export function SheetDocument({
   nightKey,
   managedBy,
-  shift,
   rows,
 }: {
   nightKey: string;
   managedBy: string;
-  /** Free text from the dispatcher, e.g. "Cycle 1". Omitted when blank. */
-  shift: string;
   rows: SheetRow[];
 }) {
   const date = stationDateLabel(new Date(`${nightKey}T12:00:00Z`));
@@ -173,8 +170,7 @@ export function SheetDocument({
           <View>
             <Text style={styles.title}>CLOSING SHEET</Text>
             <Text style={styles.subtitle}>
-              {STATION_CODE}
-              {shift ? ` · ${shift}` : ""} · {rows.length}{" "}
+              {STATION_CODE} · {rows.length}{" "}
               {rows.length === 1 ? "driver" : "drivers"}
             </Text>
           </View>
