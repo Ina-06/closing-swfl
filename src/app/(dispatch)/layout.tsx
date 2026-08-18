@@ -23,6 +23,7 @@ export default function DispatchLayout({
             <nav className="flex items-center gap-1 text-[13px] font-semibold">
               <NavLink href="/dispatch">Tonight</NavLink>
               <NavLink href="/dispatch/drivers">Drivers</NavLink>
+              <NavLink href="/dispatch/archive">Archive</NavLink>
             </nav>
           </div>
 

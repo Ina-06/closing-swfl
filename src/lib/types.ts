@@ -117,6 +117,8 @@ export type Session = {
   /** Document id and date, both `YYYY-MM-DD` — see stationNightKey. */
   date: string;
   managedBy: string;
+  /** Free text, printed in the PDF header. Blank on nights nobody set one. */
+  shift: string;
   status: SessionStatus;
   totalExpected: number;
   /**

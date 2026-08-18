@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/Field";
 import { AllReturning } from "@/components/dispatch/AllReturning";
 import { EntriesTable } from "@/components/dispatch/EntriesTable";
 import { EntryForm } from "@/components/dispatch/EntryForm";
 import { useEntries } from "@/lib/db/entries";
-import { stationDateLabel } from "@/lib/constants";
+import { reopenSession } from "@/lib/db/sessions";
+import { stationDateLabel, stationTimeLabel } from "@/lib/constants";
 import type { Driver, Session } from "@/lib/types";
 
 const STATUS_LABEL: Record<Session["status"], string> = {
@@ -34,6 +35,7 @@ export function TonightBoard({
   onEditRoster: () => void;
 }) {
   const { entries, error } = useEntries(nightKey);
+  const [reopening, setReopening] = useState(false);
 
   const enteredIds = useMemo(
     () => new Set(entries.map((entry) => entry.driverId)),
@@ -114,9 +116,34 @@ export function TonightBoard({
         <Button variant="secondary" onClick={onEditRoster}>
           Edit the roster
         </Button>
-        <span className="text-[12px] text-ink-faint">
-          End Day and the PDF arrive in Phase 7.
-        </span>
+
+        {session.status === "closed" ? (
+          <>
+            {/* Karim closed it, and he is not in the room. A driver turning up
+                after End Day should not mean the night is finished with him. */}
+            <Button
+              variant="ghost"
+              loading={reopening}
+              onClick={async () => {
+                setReopening(true);
+                try {
+                  await reopenSession(nightKey, uid);
+                } finally {
+                  setReopening(false);
+                }
+              }}
+            >
+              Reopen the night
+            </Button>
+            <span className="text-[12px] text-ink-faint">
+              Closed at{" "}
+              {session.closedAt
+                ? stationTimeLabel(session.closedAt.toDate())
+                : "—"}
+              . Reopening keeps everything on it.
+            </span>
+          </>
+        ) : null}
       </div>
     </div>
   );

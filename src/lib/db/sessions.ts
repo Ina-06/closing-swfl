@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { doc, onSnapshot, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 import type { DocumentData } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
 import { stationNightKey } from "@/lib/constants";
@@ -31,6 +41,7 @@ function toSession(data: DocumentData, id: string): Session {
   return {
     date: typeof data.date === "string" ? data.date : id,
     managedBy: typeof data.managedBy === "string" ? data.managedBy : "",
+    shift: typeof data.shift === "string" ? data.shift : "",
     status:
       data.status === "closed" || data.status === "allReturning"
         ? data.status
@@ -106,6 +117,7 @@ export function useTonightSession() {
 type RosterInput = {
   nightKey: string;
   managedBy: string;
+  shift: string;
   roster: RosterEntry[];
   updatedBy: string;
 };
@@ -125,6 +137,7 @@ type RosterInput = {
 export async function saveRoster({
   nightKey,
   managedBy,
+  shift,
   roster,
   updatedBy,
 }: RosterInput) {
@@ -133,6 +146,7 @@ export async function saveRoster({
     {
       date: nightKey,
       managedBy: managedBy.trim(),
+      shift: shift.trim(),
       roster,
       totalExpected: roster.length,
       updatedAt: serverTimestamp(),
@@ -148,6 +162,7 @@ export async function createSession(input: RosterInput) {
     {
       date: input.nightKey,
       managedBy: input.managedBy.trim(),
+      shift: input.shift.trim(),
       roster: input.roster,
       totalExpected: input.roster.length,
       status: "open",
@@ -179,6 +194,73 @@ export async function markAllReturning(nightKey: string, updatedBy: string) {
     updatedAt: serverTimestamp(),
     updatedBy,
   });
+}
+
+/**
+ * End Day. The night stops being tonight.
+ *
+ * Sets a status and a time; it does not remove anything, here or anywhere.
+ * The PDF is generated separately, for the same reason All Returning splits in
+ * two — the sheet is closed the moment he says so, and a document being
+ * rendered is not a reason to leave him looking at a spinner.
+ */
+export async function closeSession(nightKey: string, updatedBy: string) {
+  await updateDoc(doc(getDb(), COLLECTION, nightKey), {
+    status: "closed",
+    closedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  });
+}
+
+/**
+ * Closed by mistake, or a driver turned up after End Day.
+ *
+ * The dispatcher's only, because it undoes something Karim did and the two of
+ * them are not in the same room. Still not a delete — closedAt is cleared, the
+ * night itself is untouched.
+ */
+export async function reopenSession(nightKey: string, updatedBy: string) {
+  await updateDoc(doc(getDb(), COLLECTION, nightKey), {
+    status: "allReturning",
+    closedAt: null,
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  });
+}
+
+/**
+ * Every night on record, most recent first.
+ *
+ * Capped rather than paged: a station does one of these a day, so sixty is two
+ * months of history and more than anyone has ever scrolled back through.
+ */
+export function useSessions(max = 60) {
+  const [sessions, setSessions] = useState<{ id: string; session: Session }[] | null>(
+    null,
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    return onSnapshot(
+      query(collection(getDb(), COLLECTION), orderBy("date", "desc"), limit(max)),
+      (snapshot) => {
+        setSessions(
+          snapshot.docs.map((document) => ({
+            id: document.id,
+            session: toSession(document.data(), document.id),
+          })),
+        );
+        setError(null);
+      },
+      (snapshotError) => {
+        setSessions([]);
+        setError(snapshotError.message);
+      },
+    );
+  }, [max]);
+
+  return { sessions, loading: sessions === null, error };
 }
 
 export async function touchSession(nightKey: string, updatedBy: string) {

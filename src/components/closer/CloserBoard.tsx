@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { AddDriverSheet } from "@/components/closer/AddDriverSheet";
 import { AllReturningBanner } from "@/components/closer/AllReturningBanner";
 import { ArrivalSheet } from "@/components/closer/ArrivalSheet";
 import { DoneCard, WaitingCard } from "@/components/closer/DriverCard";
+import { EndDay } from "@/components/closer/EndDay";
 import { ErrorNote } from "@/components/ui/Field";
 import { FlagTag } from "@/components/ui/FlagToggle";
 import { useEntries } from "@/lib/db/entries";
@@ -288,6 +290,23 @@ export function CloserBoard({
           </ul>
         </section>
       ) : null}
+
+      <EndDay
+        nightKey={nightKey}
+        session={session}
+        entries={entries}
+        waiting={waiting}
+        uid={uid}
+      />
+
+      <p className="pt-1 text-center">
+        <Link
+          href="/closer/archive"
+          className="inline-flex min-h-10 items-center px-3 text-[13px] font-semibold text-ink-muted"
+        >
+          Past nights
+        </Link>
+      </p>
 
       {adding ? (
         <AddDriverSheet
