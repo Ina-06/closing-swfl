@@ -1,16 +1,28 @@
 "use client";
 
-import { Timestamp, doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import {
+  Timestamp,
+  addDoc,
+  collection,
+  doc,
+  serverTimestamp,
+  updateDoc,
+} from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
+import type { Entry, RosterEntry } from "@/lib/types";
 
 /**
  * The closer's writes.
  *
- * Deliberately three named actions rather than one generic update: everything
- * on this side is a physical event in the yard, and the rules only accept the
- * closer's own columns. A function that could touch an ETA would be a function
- * the rules reject at the door.
+ * Deliberately a handful of named actions rather than one generic update:
+ * everything on this side is a physical event in the yard, and the rules only
+ * accept the closer's own columns. A function that could touch an ETA would be
+ * a function the rules reject at the door.
  */
+
+function entriesCollection(nightKey: string) {
+  return collection(getDb(), "sessions", nightKey, "entries");
+}
 
 function entryRef(nightKey: string, entryId: string) {
   return doc(getDb(), "sessions", nightKey, "entries", entryId);
@@ -69,4 +81,87 @@ export async function reopenEntry(
     updatedAt: serverTimestamp(),
     updatedBy,
   });
+}
+
+/** The van itself — number, issues, and the three handover checks. */
+export type YardFields = Partial<
+  Pick<Entry, "van" | "vanIssues" | "cell" | "key" | "fuel">
+>;
+
+/**
+ * What Karim found when the van came in.
+ *
+ * Saved a field at a time as he works, not behind a Save button: he is holding
+ * a phone in one hand and a set of keys in the other, and a form he has to
+ * remember to submit is a form that loses a van number.
+ */
+export async function saveYard(
+  nightKey: string,
+  entryId: string,
+  fields: YardFields,
+  updatedBy: string,
+) {
+  await updateDoc(entryRef(nightKey, entryId), {
+    ...fields,
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  });
+}
+
+/**
+ * A driver who turned up without being announced.
+ *
+ * The dispatcher's half is written empty rather than omitted, so every entry
+ * has the same shape however it was born. `addedByCloser` is what marks the row
+ * as half-written — the dispatcher fills in the ETA and returns afterwards, and
+ * until then it is flagged on both screens.
+ *
+ * Kept here rather than reusing addEntry: that one takes the dispatcher's
+ * fields as its argument, and this side has none of them to give.
+ */
+export async function addCloserEntry(
+  nightKey: string,
+  existing: Entry[],
+  driver: { driverId: string; fullName: string; roster?: RosterEntry },
+  updatedBy: string,
+): Promise<string> {
+  const seq =
+    existing.reduce((highest, entry) => Math.max(highest, entry.seq), 0) + 1;
+
+  const created = await addDoc(entriesCollection(nightKey), {
+    seq,
+    driverId: driver.driverId,
+    fullName: driver.fullName,
+    isBud: driver.roster?.isBud === true,
+    isTrainer: driver.roster?.isTrainer === true,
+    isRescuer: driver.roster?.isRescuer === true,
+
+    eta: "",
+    returnsRaw: "",
+    returnsCount: null,
+    returnsReasons: [],
+    returnsMismatch: false,
+    performance: null,
+    metric: null,
+    infractions: "",
+    rescues: 0,
+    notes: "",
+    clockOutManual: "",
+
+    // He is on the list, not yet stamped. The stamp is a deliberate tap on the
+    // sheet that opens straight after this — evidence, never a side effect.
+    status: "enroute",
+    clockOut: null,
+    van: "",
+    vanIssues: "",
+    cell: null,
+    key: null,
+    fuel: null,
+    addedByCloser: true,
+
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  });
+
+  return created.id;
 }

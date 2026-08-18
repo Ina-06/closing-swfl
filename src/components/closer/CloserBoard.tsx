@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { AddDriverSheet } from "@/components/closer/AddDriverSheet";
 import { ArrivalSheet } from "@/components/closer/ArrivalSheet";
 import { DoneCard, WaitingCard } from "@/components/closer/DriverCard";
 import { ErrorNote } from "@/components/ui/Field";
@@ -87,6 +88,7 @@ export function CloserBoard({
   const { entries, error } = useEntries(nightKey);
   const [sort, setSort] = useState<SortKey>("eta");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   const now = useStationClock();
 
   const { waiting, done } = useMemo(() => {
@@ -110,7 +112,7 @@ export function CloserBoard({
   return (
     <div className="space-y-4">
       <div className="sticky top-below-header z-10 -mx-4 border-b border-line bg-canvas/95 px-4 pb-3 pt-1 backdrop-blur-md">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex items-center justify-between gap-3">
           <p className="tnum font-mono text-[26px] font-bold leading-none tracking-tight">
             {done.length}
             <span className="text-ink-faint">/{total}</span>
@@ -118,11 +120,27 @@ export function CloserBoard({
               arrived
             </span>
           </p>
-          {waiting.length > 0 ? (
-            <p className="text-[12px] font-semibold text-ink-muted">
-              {waiting.length} still out
-            </p>
-          ) : null}
+
+          <div className="flex items-center gap-2.5">
+            {waiting.length > 0 ? (
+              <p className="text-[12px] font-semibold text-ink-muted">
+                {waiting.length} still out
+              </p>
+            ) : null}
+            {/* Lives in the sticky header rather than under the list: a van
+                turns up unannounced when there are still twenty names between
+                Karim and the bottom of the screen. */}
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="flex min-h-9 items-center gap-1 rounded-full border border-brand-line bg-brand-soft px-3 text-[13px] font-bold text-brand active:brightness-[0.97]"
+            >
+              <span aria-hidden="true" className="text-[16px] leading-none">
+                +
+              </span>
+              Driver
+            </button>
+          </div>
         </div>
 
         <div
@@ -211,8 +229,26 @@ export function CloserBoard({
         </>
       )}
 
+      {adding ? (
+        <AddDriverSheet
+          nightKey={nightKey}
+          session={session}
+          entries={entries}
+          uid={uid}
+          onAdded={(entryId) => {
+            setAdding(false);
+            // Straight into his sheet, so Arrived is the next thing he taps.
+            setOpenId(entryId);
+          }}
+          onClose={() => setAdding(false)}
+        />
+      ) : null}
+
       {open ? (
         <ArrivalSheet
+          /* Keyed by driver: the van number and issues are local drafts, and a
+             different driver has to start from his own, not the last one's. */
+          key={open.id}
           nightKey={nightKey}
           entry={open}
           /* Lateness is measured against the clock, so it stops meaning

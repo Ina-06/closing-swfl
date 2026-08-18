@@ -50,7 +50,13 @@ service cloud.firestore {
     // sheet already written reading exactly as it did before.
     match /drivers/{driverId} {
       allow read: if signedIn();
-      allow create, update, delete: if isDispatcher();
+
+      // Create is open to both roles: a driver can turn up in the yard without
+      // ever having been announced, and the closer has to be able to put a name
+      // to him there and then. Renaming and removing stay with the dispatcher —
+      // that is roster upkeep, not something to do one-handed in the dark.
+      allow create: if signedIn();
+      allow update, delete: if isDispatcher();
     }
 
     match /sessions/{sessionId} {

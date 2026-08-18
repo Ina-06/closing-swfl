@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CheckChips } from "@/components/ui/Checks";
 import { FLAGS, FlagTag } from "@/components/ui/FlagToggle";
 import {
   MetricSelect,
@@ -56,19 +57,21 @@ export function EntriesTable({
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
         {/* Sized to fit a laptop without sideways scrolling. The overflow is a
             fallback for genuinely narrow windows, not the normal case. */}
-        <table className="w-full min-w-[1300px] table-fixed border-collapse text-left">
+        <table className="w-full min-w-[1332px] table-fixed border-collapse text-left">
           <thead>
             <tr className="border-b border-line text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
               <Th className="w-9 text-right">#</Th>
               <Th className="w-44">Name</Th>
               <Th className="w-20">ETA</Th>
-              <Th className="w-52">Returns</Th>
+              <Th className="w-48">Returns</Th>
               <Th className="w-20">Perf</Th>
               <Th className="w-24">Metric</Th>
               <Th className="w-32">Rescues</Th>
               <Th className="w-36">Infractions</Th>
               <Th className="w-40">Note</Th>
-              <Th className="w-28">Clocked out</Th>
+              {/* Everything Karim owns, in one column. Read-only here — the
+                  rules reject a dispatcher write to any of it. */}
+              <Th className="w-40">Yard</Th>
               <Th className="w-20" />
             </tr>
           </thead>
@@ -281,6 +284,8 @@ function EntryRow({
             </span>
           </>
         )}
+
+        <VanReadout entry={entry} />
       </td>
 
       <td className="px-3 py-2 text-right">
@@ -332,6 +337,44 @@ function EntryRow({
         )}
       </td>
     </tr>
+  );
+}
+
+/**
+ * The van, as it lands from Karim's phone.
+ *
+ * Nothing here is editable and nothing here is a placeholder: until he has been
+ * at the van there is genuinely nothing to say, so the row stays quiet rather
+ * than filling up with empty fields.
+ */
+function VanReadout({ entry }: { entry: Entry }) {
+  const checked = entry.cell !== null || entry.key !== null || entry.fuel !== null;
+  if (!entry.van && !entry.vanIssues && !checked) return null;
+
+  return (
+    <span className="mt-1.5 flex flex-col gap-1 border-t border-line pt-1.5">
+      <span className="flex items-center gap-1.5">
+        {entry.van ? (
+          <span className="tnum font-mono text-[13px] font-bold tracking-wide">
+            {entry.van}
+          </span>
+        ) : (
+          <span className="text-[11px] font-medium text-ink-faint">No van</span>
+        )}
+        {checked ? (
+          <CheckChips cell={entry.cell} vanKey={entry.key} fuel={entry.fuel} />
+        ) : null}
+      </span>
+
+      {entry.vanIssues ? (
+        <span
+          title={entry.vanIssues}
+          className="line-clamp-2 text-[11px] leading-snug text-warn"
+        >
+          {entry.vanIssues}
+        </span>
+      ) : null}
+    </span>
   );
 }
 

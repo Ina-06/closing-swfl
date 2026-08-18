@@ -118,6 +118,19 @@ export function DoneCard({
         {entry.fullName}
       </span>
 
+      {/* The van is what tells him this record is finished. Missing is worth
+          seeing from the list, because at End Day it is too late to go and
+          look. */}
+      {entry.van ? (
+        <span className="tnum shrink-0 rounded-md border border-line bg-surface px-1.5 py-0.5 font-mono text-[11px] font-bold text-ink-muted">
+          {entry.van}
+        </span>
+      ) : (
+        <span className="shrink-0 rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
+          No van
+        </span>
+      )}
+
       {entry.notes ? (
         <span className="shrink-0 rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
           Note
