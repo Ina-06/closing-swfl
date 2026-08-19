@@ -85,7 +85,7 @@ export function ArrivalSheet({
   const write = useCallback((action: Promise<void>, whenItFails: string) => {
     setError(null);
     action.catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : whenItFails);
+      setError(describeWriteError(err, whenItFails));
     });
   }, []);
 
@@ -210,12 +210,6 @@ export function ArrivalSheet({
             </p>
           ) : null}
 
-          {error ? (
-            <div className="mt-4">
-              <ErrorNote>{error}</ErrorNote>
-            </div>
-          ) : null}
-
           {/* First, because it is what he reads before he opens his mouth. */}
           <FromDispatch entry={entry} />
 
@@ -300,10 +294,50 @@ export function ArrivalSheet({
               {done ? <ArrowRight /> : null}
             </Button>
           )}
+
+          {/* Pinned to the bottom of the sheet rather than tucked under the
+              header. The writes that fail are the checks and the van number,
+              and by the time he is tapping those the top of the sheet is well
+              off the screen — an explanation up there is an explanation he
+              never sees. */}
+          {error ? (
+            <div className="sticky bottom-2 z-10 mt-4">
+              <ErrorNote>{error}</ErrorNote>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
   );
+}
+
+/**
+ * What to say when a write comes back refused.
+ *
+ * Worth the special case because of how this one fails. The write lands on the
+ * device first, so the control moves — a check goes green, a van number
+ * appears — and only then does the server turn it down and Firestore roll it
+ * back. From where Karim is standing that is not an error, it is a button that
+ * un-presses itself, and no amount of it being technically correct makes that
+ * readable.
+ *
+ * It happens because the rules are the one part of this app that does not ship
+ * with the deploy: publish a version of the phone that knows six checks against
+ * a rule file that knows three and every tap on the new ones bounces. So the
+ * message names that, rather than repeating Firestore's "Missing or
+ * insufficient permissions" at someone holding a phone in a dark yard.
+ */
+function describeWriteError(error: unknown, fallback: string): string {
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String((error as { code: unknown }).code)
+      : "";
+
+  if (code === "permission-denied") {
+    return "The station's security rules turned that down, so it has snapped back. They need publishing again in the Firebase console — nothing is wrong with this phone.";
+  }
+
+  return error instanceof Error ? error.message : fallback;
 }
 
 function ArrowRight() {
