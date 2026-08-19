@@ -93,6 +93,61 @@ export function WaitingCard({
   );
 }
 
+/**
+ * A van standing in the yard, part-way through the handover.
+ *
+ * Its own card because it is its own state: he is not out on the road and he
+ * is not finished, and reading either of those off this row would send Karim
+ * to the wrong place. The ETA is gone — he is here, so it has stopped meaning
+ * anything — and the van number takes its place as the sign of how far in he
+ * has got.
+ */
+export function YardCard({
+  entry,
+  onOpen,
+}: {
+  entry: Entry;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-center gap-3 rounded-xl border border-arrived-line bg-arrived-soft px-3.5 py-3 text-left transition-colors active:brightness-[0.97]"
+    >
+      <span className="w-[68px] shrink-0">
+        <span className="block text-[11px] font-bold uppercase tracking-wider leading-none text-arrived">
+          In the yard
+        </span>
+      </span>
+
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[16px] font-semibold leading-tight">
+          {entry.fullName}
+        </span>
+        <span className="mt-1 flex flex-wrap items-center gap-1">
+          {flagsOn(entry).map((flag) => (
+            <FlagTag key={flag} flag={flag} />
+          ))}
+          {entry.infractions.trim() ? (
+            <span className="rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
+              Infraction
+            </span>
+          ) : null}
+        </span>
+      </span>
+
+      {entry.van ? (
+        <span className="tnum shrink-0 rounded-md border border-line bg-surface px-1.5 py-0.5 font-mono text-[11px] font-bold text-ink-muted">
+          {entry.van}
+        </span>
+      ) : null}
+
+      <Chevron />
+    </button>
+  );
+}
+
 export function DoneCard({
   entry,
   onOpen,
@@ -100,8 +155,8 @@ export function DoneCard({
   entry: Entry;
   onOpen: () => void;
 }) {
-  // Stamped by tapping Arrived, or relayed to the dispatcher over the phone.
-  // Different sources, so they read differently on the card.
+  // Stamped when Karim clocked him out, or relayed to the dispatcher over the
+  // phone. Different sources, so they read differently on the card.
   const stamped = entry.clockOut;
 
   return (

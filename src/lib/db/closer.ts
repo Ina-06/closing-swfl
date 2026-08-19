@@ -9,7 +9,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
-import type { Entry, RosterEntry } from "@/lib/types";
+import type { Entry, EntryChecks, RosterEntry } from "@/lib/types";
 
 /**
  * The closer's writes.
@@ -29,11 +29,13 @@ function entryRef(nightKey: string, entryId: string) {
 }
 
 /**
- * The van pulled in.
+ * The van pulled in and the driver is standing there.
  *
- * The time comes from the server, not the phone. A clock-out settles arguments
- * about whether someone made the cutoff, so it must not be whatever a phone
- * with the wrong time thinks it is.
+ * No time is written here. Arriving and being finished with are two different
+ * moments — Karim still has the fuel, the key, the charger, the phone, the
+ * snack, the lights and whatever is wrong with the van to get through — and
+ * stamping on the first of them would put a clock-out on the record several
+ * minutes before the handover it is supposed to be recording.
  */
 export async function markArrived(
   nightKey: string,
@@ -42,6 +44,25 @@ export async function markArrived(
 ) {
   await updateDoc(entryRef(nightKey, entryId), {
     status: "arrived",
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  });
+}
+
+/**
+ * The handover is done. This is the clock-out.
+ *
+ * The time comes from the server, not the phone. A clock-out settles arguments
+ * about whether someone made the cutoff, so it must not be whatever a phone
+ * with the wrong time thinks it is.
+ */
+export async function clockOut(
+  nightKey: string,
+  entryId: string,
+  updatedBy: string,
+) {
+  await updateDoc(entryRef(nightKey, entryId), {
+    status: "clockedOut",
     clockOut: serverTimestamp(),
     updatedAt: serverTimestamp(),
     updatedBy,
@@ -51,9 +72,9 @@ export async function markArrived(
 /**
  * Correct a stamped time.
  *
- * He tapped Arrived five minutes after the van actually parked, or stamped one
- * driver while meaning another. The corrected value is a real instant built
- * from the station's clock — see stationInstant — never a string.
+ * He clocked the driver out five minutes after they actually finished, or
+ * clocked one out while meaning another. The corrected value is a real instant
+ * built from the station's clock — see stationInstant — never a string.
  */
 export async function correctClockOut(
   nightKey: string,
@@ -62,14 +83,14 @@ export async function correctClockOut(
   updatedBy: string,
 ) {
   await updateDoc(entryRef(nightKey, entryId), {
-    status: "arrived",
+    status: "clockedOut",
     clockOut: Timestamp.fromDate(at),
     updatedAt: serverTimestamp(),
     updatedBy,
   });
 }
 
-/** Stamped the wrong driver. Puts him back on the waiting list, unstamped. */
+/** Wrong driver. Puts him back on the waiting list, unstamped. */
 export async function reopenEntry(
   nightKey: string,
   entryId: string,
@@ -83,9 +104,9 @@ export async function reopenEntry(
   });
 }
 
-/** The van itself — number, issues, and the three handover checks. */
+/** The van itself — number, issues, and the six handover checks. */
 export type YardFields = Partial<
-  Pick<Entry, "van" | "vanIssues" | "cell" | "key" | "fuel">
+  Pick<Entry, "van" | "vanIssues"> & EntryChecks
 >;
 
 /**
@@ -111,9 +132,11 @@ export async function saveYard(
 /**
  * A driver who turned up without being announced.
  *
- * He lands stamped, not waiting. The only way Karim knows to add someone is
+ * He lands arrived, not waiting. The only way Karim knows to add someone is
  * that the van is in front of him, so adding *is* the arrival — making him tap
- * Arrived afterwards would be asking him to confirm something he just did.
+ * Arrived afterwards would be asking him to confirm something he just did. The
+ * clock-out is still his to make at the end of the handover, same as everyone
+ * else's.
  *
  * The dispatcher's half is written empty rather than omitted, so every entry
  * has the same shape however it was born. `addedByCloser` is what marks the row
@@ -152,16 +175,18 @@ export async function addCloserEntry(
     notes: "",
     clockOutManual: "",
 
-    // Stamped by the server, exactly as tapping Arrived would. His sheet opens
-    // straight after this so the time can be corrected if he was standing there
-    // a while before Karim got the phone out.
+    // In the yard, exactly as tapping Arrived would leave him. His sheet opens
+    // straight after this, on the van.
     status: "arrived",
-    clockOut: serverTimestamp(),
+    clockOut: null,
     van: "",
     vanIssues: "",
-    cell: null,
-    key: null,
     fuel: null,
+    key: null,
+    charger: null,
+    mobile: null,
+    snack: null,
+    lights: null,
     addedByCloser: true,
 
     updatedAt: serverTimestamp(),

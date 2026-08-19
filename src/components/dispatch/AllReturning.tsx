@@ -44,7 +44,9 @@ export function AllReturning({
 
   const called = session.status !== "open";
   const withReturns = returnsRows(entries).length;
-  const stillOut = entries.filter((entry) => entry.status !== "arrived").length;
+  const stillOut = entries.filter(
+    (entry) => entry.status !== "clockedOut",
+  ).length;
   const unreadable = unreadableReturns(entries);
 
   async function download() {

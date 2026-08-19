@@ -9,7 +9,7 @@ import {
   RescuesStepper,
 } from "@/components/dispatch/EntryControls";
 import { removeEntry, returnsFields, updateEntry } from "@/lib/db/entries";
-import { stationTimeLabel } from "@/lib/constants";
+import { CHECKS, stationTimeLabel } from "@/lib/constants";
 import { describeReturns, parseReturns } from "@/lib/returns";
 import type { Entry } from "@/lib/types";
 
@@ -134,7 +134,8 @@ function EntryRow({
   }
 
   const parsed = parseReturns(entry.returnsRaw);
-  const arrived = entry.status === "arrived";
+  const done = entry.status === "clockedOut";
+  const inYard = entry.status === "arrived";
   const stamped = entry.clockOut !== null;
 
   return (
@@ -164,10 +165,10 @@ function EntryRow({
       </td>
 
       <td className="px-3 py-2">
-        {arrived ? (
-          /* Once he is clocked out the ETA is meaningless, so it comes off the
-             sheet. The stored value is left alone rather than deleted — clear
-             the clock-out and it is back, exactly as it was typed. */
+        {done || inYard ? (
+          /* Once he is off the road the ETA is meaningless, so it comes off
+             the sheet. The stored value is left alone rather than deleted —
+             put him back on the list and it is there, as it was typed. */
           <span
             className="block px-2 text-[14px] text-ink-faint"
             title={entry.eta ? `ETA was ${entry.eta}` : undefined}
@@ -264,9 +265,14 @@ function EntryRow({
               onCommit={(clockOutManual) =>
                 save({
                   clockOutManual,
-                  // Typing a time here is what marks him done; clearing it puts
-                  // him back on Karim's waiting list.
-                  status: clockOutManual.trim() ? "arrived" : "enroute",
+                  // Typing a time here is what marks him done. Clearing it only
+                  // undoes that — a driver Karim already has at the van stays
+                  // where Karim put him.
+                  status: clockOutManual.trim()
+                    ? "clockedOut"
+                    : done
+                      ? "enroute"
+                      : entry.status,
                 })
               }
               placeholder="—"
@@ -275,12 +281,14 @@ function EntryRow({
             />
             <span
               className={`mt-0.5 inline-block rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${
-                arrived
+                done
                   ? "border-arrived-line bg-arrived-soft text-arrived"
-                  : "border-line bg-sunken text-ink-faint"
+                  : inYard
+                    ? "border-brand-line bg-brand-soft text-brand"
+                    : "border-line bg-sunken text-ink-faint"
               }`}
             >
-              {arrived ? "Clocked out" : "En route"}
+              {done ? "Clocked out" : inYard ? "In the yard" : "En route"}
             </span>
           </>
         )}
@@ -348,7 +356,7 @@ function EntryRow({
  * than filling up with empty fields.
  */
 function VanReadout({ entry }: { entry: Entry }) {
-  const checked = entry.cell !== null || entry.key !== null || entry.fuel !== null;
+  const checked = CHECKS.some((check) => entry[check.field] !== null);
   if (!entry.van && !entry.vanIssues && !checked) return null;
 
   return (
@@ -361,9 +369,7 @@ function VanReadout({ entry }: { entry: Entry }) {
         ) : (
           <span className="text-[11px] font-medium text-ink-faint">No van</span>
         )}
-        {checked ? (
-          <CheckChips cell={entry.cell} vanKey={entry.key} fuel={entry.fuel} />
-        ) : null}
+        {checked ? <CheckChips values={entry} /> : null}
       </span>
 
       {entry.vanIssues ? (

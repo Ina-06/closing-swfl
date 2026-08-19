@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 import type { ReturnsReason } from "@/lib/returns";
-import type { Metric } from "@/lib/constants";
+import type { CheckField, Metric } from "@/lib/constants";
 
 /**
  * A person on the roster. The full name is canonical and is copied onto the
@@ -34,6 +34,16 @@ export type RosterEntry = {
 };
 
 export type SessionStatus = "open" | "allReturning" | "closed";
+
+/**
+ * Where a driver is in the close.
+ *
+ * Three states, not two. `arrived` is the van standing in the yard with Karim
+ * at it, part-way through the handover; `clockedOut` is the handover finished
+ * and the time on the record. Collapsing them meant tapping Arrived stamped a
+ * time before anyone had looked at the van, which is not what happens.
+ */
+export type EntryStatus = "enroute" | "arrived" | "clockedOut";
 
 /**
  * One driver's line on tonight's sheet.
@@ -74,27 +84,38 @@ export type Entry = {
   /**
    * A clock-out the driver reported to the dispatcher, typed by hand.
    *
-   * Separate from `clockOut` on purpose. That one is stamped by the server the
-   * moment Karim taps Arrived; this one is hearsay relayed over the phone, and
-   * the two should never be mistaken for each other.
+   * Separate from `clockOut` on purpose. That one is stamped by the server when
+   * Karim clocks him out at the van; this one is hearsay relayed over the
+   * phone, and the two should never be mistaken for each other.
    */
   clockOutManual: string;
 
   // Closer-owned
   /** Either side may set this — the dispatcher clocks out task drivers early. */
-  status: "enroute" | "arrived";
+  status: EntryStatus;
   clockOut: Timestamp | null;
   van: string;
   vanIssues: string;
-  cell: boolean | null;
-  key: boolean | null;
   fuel: boolean | null;
+  key: boolean | null;
+  charger: boolean | null;
+  mobile: boolean | null;
+  snack: boolean | null;
+  lights: boolean | null;
   /** Turned up without being announced. The dispatcher fills the rest in after. */
   addedByCloser: boolean;
 
   updatedAt: Timestamp | null;
   updatedBy: string;
 };
+
+/**
+ * The six handover checks as stored.
+ *
+ * Keyed off CHECKS, so adding a seventh thing to look at is one line in
+ * constants and a type error everywhere that has to render it.
+ */
+export type EntryChecks = Pick<Entry, CheckField>;
 
 /** The dispatcher's half of an entry — the only fields this role may write. */
 export type EntryDispatchFields = Pick<

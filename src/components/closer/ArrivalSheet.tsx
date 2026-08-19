@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { CHECK_LABELS, CheckCycle, type Check } from "@/components/ui/Checks";
+import { CheckCycle, type Check } from "@/components/ui/Checks";
 import { ErrorNote } from "@/components/ui/Field";
 import { FlagTag } from "@/components/ui/FlagToggle";
 import { flagsOn } from "@/components/closer/DriverCard";
 import {
+  clockOut,
   correctClockOut,
   markArrived,
   reopenEntry,
@@ -14,10 +15,12 @@ import {
   type YardFields,
 } from "@/lib/db/closer";
 import {
+  CHECKS,
   METRICS,
   stationInstant,
   stationTimeInputValue,
   stationTimeLabel,
+  type CheckField,
   type MetricTone,
 } from "@/lib/constants";
 import { lateLabel } from "@/lib/eta";
@@ -26,11 +29,11 @@ import type { Entry } from "@/lib/types";
 /**
  * The sheet behind a card — one driver's whole record.
  *
- * It is ordered by when Karim needs each part. The arrival decision is at the
- * top and is the biggest thing on the screen, because that is what he opened
- * this for. The van, its issues and the three checks come next, because that is
- * what he does while standing at it. What the dispatcher already knows is at
- * the bottom, read-only, because it is reference rather than work.
+ * Ordered the way the conversation goes. What dispatch already knows is at the
+ * top, because Karim reads it before he says a word: three returns and an
+ * infraction is a different hello. Then the arrival, then the van in front of
+ * him, then the clock-out at the bottom, which is the last thing that happens
+ * and the thing that finishes the record.
  */
 export function ArrivalSheet({
   nightKey,
@@ -47,7 +50,6 @@ export function ArrivalSheet({
   onClose: () => void;
 }) {
   const panel = useRef<HTMLDivElement>(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editingTime, setEditingTime] = useState(false);
   const [draft, setDraft] = useState("");
@@ -70,35 +72,35 @@ export function ArrivalSheet({
     };
   }, [onClose]);
 
-  async function run(action: () => Promise<void>) {
-    setBusy(true);
-    setError(null);
-    try {
-      await action();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "That did not save.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   /**
-   * The van fields save themselves as he types, so they never go through `run`
-   * — a spinner on the Arrived button because someone typed a digit into the
-   * van number would be nonsense. Failures surface in the same error line.
+   * Every write on this screen, fired and not waited on.
+   *
+   * Firestore applies the change to the device before it goes anywhere, so the
+   * screen has already moved by the time this returns — and out in the yard on
+   * one bar, awaiting the server would leave him holding a spinner over a van
+   * that is already recorded. A write the rules turn down comes back through
+   * the listener as the card returning to where it was, which is the honest
+   * signal and the only one that survives the sheet being closed.
    */
+  const write = useCallback((action: Promise<void>, whenItFails: string) => {
+    setError(null);
+    action.catch((err: unknown) => {
+      setError(err instanceof Error ? err.message : whenItFails);
+    });
+  }, []);
+
   const writeYard = useCallback(
     (fields: YardFields) => {
-      saveYard(nightKey, entry.id, fields, uid).catch((err: unknown) => {
-        setError(
-          err instanceof Error ? err.message : "The van details did not save.",
-        );
-      });
+      write(
+        saveYard(nightKey, entry.id, fields, uid),
+        "The van details did not save.",
+      );
     },
-    [nightKey, entry.id, uid],
+    [write, nightKey, entry.id, uid],
   );
 
-  const arrived = entry.status === "arrived";
+  const inYard = entry.status === "arrived";
+  const done = entry.status === "clockedOut";
   const stamped = entry.clockOut;
 
   function startEditing() {
@@ -110,21 +112,28 @@ export function ArrivalSheet({
     setEditingTime(true);
   }
 
-  async function saveTime() {
+  function saveTime() {
     const [hours, minutes] = draft.split(":").map(Number);
     if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
       setError("That time did not read as a time.");
       return;
     }
-    await run(async () => {
-      await correctClockOut(
+    write(
+      correctClockOut(
         nightKey,
         entry.id,
         stationInstant(nightKey, hours, minutes),
         uid,
-      );
-      setEditingTime(false);
-    });
+      ),
+      "That time did not save.",
+    );
+    setEditingTime(false);
+  }
+
+  /** The clock-out, and the way out. He is finished with this driver. */
+  function finish() {
+    write(clockOut(nightKey, entry.id, uid), "The clock-out did not save.");
+    onClose();
   }
 
   return (
@@ -207,26 +216,51 @@ export function ArrivalSheet({
             </div>
           ) : null}
 
-          <div className="mt-5 space-y-3">
-            {arrived ? (
-              <ArrivedPanel
+          {/* First, because it is what he reads before he opens his mouth. */}
+          <FromDispatch entry={entry} />
+
+          <div className="mt-6 space-y-3">
+            {done ? (
+              <ClockedOutPanel
                 entry={entry}
-                busy={busy}
                 editing={editingTime}
                 draft={draft}
                 onDraft={setDraft}
                 onStartEditing={startEditing}
                 onCancelEditing={() => setEditingTime(false)}
-                onSave={saveTime}
-                onStamp={() => run(() => markArrived(nightKey, entry.id, uid))}
-                onReopen={() => run(() => reopenEntry(nightKey, entry.id, uid))}
+                onSaveTime={saveTime}
+                onStamp={() =>
+                  write(
+                    clockOut(nightKey, entry.id, uid),
+                    "The clock-out did not save.",
+                  )
+                }
+                onReopen={() =>
+                  write(
+                    reopenEntry(nightKey, entry.id, uid),
+                    "That did not go through.",
+                  )
+                }
+              />
+            ) : inYard ? (
+              <InYardPanel
+                onReopen={() =>
+                  write(
+                    reopenEntry(nightKey, entry.id, uid),
+                    "That did not go through.",
+                  )
+                }
               />
             ) : (
               <Button
                 variant="arrived"
                 size="lg"
-                loading={busy}
-                onClick={() => run(() => markArrived(nightKey, entry.id, uid))}
+                onClick={() =>
+                  write(
+                    markArrived(nightKey, entry.id, uid),
+                    "That did not go through.",
+                  )
+                }
                 className="min-h-14 w-full text-[17px]"
               >
                 Arrived
@@ -234,41 +268,92 @@ export function ArrivalSheet({
             )}
           </div>
 
-          {/* Only once he is in. Karim records the van with it in front of him,
-              so on a driver still out these fields are five controls he cannot
-              use standing between him and the one he can. */}
-          {arrived ? <VanPanel entry={entry} onSave={writeYard} /> : null}
+          {/* Only once he is in. On a driver still out these are eight controls
+              he cannot use standing between him and the one he can. */}
+          {inYard || done ? (
+            <VanPanel entry={entry} onSave={writeYard} />
+          ) : null}
 
-          <FromDispatch entry={entry} />
-
-          {/* There is nothing to submit — the van fields saved themselves as he
-              typed. This is the way out, and the line under it is there so he
-              knows he is not walking away from unsaved work. */}
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={onClose}
-            className="mt-6 min-h-14 w-full text-[16px]"
-          >
-            Done
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="size-5"
-              aria-hidden="true"
+          {inYard ? (
+            <>
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={finish}
+                className="mt-6 min-h-14 w-full text-[16px]"
+              >
+                Clock out
+                <ArrowRight />
+              </Button>
+              <p className="mt-2 text-center text-[12px] text-ink-faint">
+                Stamps the time and takes you back to the list.
+              </p>
+            </>
+          ) : (
+            <Button
+              variant={done ? "primary" : "secondary"}
+              size="lg"
+              onClick={onClose}
+              className="mt-6 min-h-14 w-full text-[16px]"
             >
-              <path d="M5 12h13M13 6l6 6-6 6" />
-            </svg>
-          </Button>
-          <p className="mt-2 text-center text-[12px] text-ink-faint">
-            The van details save as soon as you leave the box.
-          </p>
+              {done ? "Done" : "Close"}
+              {done ? <ArrowRight /> : null}
+            </Button>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ArrowRight() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-5"
+      aria-hidden="true"
+    >
+      <path d="M5 12h13M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+/**
+ * He is here, and Karim is part-way through the handover.
+ *
+ * Deliberately small. The work is underneath it and the clock-out is at the
+ * bottom; this is only here so a driver in this state never looks the same as
+ * one still out on the road.
+ */
+function InYardPanel({ onReopen }: { onReopen: () => void }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-arrived-line bg-arrived-soft px-3.5 py-3">
+      <span
+        aria-hidden="true"
+        className="grid size-8 shrink-0 place-items-center rounded-full bg-arrived text-[16px] font-bold text-ink-inverse"
+      >
+        ✓
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-bold leading-tight text-arrived">
+          In the yard
+        </span>
+        <span className="mt-0.5 block text-[12px] leading-snug text-arrived/80">
+          Go through the van, then clock him out.
+        </span>
+      </span>
+      <button
+        type="button"
+        onClick={onReopen}
+        className="min-h-11 shrink-0 rounded-lg px-2.5 text-[13px] font-semibold text-arrived/90 active:bg-arrived-soft"
+      >
+        Undo
+      </button>
     </div>
   );
 }
@@ -277,7 +362,7 @@ export function ArrivalSheet({
  * What Karim fills in at the van.
  *
  * Nothing here has a Save button. A field writes itself the moment he is done
- * with it — Enter, a tap elsewhere, or closing the sheet — so there is no state
+ * with it — Enter, a tap elsewhere, or leaving the sheet — so there is no state
  * in which what is on the screen is not on its way to the database, and nothing
  * commits while he is still mid-number.
  */
@@ -292,12 +377,6 @@ function VanPanel({
   const issues = useSavedField(entry.vanIssues, (value) =>
     onSave({ vanIssues: value.trim() }),
   );
-
-  const checks: [string, Check, (next: Check) => void][] = [
-    [CHECK_LABELS[0], entry.cell, (cell) => onSave({ cell })],
-    [CHECK_LABELS[1], entry.key, (key) => onSave({ key })],
-    [CHECK_LABELS[2], entry.fuel, (fuel) => onSave({ fuel })],
-  ];
 
   return (
     <section className="mt-6">
@@ -331,9 +410,16 @@ function VanPanel({
         className="tnum mt-2 w-full rounded-xl border border-line-strong bg-surface px-4 py-3.5 text-center font-mono text-[26px] font-bold tracking-wide text-ink outline-none transition-colors placeholder:text-[17px] placeholder:font-sans placeholder:font-medium placeholder:tracking-normal placeholder:text-ink-faint focus:border-brand"
       />
 
-      <div className="mt-2.5 flex gap-2">
-        {checks.map(([label, value, set]) => (
-          <CheckCycle key={label} label={label} value={value} onChange={set} />
+      {/* Two rows of three, in the order he walks them. Six across would put
+          the last one past the reach of a thumb on the hand holding the phone. */}
+      <div className="mt-2.5 grid grid-cols-3 gap-2">
+        {CHECKS.map((check) => (
+          <CheckCycle
+            key={check.field}
+            label={check.label}
+            value={entry[check.field]}
+            onChange={(value) => onSave(checkPatch(check.field, value))}
+          />
         ))}
       </div>
 
@@ -356,6 +442,13 @@ function VanPanel({
   );
 }
 
+/** One check as a write. Built by assignment so the key stays typed. */
+function checkPatch(field: CheckField, value: Check): YardFields {
+  const patch: YardFields = {};
+  patch[field] = value;
+  return patch;
+}
+
 /**
  * The dispatcher's half, read-only.
  *
@@ -376,7 +469,7 @@ function FromDispatch({ entry }: { entry: Entry }) {
     !metric;
 
   return (
-    <section className="mt-6">
+    <section className="mt-5">
       <SectionTitle>From dispatch</SectionTitle>
 
       {blank ? (
@@ -517,7 +610,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
  * for a van number: he is reading digits off the side of a van and glancing
  * back at the phone, and a field that commits itself mid-pause feels like it
  * has been taken off him. Now nothing happens until he leaves the box — Enter,
- * a tap somewhere else, or Done.
+ * a tap somewhere else, or the clock-out.
  *
  * The unmount flush is what keeps "never lose typed text" true anyway: if the
  * sheet is dismissed with a half-typed number in the field, that number is
@@ -553,32 +646,30 @@ function useSavedField(initial: string, save: (next: string) => void) {
 }
 
 /**
- * What the sheet becomes once he is in.
+ * What the sheet becomes once he is clocked out.
  *
  * The time is a button because it is the thing most likely to be wrong — the
- * van parked while Karim was walking the yard and he stamped it four minutes
+ * handover ran on while Karim was pulled away and he tapped it four minutes
  * later. Correcting it should not need a menu.
  */
-function ArrivedPanel({
+function ClockedOutPanel({
   entry,
-  busy,
   editing,
   draft,
   onDraft,
   onStartEditing,
   onCancelEditing,
-  onSave,
+  onSaveTime,
   onStamp,
   onReopen,
 }: {
   entry: Entry;
-  busy: boolean;
   editing: boolean;
   draft: string;
   onDraft: (next: string) => void;
   onStartEditing: () => void;
   onCancelEditing: () => void;
-  onSave: () => void;
+  onSaveTime: () => void;
   onStamp: () => void;
   onReopen: () => void;
 }) {
@@ -604,8 +695,7 @@ function ArrivedPanel({
           <Button
             variant="arrived"
             size="lg"
-            loading={busy}
-            onClick={onSave}
+            onClick={onSaveTime}
             className="min-h-12 flex-1"
           >
             Save time
@@ -613,7 +703,6 @@ function ArrivedPanel({
           <Button
             variant="secondary"
             size="lg"
-            disabled={busy}
             onClick={onCancelEditing}
             className="min-h-12"
           >
@@ -630,7 +719,6 @@ function ArrivedPanel({
         <button
           type="button"
           onClick={onStartEditing}
-          disabled={busy}
           className="block w-full rounded-xl border border-arrived-line bg-arrived-soft px-4 py-4 text-center"
         >
           <span className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-arrived">
@@ -663,18 +751,16 @@ function ArrivedPanel({
         <Button
           variant="arrived"
           size="lg"
-          loading={busy}
           onClick={onStamp}
           className="min-h-14 w-full text-[17px]"
         >
-          Stamp arrival now
+          Stamp the time here
         </Button>
       )}
 
       <Button
         variant="ghost"
         size="lg"
-        disabled={busy}
         onClick={onReopen}
         className="min-h-12 w-full"
       >

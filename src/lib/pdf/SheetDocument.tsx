@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from "@react-pdf/renderer";
-import { STATION_CODE, stationDateLabel } from "@/lib/constants";
+import { CHECKS, STATION_CODE, stationDateLabel } from "@/lib/constants";
 import type { Mark, SheetRow } from "@/lib/sheet";
 
 /**
@@ -18,22 +18,20 @@ import type { Mark, SheetRow } from "@/lib/sheet";
  * trying to look like the app. It is trying to look like the grid Karim has
  * been drawing by hand, so nobody reading it has to learn anything.
  *
- * Landscape, because eleven columns on a portrait page means either a name
- * column too narrow for a full name or a van issues column too narrow for a
- * sentence, and both of those are the point.
+ * Landscape, because the six handover checks each need a column wide enough to
+ * carry their own name — a sheet where you have to remember what the fourth
+ * tick means is a sheet that gets read wrong at midnight.
  */
 
 /** Column widths, in percent of the printable width. They sum to 100. */
 const COLUMNS = {
   number: 4,
-  name: 17,
-  time: 8,
+  name: 19,
+  time: 7.5,
   van: 7,
-  check: 4,
-  infractions: 14,
-  returns: 4,
-  rescues: 4,
-  vanIssues: 30,
+  /** Six of these. 5.5% of the printable width is ~41pt, which fits "CHARGER". */
+  check: 5.5,
+  vanIssues: 29.5,
 } as const;
 
 const INK = "#101820";
@@ -86,6 +84,9 @@ const styles = StyleSheet.create({
     borderRightWidth: 0.5,
     borderRightColor: LINE,
   },
+  /* The check headings are the longest words in the narrowest columns, so they
+     give up the letter-spacing and half a point of size to stay on one line. */
+  checkHead: { fontSize: 6.5, letterSpacing: 0, paddingHorizontal: 1 },
   cell: {
     paddingVertical: 3.5,
     paddingHorizontal: 3,
@@ -108,7 +109,7 @@ const styles = StyleSheet.create({
 });
 
 /**
- * The three handover checks.
+ * One handover check.
  *
  * Drawn rather than typed. The standard PDF fonts have no tick or cross in
  * them, so a literal "✓" comes out as a blank box on some readers and nothing
@@ -118,7 +119,10 @@ function CheckMark({ value }: { value: Mark }) {
   if (value === "") return <Text style={styles.centre}> </Text>;
 
   return (
-    <Svg viewBox="0 0 10 10" style={{ width: 7, height: 7, marginLeft: "auto", marginRight: "auto" }}>
+    <Svg
+      viewBox="0 0 10 10"
+      style={{ width: 7, height: 7, marginLeft: "auto", marginRight: "auto" }}
+    >
       {value === "yes" ? (
         <Path
           d="M1.2 5.2 L3.9 8 L8.8 1.8"
@@ -141,9 +145,21 @@ function CheckMark({ value }: { value: Mark }) {
   );
 }
 
-function Head({ label, width, centre }: { label: string; width: number; centre?: boolean }) {
+function Head({
+  label,
+  width,
+  centre,
+  tight,
+}: {
+  label: string;
+  width: number;
+  centre?: boolean;
+  tight?: boolean;
+}) {
   return (
-    <View style={[styles.headCell, { width: `${width}%` }]}>
+    <View
+      style={[styles.headCell, tight ? styles.checkHead : {}, { width: `${width}%` }]}
+    >
       <Text style={centre ? styles.centre : undefined}>{label}</Text>
     </View>
   );
@@ -188,12 +204,15 @@ export function SheetDocument({
             <Head label="NAME" width={COLUMNS.name} />
             <Head label="TIME" width={COLUMNS.time} centre />
             <Head label="VAN" width={COLUMNS.van} centre />
-            <Head label="CELL" width={COLUMNS.check} centre />
-            <Head label="KEY" width={COLUMNS.check} centre />
-            <Head label="FUEL" width={COLUMNS.check} centre />
-            <Head label="INFRA" width={COLUMNS.infractions} />
-            <Head label="RTR" width={COLUMNS.returns} centre />
-            <Head label="RES" width={COLUMNS.rescues} centre />
+            {CHECKS.map((check) => (
+              <Head
+                key={check.field}
+                label={check.label.toUpperCase()}
+                width={COLUMNS.check}
+                centre
+                tight
+              />
+            ))}
             <Head label="VAN ISSUES" width={COLUMNS.vanIssues} />
           </View>
 
@@ -211,24 +230,14 @@ export function SheetDocument({
               <View style={[styles.cell, { width: `${COLUMNS.van}%` }]}>
                 <Text style={styles.centre}>{row.van}</Text>
               </View>
-              <View style={[styles.cell, { width: `${COLUMNS.check}%` }]}>
-                <CheckMark value={row.cell} />
-              </View>
-              <View style={[styles.cell, { width: `${COLUMNS.check}%` }]}>
-                <CheckMark value={row.key} />
-              </View>
-              <View style={[styles.cell, { width: `${COLUMNS.check}%` }]}>
-                <CheckMark value={row.fuel} />
-              </View>
-              <View style={[styles.cell, { width: `${COLUMNS.infractions}%` }]}>
-                <Text>{row.infractions}</Text>
-              </View>
-              <View style={[styles.cell, { width: `${COLUMNS.returns}%` }]}>
-                <Text style={styles.centre}>{row.returns}</Text>
-              </View>
-              <View style={[styles.cell, { width: `${COLUMNS.rescues}%` }]}>
-                <Text style={styles.centre}>{row.rescues}</Text>
-              </View>
+              {CHECKS.map((check) => (
+                <View
+                  key={check.field}
+                  style={[styles.cell, { width: `${COLUMNS.check}%` }]}
+                >
+                  <CheckMark value={row.checks[check.field]} />
+                </View>
+              ))}
               <View style={[styles.cell, { width: `${COLUMNS.vanIssues}%` }]}>
                 <Text>{row.vanIssues}</Text>
               </View>

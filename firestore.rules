@@ -100,8 +100,8 @@ service cloud.firestore {
         //
         // `status` and `clockOutManual` are here as well as on the closer's
         // list: task drivers and BUDs often report their own clock-out over
-        // the phone, and the dispatcher marks them done from their end. The
-        // stamped `clockOut` timestamp stays closer-only — that one is
+        // the phone, and the dispatcher marks them clocked out from their end.
+        // The stamped `clockOut` timestamp stays closer-only — that one is
         // evidence, not hearsay.
         function dispatcherFields() {
           return changedKeys().hasOnly([
@@ -113,12 +113,14 @@ service cloud.firestore {
           ]);
         }
 
-        // What happened when the van pulled in.
+        // What happened when the van pulled in. `cell` is the old name for
+        // `mobile`, kept in the list so a night written before the checks grew
+        // to six can still be corrected.
         function closerFields() {
           return changedKeys().hasOnly([
             'status', 'clockOut', 'van', 'vanIssues',
-            'cell', 'key', 'fuel', 'addedByCloser',
-            'updatedAt', 'updatedBy'
+            'fuel', 'key', 'charger', 'mobile', 'snack', 'lights', 'cell',
+            'addedByCloser', 'updatedAt', 'updatedBy'
           ]);
         }
 

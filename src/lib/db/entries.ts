@@ -33,8 +33,23 @@ function entriesCollection(nightKey: string) {
  * Every field gets a default so a half-applied update can never crash a screen
  * mid-wave.
  */
+/**
+ * Which of the three states this entry is in.
+ *
+ * Nights written before the split stored one `arrived` for both being in the
+ * yard and being finished with, and the stamp is what tells those apart — a
+ * driver with a clock-out on him was always done. New writes say `clockedOut`
+ * outright, so this only ever fires on history.
+ */
+function readStatus(data: DocumentData): Entry["status"] {
+  if (data.status === "clockedOut") return "clockedOut";
+  if (data.status === "arrived") return data.clockOut ? "clockedOut" : "arrived";
+  return "enroute";
+}
+
 function toEntry(data: DocumentData, id: string): Entry {
   const string = (value: unknown) => (typeof value === "string" ? value : "");
+  const check = (value: unknown) => (typeof value === "boolean" ? value : null);
 
   return {
     id,
@@ -65,13 +80,17 @@ function toEntry(data: DocumentData, id: string): Entry {
     notes: string(data.notes),
     clockOutManual: string(data.clockOutManual),
 
-    status: data.status === "arrived" ? "arrived" : "enroute",
+    status: readStatus(data),
     clockOut: data.clockOut ?? null,
     van: string(data.van),
     vanIssues: string(data.vanIssues),
-    cell: typeof data.cell === "boolean" ? data.cell : null,
-    key: typeof data.key === "boolean" ? data.key : null,
-    fuel: typeof data.fuel === "boolean" ? data.fuel : null,
+    fuel: check(data.fuel),
+    key: check(data.key),
+    charger: check(data.charger),
+    // Was `cell` when the list was three long. Old sheets keep reading right.
+    mobile: check(data.mobile ?? data.cell),
+    snack: check(data.snack),
+    lights: check(data.lights),
     addedByCloser: data.addedByCloser === true,
 
     updatedAt: data.updatedAt ?? null,
@@ -186,14 +205,17 @@ export async function addEntry(
 
     // The closer's half, initialised so their list has something to sort and
     // render before anyone has arrived. A driver the dispatcher already clocked
-    // out arrives here as 'arrived' — Karim sees him done, not waiting.
+    // out arrives here as 'clockedOut' — Karim sees him done, not waiting.
     status: input.status,
     clockOut: null,
     van: "",
     vanIssues: "",
-    cell: null,
-    key: null,
     fuel: null,
+    key: null,
+    charger: null,
+    mobile: null,
+    snack: null,
+    lights: null,
     addedByCloser: false,
 
     updatedAt: serverTimestamp(),

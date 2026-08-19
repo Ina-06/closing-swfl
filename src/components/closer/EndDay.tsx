@@ -25,15 +25,18 @@ export function EndDay({
   nightKey,
   session,
   entries,
-  waiting,
+  outstanding,
   pending,
   uid,
 }: {
   nightKey: string;
   session: Session;
   entries: Entry[];
-  /** Drivers on the sheet not yet clocked out. Any at all hides this whole panel. */
-  waiting: number;
+  /**
+   * Drivers on the sheet not yet clocked out, whether they are still on the
+   * road or standing at the van. Any at all hides this whole panel.
+   */
+  outstanding: number;
   /** On the roster but never entered by dispatch — a note, not a blocker. */
   pending: number;
   uid: string;
@@ -47,7 +50,7 @@ export function EndDay({
 
   const closed = session.status === "closed";
   const filename = `closing-${nightKey}.pdf`;
-  const everyoneIn = waiting === 0 && entries.length > 0;
+  const everyoneIn = outstanding === 0 && entries.length > 0;
 
   async function build(): Promise<Blob> {
     const response = await postAuthed("/api/sheet", { nightKey });
@@ -135,10 +138,10 @@ export function EndDay({
   /**
    * Nothing to show yet.
    *
-   * A closer with vans still out has no decision to make here, so he is not
-   * given one — the counter at the top of his screen is already telling him
-   * what is left, and a disabled button underneath it would only be a second
-   * way of saying the same thing.
+   * A closer with a van still out, or one still open in front of him, has no
+   * decision to make here, so he is not given one — the counter at the top of
+   * his screen is already telling him what is left, and a disabled button
+   * underneath it would only be a second way of saying the same thing.
    */
   if (!everyoneIn) return null;
 

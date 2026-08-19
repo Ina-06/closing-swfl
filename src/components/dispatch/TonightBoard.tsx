@@ -43,7 +43,9 @@ export function TonightBoard({
   );
 
   const waiting = session.roster.filter((row) => !enteredIds.has(row.driverId));
-  const arrived = entries.filter((entry) => entry.status === "arrived").length;
+  const arrived = entries.filter(
+    (entry) => entry.status === "clockedOut",
+  ).length;
 
   return (
     <div className="space-y-5">

@@ -36,6 +36,25 @@ export const METRICS = [
 export type Metric = (typeof METRICS)[number]["value"];
 export type MetricTone = (typeof METRICS)[number]["tone"];
 
+/**
+ * The handover checks, in the order Karim walks them at the van.
+ *
+ * Defined once, here, because three different things render this list — his
+ * phone, the dispatcher's table and the PDF — and an order that drifts between
+ * them is an order nobody can trust. `letter` is what the dispatcher's table
+ * shows for a check nobody has made yet, where the full word will not fit.
+ */
+export const CHECKS = [
+  { field: "fuel", label: "Fuel", letter: "F" },
+  { field: "key", label: "Key", letter: "K" },
+  { field: "charger", label: "Charger", letter: "C" },
+  { field: "mobile", label: "Mobile", letter: "M" },
+  { field: "snack", label: "Snack", letter: "S" },
+  { field: "lights", label: "Lights", letter: "L" },
+] as const;
+
+export type CheckField = (typeof CHECKS)[number]["field"];
+
 /** Roles a session can be signed in under. */
 export const ROLES = ["dispatcher", "closer", "onetime"] as const;
 export type Role = (typeof ROLES)[number];

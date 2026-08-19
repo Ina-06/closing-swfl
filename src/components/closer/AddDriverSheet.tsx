@@ -13,8 +13,9 @@ import type { Entry, RosterEntry, Session } from "@/lib/types";
  *
  * It happens most nights — someone swaps a route, or the dispatcher was on the
  * other line when he called. The van is already in the yard, which is the only
- * reason Karim knows to add him, so picking a name stamps the clock-out there
- * and then and drops him straight into his sheet to record the van.
+ * reason Karim knows to add him, so picking a name puts him straight in the
+ * yard and opens his sheet on the van. The clock-out is at the bottom of it,
+ * exactly where it is for everyone else.
  *
  * A phone list rather than the dispatcher's combobox on purpose. There is no
  * keyboard to arrow through with, and every row here is a real tap target.
@@ -181,8 +182,8 @@ export function AddDriverSheet({
                 Add a driver
               </h2>
               <p className="mt-1 text-[13px] text-ink-muted">
-                Someone dispatch hasn&rsquo;t entered. Picking a name clocks him
-                out now.
+                Someone dispatch hasn&rsquo;t entered. Picking a name puts him
+                in the yard and opens his van.
               </p>
             </div>
 

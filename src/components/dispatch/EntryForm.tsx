@@ -161,7 +161,7 @@ export function EntryForm({
           notes: form.notes.trim(),
           rescues: form.rescues,
           clockOutManual: done ? form.clockOutManual.trim() : "",
-          status: done ? "arrived" : "enroute",
+          status: done ? "clockedOut" : "enroute",
           ...returnsFields(parsed),
         },
         uid,

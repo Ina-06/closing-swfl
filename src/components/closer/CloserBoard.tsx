@@ -5,7 +5,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import { AddDriverSheet } from "@/components/closer/AddDriverSheet";
 import { AllReturningBanner } from "@/components/closer/AllReturningBanner";
 import { ArrivalSheet } from "@/components/closer/ArrivalSheet";
-import { DoneCard, WaitingCard } from "@/components/closer/DriverCard";
+import { DoneCard, WaitingCard, YardCard } from "@/components/closer/DriverCard";
 import { EndDay } from "@/components/closer/EndDay";
 import { ErrorNote } from "@/components/ui/Field";
 import { FlagTag } from "@/components/ui/FlagToggle";
@@ -95,20 +95,26 @@ export function CloserBoard({
   const [adding, setAdding] = useState(false);
   const now = useStationClock();
 
-  const { waiting, done } = useMemo(() => {
+  const { waiting, inYard, done } = useMemo(() => {
     const compare = sort === "name" ? byName : byEta;
 
     return {
       // Nothing to sort an arrival by until he has one, so the waiting list
       // stays on ETA when that chip is picked.
       waiting: entries
-        .filter((entry) => entry.status !== "arrived")
+        .filter((entry) => entry.status === "enroute")
+        .sort(compare),
+      inYard: entries
+        .filter((entry) => entry.status === "arrived")
         .sort(compare),
       done: entries
-        .filter((entry) => entry.status === "arrived")
+        .filter((entry) => entry.status === "clockedOut")
         .sort(sort === "arrival" ? byArrival : compare),
     };
   }, [entries, sort]);
+
+  /** Anyone whose night is not finished — out on the road or stood at the van. */
+  const outstanding = waiting.length + inYard.length;
 
   /**
    * On the roster, but dispatch has not heard from him yet.
@@ -142,17 +148,21 @@ export function CloserBoard({
             {done.length}
             <span className="text-ink-faint">/{total}</span>
             <span className="ml-2 font-sans text-[13px] font-semibold tracking-normal text-ink-muted">
-              arrived
+              clocked out
             </span>
           </p>
 
           <div className="flex items-center gap-2.5">
             {/* Whichever number is the reason the night is not over. Falling
-                back to the roster matters: with everyone on the sheet already
+                back down the list matters: with everyone on the sheet already
                 in, "0 still out" beside "5/6" reads like a broken counter. */}
             {waiting.length > 0 ? (
               <p className="text-[12px] font-semibold text-ink-muted">
                 {waiting.length} still out
+              </p>
+            ) : inYard.length > 0 ? (
+              <p className="text-[12px] font-semibold text-arrived">
+                {inYard.length} in the yard
               </p>
             ) : pending.length > 0 ? (
               <p className="text-[12px] font-semibold text-ink-muted">
@@ -248,6 +258,23 @@ export function CloserBoard({
             </ul>
           )}
 
+          {/* Between the two lists because that is where these drivers are:
+              off the road, not yet finished with. */}
+          {inYard.length > 0 ? (
+            <section className="space-y-2 pt-2">
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-arrived">
+                In the yard · {inYard.length}
+              </h2>
+              <ul className="space-y-2">
+                {inYard.map((entry) => (
+                  <li key={entry.id}>
+                    <YardCard entry={entry} onOpen={() => setOpenId(entry.id)} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           {done.length > 0 ? (
             <section className="space-y-2 pt-2">
               <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
@@ -295,7 +322,7 @@ export function CloserBoard({
         nightKey={nightKey}
         session={session}
         entries={entries}
-        waiting={waiting.length}
+        outstanding={outstanding}
         pending={pending.length}
         uid={uid}
       />
@@ -317,9 +344,9 @@ export function CloserBoard({
           uid={uid}
           onAdded={(entryId) => {
             setAdding(false);
-            // He is already stamped, so this opens on the arrived sheet — the
-            // van number and checks are the next thing, and the time is there
-            // to correct if it needs it.
+            // He is already in the yard, so this opens straight onto the van —
+            // the number and the checks are the next thing, and the clock-out
+            // is at the bottom where it is for everyone else.
             setOpenId(entryId);
           }}
           onClose={() => setAdding(false)}
@@ -336,7 +363,7 @@ export function CloserBoard({
           /* Lateness is measured against the clock, so it stops meaning
              anything the moment he is in — an hour later it would be counting
              up on a driver who parked early. */
-          late={open.status === "arrived" ? null : minutesLate(open.eta, now)}
+          late={open.status === "enroute" ? minutesLate(open.eta, now) : null}
           uid={uid}
           onClose={() => setOpenId(null)}
         />

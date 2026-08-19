@@ -1,5 +1,4 @@
-import { stationTimeLabel } from "@/lib/constants";
-import { parseReturns } from "@/lib/returns";
+import { CHECKS, stationTimeLabel, type CheckField } from "@/lib/constants";
 import type { Entry } from "@/lib/types";
 
 /**
@@ -15,21 +14,26 @@ export type SheetRow = {
   name: string;
   time: string;
   van: string;
-  /** "yes", "no", or "" for a check nobody made. */
-  cell: Mark;
-  key: Mark;
-  fuel: Mark;
-  infractions: string;
-  returns: string;
-  rescues: string;
+  /** Keyed off CHECKS, so the sheet cannot fall out of order with the phone. */
+  checks: Record<CheckField, Mark>;
   vanIssues: string;
 };
 
 export type Mark = "yes" | "no" | "";
 
+/**
+ * Only a real `true` or `false` puts a glyph in the box.
+ *
+ * Written the strict way round because this is fed straight from Firestore on
+ * the server, without the client's defaulting. A night recorded before a check
+ * existed has no field for it at all, and the loose test would have printed a
+ * red cross against every one of them — the sheet claiming something was
+ * missing that nobody was ever asked to look for.
+ */
 function mark(value: boolean | null): Mark {
-  if (value === null) return "";
-  return value ? "yes" : "no";
+  if (value === true) return "yes";
+  if (value === false) return "no";
+  return "";
 }
 
 /**
@@ -46,12 +50,8 @@ function timeLabel(entry: Entry): string {
 
 export function sheetRows(entries: Entry[]): SheetRow[] {
   return entries.map((entry, index) => {
-    const parsed = parseReturns(entry.returnsRaw);
-    const summed = parsed.reasons.reduce(
-      (running, reason) => running + reason.count,
-      0,
-    );
-    const returns = parsed.count ?? (parsed.reasons.length ? summed : null);
+    const checks = {} as Record<CheckField, Mark>;
+    for (const check of CHECKS) checks[check.field] = mark(entry[check.field]);
 
     return {
       // Position, not the stored seq — the same numbering the dispatcher's
@@ -60,21 +60,8 @@ export function sheetRows(entries: Entry[]): SheetRow[] {
       name: entry.fullName,
       time: timeLabel(entry),
       van: entry.van.trim(),
-      cell: mark(entry.cell),
-      key: mark(entry.key),
-      fuel: mark(entry.fuel),
-      infractions: entry.infractions.trim(),
-      // Just the number. The reasons are the spreadsheet's job; this column is
-      // two characters wide on the paper sheet and always has been.
-      returns: returns === null ? "" : String(returns),
-      // Signed, and blank at zero: a column of noughts is a column nobody
-      // reads, and the ones that matter should stand out of an empty column.
-      rescues: entry.rescues === 0 ? "" : formatSigned(entry.rescues),
+      checks,
       vanIssues: entry.vanIssues.trim(),
     };
   });
-}
-
-function formatSigned(value: number): string {
-  return value > 0 ? `+${value}` : String(value);
 }
