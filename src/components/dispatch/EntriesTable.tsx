@@ -57,7 +57,7 @@ export function EntriesTable({
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
         {/* Sized to fit a laptop without sideways scrolling. The overflow is a
             fallback for genuinely narrow windows, not the normal case. */}
-        <table className="w-full min-w-[1332px] table-fixed border-collapse text-left">
+        <table className="w-full min-w-[1348px] table-fixed border-collapse text-left">
           <thead>
             <tr className="border-b border-line text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
               <Th className="w-9 text-right">#</Th>
@@ -70,8 +70,10 @@ export function EntriesTable({
               <Th className="w-36">Infractions</Th>
               <Th className="w-40">Note</Th>
               {/* Everything Karim owns, in one column. Read-only here — the
-                  rules reject a dispatcher write to any of it. */}
-              <Th className="w-40">Yard</Th>
+                  rules reject a dispatcher write to any of it. Wide enough for
+                  all six checks on one line; wrapping them would break the
+                  order they are read in. */}
+              <Th className="w-44">Yard</Th>
               <Th className="w-20" />
             </tr>
           </thead>
@@ -92,6 +94,15 @@ export function EntriesTable({
           </tbody>
         </table>
       </div>
+
+      {/* The Yard letters, decoded once, here rather than in every row. Hover
+          gives the same thing per box, but that is no use to someone scanning
+          the column for a gap. */}
+      <p className="px-1 text-[11px] text-ink-faint">
+        <span className="font-semibold uppercase tracking-[0.1em]">Yard</span>{" "}
+        {CHECKS.map((check) => check.label).join(" · ")} — a letter means Karim
+        has not checked it yet.
+      </p>
     </div>
   );
 }
@@ -356,21 +367,37 @@ function EntryRow({
  * than filling up with empty fields.
  */
 function VanReadout({ entry }: { entry: Entry }) {
-  const checked = CHECKS.some((check) => entry[check.field] !== null);
-  if (!entry.van && !entry.vanIssues && !checked) return null;
+  /**
+   * Whether Karim has actually had this driver in front of him.
+   *
+   * A stamp or a driver still at the van both mean yes. A clock-out typed on
+   * this side does not — that one is a task driver who phoned his time in, and
+   * six empty boxes against him would be describing a handover that never
+   * happened.
+   */
+  const withKarim = entry.status === "arrived" || entry.clockOut !== null;
+  const anything =
+    entry.van !== "" ||
+    entry.vanIssues !== "" ||
+    CHECKS.some((check) => entry[check.field] !== null);
+
+  if (!withKarim && !anything) return null;
 
   return (
-    <span className="mt-1.5 flex flex-col gap-1 border-t border-line pt-1.5">
-      <span className="flex items-center gap-1.5">
-        {entry.van ? (
-          <span className="tnum font-mono text-[13px] font-bold tracking-wide">
-            {entry.van}
-          </span>
-        ) : (
-          <span className="text-[11px] font-medium text-ink-faint">No van</span>
-        )}
-        {checked ? <CheckChips values={entry} /> : null}
-      </span>
+    <span className="mt-1.5 flex flex-col gap-1.5 border-t border-line pt-1.5">
+      {entry.van ? (
+        <span className="tnum font-mono text-[13px] font-bold tracking-wide">
+          {entry.van}
+        </span>
+      ) : (
+        <span className="text-[11px] font-medium text-ink-faint">No van</span>
+      )}
+
+      {/* All six, always, in the order they are on his phone. One he has not
+          looked at yet shows its letter rather than a tick or a cross — the
+          gap is the thing worth seeing from this side, and it disappears if
+          the boxes only turn up once they have been filled in. */}
+      <CheckChips values={entry} />
 
       {entry.vanIssues ? (
         <span
