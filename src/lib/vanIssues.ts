@@ -1,61 +1,46 @@
-import { CHECKS, type CheckField } from "@/lib/constants";
-import type { Entry, EntryChecks } from "@/lib/types";
-
 /**
- * A missing item, said the way Karim would say it.
+ * The sentence a dry van writes into the van issues box.
  *
- * Lowercase because they are joined into one sentence and only the first is
- * capitalised — "No fuel, no charger" is a sentence, "No fuel, No charger" is
- * two labels with a comma between them.
+ * Fuel and nothing else. It is the one check whose answer is somebody else's
+ * problem tomorrow morning — the van issues column is what gets read off the
+ * sheet, and a van that came back empty has to be in it. A missing snack or
+ * charger is a handover detail that already has its own box on the sheet, and
+ * repeating it in prose would only make the column longer and less read.
  */
-const MISSING_NOTE: Record<CheckField, string> = {
-  fuel: "no fuel",
-  key: "no key",
-  charger: "no charger",
-  mobile: "no mobile",
-  snack: "no snack",
-  lights: "no lights",
-};
-
-/** The six checks lifted off an entry, for handing to withMissingNotes. */
-export function checksOf(entry: Entry): EntryChecks {
-  return {
-    fuel: entry.fuel,
-    key: entry.key,
-    charger: entry.charger,
-    mobile: entry.mobile,
-    snack: entry.snack,
-    lights: entry.lights,
-  };
-}
+const FUEL_NOTE = "No fuel";
 
 /**
- * Van issues, with the missing items written in at the front.
+ * Sentences this file has written at one time or another.
  *
- * Cross the fuel and "No fuel" appears in the box; put it back to a tick, or
- * back to unchecked, and it goes again. The point is that a van that came back
- * dry says so in the one column anybody reads on the sheet, without Karim
- * having to type it while holding a set of keys.
+ * Only the first is ever written now. The rest are here so a note left behind
+ * by the version that wrote all six takes itself off the next time Karim
+ * touches that driver, rather than sitting there as text nobody typed and
+ * nobody can explain.
+ */
+const KNOWN_NOTES = [
+  FUEL_NOTE,
+  "No key",
+  "No charger",
+  "No mobile",
+  "No snack",
+  "No lights",
+];
+
+/**
+ * Van issues, with the fuel note in front of whatever Karim typed.
  *
- * The notes are rebuilt from scratch every time rather than nudged, so they
- * always match the boxes and always come in the order the boxes are in,
- * whatever order he tapped them.
+ * Cross the fuel and "No fuel" appears; put it back to a tick, or back to
+ * unchecked, and it goes. He should not have to type it one-handed in the dark
+ * when the box he just crossed already says it.
  *
  * Everything he typed himself survives untouched. That is what stripNotes is
- * careful about, and it is the whole reason this is a function with tests
- * rather than three lines in a click handler.
+ * careful about, and it is the whole reason this is a tested function rather
+ * than three lines in a click handler.
  */
-export function withMissingNotes(current: string, checks: EntryChecks): string {
+export function withFuelNote(current: string, fuel: boolean | null): string {
   const manual = stripNotes(current);
-
-  const notes = CHECKS.filter((check) => checks[check.field] === false).map(
-    (check) => MISSING_NOTE[check.field],
-  );
-
-  const auto = notes.join(", ");
-  const sentence = auto === "" ? "" : auto[0].toUpperCase() + auto.slice(1);
-
-  return [sentence, manual].filter((part) => part !== "").join(". ");
+  if (fuel !== false) return manual;
+  return [FUEL_NOTE, manual].filter((part) => part !== "").join(". ");
 }
 
 /**
@@ -75,11 +60,12 @@ function stripNotes(text: string): string {
   for (let removed = true; removed; ) {
     removed = false;
 
-    for (const check of CHECKS) {
-      const phrase = MISSING_NOTE[check.field];
-      if (rest.slice(0, phrase.length).toLowerCase() !== phrase) continue;
+    for (const note of KNOWN_NOTES) {
+      if (rest.slice(0, note.length).toLowerCase() !== note.toLowerCase()) {
+        continue;
+      }
 
-      const after = rest.slice(phrase.length);
+      const after = rest.slice(note.length);
       if (after !== "" && !/^[.,;]/.test(after)) continue;
 
       rest = after.replace(/^[.,;\s]+/, "");

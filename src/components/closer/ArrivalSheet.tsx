@@ -24,7 +24,7 @@ import {
   type MetricTone,
 } from "@/lib/constants";
 import { lateLabel } from "@/lib/eta";
-import { checksOf, withMissingNotes } from "@/lib/vanIssues";
+import { withFuelNote } from "@/lib/vanIssues";
 import type { Entry } from "@/lib/types";
 
 /**
@@ -414,24 +414,27 @@ function VanPanel({
   );
 
   /**
-   * A check, and the sentence it writes into the box underneath it.
+   * A check, and — for fuel alone — the sentence it writes underneath.
    *
-   * Both in one write, and the box's own draft is moved with them. The draft
+   * Both go in one write, and the box's own draft moves with them. The draft
    * is what the textarea is showing and what its own save would send, so
    * leaving it behind would mean the next thing he typed put the old text —
    * without the note — straight back over the top.
    *
    * Composed from the draft rather than from the entry, so a note he is
-   * half-way through typing when he taps a box is carried through the write
-   * instead of being lost to it.
+   * half-way through typing when he crosses the fuel is carried through the
+   * write instead of being lost to it.
    */
   function setCheck(field: CheckField, value: Check) {
-    const next = checksOf(entry);
-    next[field] = value;
+    const patch = checkPatch(field, value);
 
-    const nextIssues = withMissingNotes(issues.value, next);
-    issues.replace(nextIssues);
-    onSave({ ...checkPatch(field, value), vanIssues: nextIssues });
+    if (field === "fuel") {
+      const nextIssues = withFuelNote(issues.value, value);
+      issues.replace(nextIssues);
+      patch.vanIssues = nextIssues;
+    }
+
+    onSave(patch);
   }
 
   return (
