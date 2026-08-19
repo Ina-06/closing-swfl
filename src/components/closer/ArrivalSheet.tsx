@@ -24,6 +24,7 @@ import {
   type MetricTone,
 } from "@/lib/constants";
 import { lateLabel } from "@/lib/eta";
+import { checksOf, withMissingNotes } from "@/lib/vanIssues";
 import type { Entry } from "@/lib/types";
 
 /**
@@ -412,6 +413,27 @@ function VanPanel({
     onSave({ vanIssues: value.trim() }),
   );
 
+  /**
+   * A check, and the sentence it writes into the box underneath it.
+   *
+   * Both in one write, and the box's own draft is moved with them. The draft
+   * is what the textarea is showing and what its own save would send, so
+   * leaving it behind would mean the next thing he typed put the old text —
+   * without the note — straight back over the top.
+   *
+   * Composed from the draft rather than from the entry, so a note he is
+   * half-way through typing when he taps a box is carried through the write
+   * instead of being lost to it.
+   */
+  function setCheck(field: CheckField, value: Check) {
+    const next = checksOf(entry);
+    next[field] = value;
+
+    const nextIssues = withMissingNotes(issues.value, next);
+    issues.replace(nextIssues);
+    onSave({ ...checkPatch(field, value), vanIssues: nextIssues });
+  }
+
   return (
     <section className="mt-6">
       <SectionTitle>The van</SectionTitle>
@@ -452,7 +474,7 @@ function VanPanel({
             key={check.field}
             label={check.label}
             value={entry[check.field]}
-            onChange={(value) => onSave(checkPatch(check.field, value))}
+            onChange={(value) => setCheck(check.field, value)}
           />
         ))}
       </div>
@@ -676,7 +698,20 @@ function useSavedField(initial: string, save: (next: string) => void) {
     state.current.typed = next;
   }
 
-  return { value, change, flush };
+  /**
+   * Rewrite the draft from outside, for something already being saved.
+   *
+   * `written` moves with it on purpose: the checks put this text in the box
+   * and into the same updateDoc, so the field has nothing left of its own to
+   * flush and must not send a second write behind them.
+   */
+  function replace(next: string) {
+    setValue(next);
+    state.current.typed = next;
+    state.current.written = next;
+  }
+
+  return { value, change, flush, replace };
 }
 
 /**
