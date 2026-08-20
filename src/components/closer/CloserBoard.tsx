@@ -7,6 +7,7 @@ import { AllReturningBanner } from "@/components/closer/AllReturningBanner";
 import { ArrivalSheet } from "@/components/closer/ArrivalSheet";
 import { DoneCard, WaitingCard, YardCard } from "@/components/closer/DriverCard";
 import { EndDay } from "@/components/closer/EndDay";
+import { Summary } from "@/components/closer/Summary";
 import { ErrorNote } from "@/components/ui/Field";
 import { FlagTag } from "@/components/ui/FlagToggle";
 import { useEntries } from "@/lib/db/entries";
@@ -16,11 +17,17 @@ import type { Entry, Session } from "@/lib/types";
 /**
  * Karim's screen for the night.
  *
- * Two lists: who is still out, and who is in. The first is ordered by who is
- * due next, because that is the order the vans actually arrive in and the order
- * he wants to be reading in. Everything is live — the dispatcher enters a
- * driver on the laptop and the card is here before the phone is back in a
- * pocket.
+ * Four lists, in the order a driver moves through them: returning, still
+ * delivering, in the yard, clocked out. The split at the top is the one that
+ * earns its place — a driver with an ETA is a van to watch the gate for, a
+ * driver without one is still working, and they are nothing like each other
+ * however alike they look on a roster.
+ *
+ * Then the summary, which is the same night read the other way round: not a
+ * queue to work through but a grid to check before he signs it off.
+ *
+ * Everything is live — the dispatcher enters a driver on the laptop and the
+ * card is here before the phone is back in a pocket.
  */
 
 type SortKey = "eta" | "name" | "arrival";
@@ -95,26 +102,41 @@ export function CloserBoard({
   const [adding, setAdding] = useState(false);
   const now = useStationClock();
 
-  const { waiting, inYard, done } = useMemo(() => {
+  const { returning, delivering, inYard, done } = useMemo(() => {
     const compare = sort === "name" ? byName : byEta;
+    const out = entries.filter((entry) => entry.status === "enroute");
 
     return {
-      // Nothing to sort an arrival by until he has one, so the waiting list
-      // stays on ETA when that chip is picked.
-      waiting: entries
-        .filter((entry) => entry.status === "enroute")
-        .sort(compare),
+      /**
+       * An ETA is dispatch saying he has turned round and is on his way in.
+       * That is the whole difference between these two lists: one is drivers
+       * Karim is waiting for, the other is drivers still working, and until now
+       * they were one pile called "still out" that told him nothing about which
+       * van to expect next.
+       */
+      returning: out.filter((entry) => entry.eta.trim() !== "").sort(compare),
+      // No ETA, so there is nothing to sort them by but their names — which is
+      // what byEta falls back to anyway.
+      delivering: out.filter((entry) => entry.eta.trim() === "").sort(compare),
       inYard: entries
         .filter((entry) => entry.status === "arrived")
         .sort(compare),
+      /**
+       * Finished drivers go by when they finished, whichever way the chip is
+       * set — except by name, which means by name everywhere.
+       *
+       * An ETA has stopped meaning anything to a man who is already home. It is
+       * the time he clocked out that Karim is looking for down here, because
+       * the one he wants is nearly always the one he has just done.
+       */
       done: entries
         .filter((entry) => entry.status === "clockedOut")
-        .sort(sort === "arrival" ? byArrival : compare),
+        .sort(sort === "name" ? byName : byArrival),
     };
   }, [entries, sort]);
 
   /** Anyone whose night is not finished — out on the road or stood at the van. */
-  const outstanding = waiting.length + inYard.length;
+  const outstanding = returning.length + delivering.length + inYard.length;
 
   /**
    * On the roster, but dispatch has not heard from him yet.
@@ -171,9 +193,13 @@ export function CloserBoard({
             {/* Whichever number is the reason the night is not over. Falling
                 back down the list matters: with everyone on the sheet already
                 in, "0 still out" beside "5/6" reads like a broken counter. */}
-            {waiting.length > 0 ? (
+            {returning.length > 0 ? (
               <p className="text-[12px] font-semibold text-ink-muted">
-                {waiting.length} still out
+                {returning.length} returning
+              </p>
+            ) : delivering.length > 0 ? (
+              <p className="text-[12px] font-semibold text-ink-muted">
+                {delivering.length} still delivering
               </p>
             ) : inYard.length > 0 ? (
               <p className="text-[12px] font-semibold text-arrived">
@@ -228,7 +254,7 @@ export function CloserBoard({
         <>
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
-              Still out · {waiting.length}
+              Returning · {returning.length}
             </h2>
             <div
               role="group"
@@ -253,15 +279,9 @@ export function CloserBoard({
             </div>
           </div>
 
-          {waiting.length === 0 ? (
-            <p className="rounded-xl border border-arrived-line bg-arrived-soft px-4 py-3.5 text-[14px] font-semibold text-arrived">
-              {pending.length > 0
-                ? "Everyone dispatch has entered is in."
-                : "Everyone on the sheet is in."}
-            </p>
-          ) : (
+          {returning.length > 0 ? (
             <ul className="space-y-2">
-              {waiting.map((entry) => (
+              {returning.map((entry) => (
                 <li key={entry.id}>
                   <WaitingCard
                     entry={entry}
@@ -271,7 +291,42 @@ export function CloserBoard({
                 </li>
               ))}
             </ul>
+          ) : delivering.length > 0 ? (
+            /* Not the green strip: there are drivers out there, they just have
+               not phoned a time in yet. Saying everyone is in would be wrong. */
+            <p className="text-[13px] leading-relaxed text-ink-faint">
+              Nobody has given dispatch a time yet.
+            </p>
+          ) : (
+            <p className="rounded-xl border border-arrived-line bg-arrived-soft px-4 py-3.5 text-[14px] font-semibold text-arrived">
+              {pending.length > 0
+                ? "Everyone dispatch has entered is in."
+                : "Everyone on the sheet is in."}
+            </p>
           )}
+
+          {/* Underneath, because they are further away. A driver with no time
+              against him is one Karim can do nothing about yet — he is still
+              on the road, and the van he should be watching for is in the list
+              above this one. */}
+          {delivering.length > 0 ? (
+            <section className="space-y-2 pt-2">
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
+                Still delivering · {delivering.length}
+              </h2>
+              <ul className="space-y-2">
+                {delivering.map((entry) => (
+                  <li key={entry.id}>
+                    <WaitingCard
+                      entry={entry}
+                      late={null}
+                      onOpen={() => setOpenId(entry.id)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
           {/* Between the two lists because that is where these drivers are:
               off the road, not yet finished with. */}
@@ -332,6 +387,11 @@ export function CloserBoard({
           </ul>
         </section>
       ) : null}
+
+      {/* The last thing on the screen that is information rather than a
+          decision. End Day is underneath it on purpose: this is what he reads
+          before he presses that. */}
+      <Summary entries={entries} />
 
       <EndDay
         nightKey={nightKey}

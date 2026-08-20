@@ -3,6 +3,7 @@
 import { FLAGS, FlagTag } from "@/components/ui/FlagToggle";
 import { stationTimeLabel } from "@/lib/constants";
 import { lateLabel } from "@/lib/eta";
+import { countInfractions } from "@/lib/infractions";
 import type { Entry } from "@/lib/types";
 
 /**
@@ -182,10 +183,15 @@ export function DoneCard({
 
       {/* The van is what tells him this record is finished. Missing is worth
           seeing from the list, because at End Day it is too late to go and
-          look. */}
+          look, and the spanner is worth seeing for the same reason — it is the
+          only thing on this row that somebody has to do something about
+          tomorrow. */}
       {entry.van ? (
         <span className="tnum shrink-0 rounded-md border border-line bg-surface px-1.5 py-0.5 font-mono text-[11px] font-bold text-ink-muted">
           {entry.van}
+          {entry.vanIssues.trim() ? (
+            <span aria-hidden="true"> 🛠️</span>
+          ) : null}
         </span>
       ) : (
         <span className="shrink-0 rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
@@ -193,14 +199,34 @@ export function DoneCard({
         </span>
       )}
 
-      {entry.notes ? (
-        <span className="shrink-0 rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
-          Note
-        </span>
-      ) : null}
+      <Infractions raw={entry.infractions} />
 
       <Chevron />
     </button>
+  );
+}
+
+/**
+ * How many he picked up, when the dispatcher wrote a number.
+ *
+ * A count rather than the word, because the difference between one and three is
+ * the difference between a mention and a conversation, and this row is the last
+ * place Karim sees the driver's name before the sheet goes up. The triangle on
+ * its own is for an infraction typed without a figure in front of it — real,
+ * and not something to invent a number for.
+ */
+function Infractions({ raw }: { raw: string }) {
+  if (!raw.trim()) return null;
+  const count = countInfractions(raw);
+
+  return (
+    <span className="tnum shrink-0 rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[11px] font-bold text-warn">
+      <span aria-hidden="true">⚠️</span>
+      <span className="sr-only">
+        {count === null ? "Infraction" : `${count} infractions`}
+      </span>
+      {count === null ? "" : ` ${count}`}
+    </span>
   );
 }
 

@@ -59,7 +59,10 @@ export function CheckCycle({
       <span aria-hidden="true" className="text-[24px] font-bold leading-none">
         {GLYPH[state]}
       </span>
-      <span className="text-[11px] font-bold uppercase tracking-wider">
+      {/* Small and barely tracked, because two of these six carry a reminder
+          as well as a name — "Charger + Sharpie" has to break onto a second
+          line inside a tile a thumb-width across without touching the sides. */}
+      <span className="px-1 text-center text-[10px] font-bold uppercase leading-tight tracking-[0.04em]">
         {label}
       </span>
     </button>

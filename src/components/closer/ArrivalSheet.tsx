@@ -24,7 +24,7 @@ import {
   type MetricTone,
 } from "@/lib/constants";
 import { lateLabel } from "@/lib/eta";
-import { withFuelNote } from "@/lib/vanIssues";
+import { withNotes, type VanFlags } from "@/lib/vanIssues";
 import type { Entry } from "@/lib/types";
 
 /**
@@ -165,20 +165,12 @@ export function ArrivalSheet({
               <h2 className="text-[22px] font-bold leading-tight tracking-tight">
                 {entry.fullName}
               </h2>
+              {/* The ETA used to live here. It is down by the clock-out now,
+                  where it is the number he is about to compare against. */}
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 {flagsOn(entry).map((flag) => (
                   <FlagTag key={flag} flag={flag} />
                 ))}
-                {entry.eta ? (
-                  <span className="tnum rounded-full border border-line bg-sunken px-2 py-0.5 font-mono text-[11px] font-semibold text-ink-muted">
-                    ETA {entry.eta}
-                  </span>
-                ) : null}
-                {late !== null ? (
-                  <span className="rounded-full border border-overdue-line bg-overdue-soft px-2 py-0.5 text-[11px] font-bold text-overdue">
-                    {lateLabel(late)}
-                  </span>
-                ) : null}
               </div>
             </div>
 
@@ -269,32 +261,39 @@ export function ArrivalSheet({
             <VanPanel entry={entry} onSave={writeYard} />
           ) : null}
 
-          {inYard ? (
-            <>
+          <div className="mt-6 space-y-3">
+            {/* Directly above the button that stamps the real time, and set in
+                the same figures at the same size, because the only thing this
+                number is for now is being read against that one. */}
+            {entry.eta ? <EtaPanel eta={entry.eta} late={late} /> : null}
+
+            {inYard ? (
+              <>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={finish}
+                  className="min-h-14 w-full text-[16px]"
+                >
+                  Clock out
+                  <ArrowRight />
+                </Button>
+                <p className="text-center text-[12px] text-ink-faint">
+                  Stamps the time and takes you back to the list.
+                </p>
+              </>
+            ) : (
               <Button
-                variant="primary"
+                variant={done ? "primary" : "secondary"}
                 size="lg"
-                onClick={finish}
-                className="mt-6 min-h-14 w-full text-[16px]"
+                onClick={onClose}
+                className="min-h-14 w-full text-[16px]"
               >
-                Clock out
-                <ArrowRight />
+                {done ? "Done" : "Close"}
+                {done ? <ArrowRight /> : null}
               </Button>
-              <p className="mt-2 text-center text-[12px] text-ink-faint">
-                Stamps the time and takes you back to the list.
-              </p>
-            </>
-          ) : (
-            <Button
-              variant={done ? "primary" : "secondary"}
-              size="lg"
-              onClick={onClose}
-              className="mt-6 min-h-14 w-full text-[16px]"
-            >
-              {done ? "Done" : "Close"}
-              {done ? <ArrowRight /> : null}
-            </Button>
-          )}
+            )}
+          </div>
 
           {/* Pinned to the bottom of the sheet rather than tucked under the
               header. The writes that fail are the checks and the van number,
@@ -339,6 +338,32 @@ function describeWriteError(error: unknown, fallback: string): string {
   }
 
   return error instanceof Error ? error.message : fallback;
+}
+
+/**
+ * What he said on the phone, sitting under what actually happened.
+ *
+ * Same typeface, same size, same shape of box as the stamped clock-out, so the
+ * two read as one comparison rather than as a label and a number. That is the
+ * whole point of it being here: eleven minutes late is a different handover to
+ * bang on time, and he wants to know which he is having before he says hello.
+ */
+function EtaPanel({ eta, late }: { eta: string; late: number | null }) {
+  return (
+    <div className="rounded-xl border border-line bg-sunken px-4 py-3.5 text-center">
+      <span className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
+        ETA
+      </span>
+      <span className="tnum mt-1 block font-mono text-[30px] font-bold leading-none tracking-tight text-ink">
+        {eta}
+      </span>
+      {late !== null ? (
+        <span className="mt-2 inline-block rounded-full border border-overdue-line bg-overdue-soft px-2.5 py-0.5 text-[11px] font-bold text-overdue">
+          {lateLabel(late)}
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 function ArrowRight() {
@@ -414,26 +439,36 @@ function VanPanel({
   );
 
   /**
-   * A check, and — for fuel alone — the sentence it writes underneath.
+   * Both self-writing controls go through here, and both rebuild the box.
    *
-   * Both go in one write, and the box's own draft moves with them. The draft
-   * is what the textarea is showing and what its own save would send, so
+   * The note is composed from the draft rather than from the entry, so a
+   * sentence he is half-way through typing when he crosses the fuel is carried
+   * through the write instead of being lost to it. And the draft moves with it:
+   * it is what the textarea is showing and what its own save would send, so
    * leaving it behind would mean the next thing he typed put the old text —
    * without the note — straight back over the top.
-   *
-   * Composed from the draft rather than from the entry, so a note he is
-   * half-way through typing when he crosses the fuel is carried through the
-   * write instead of being lost to it.
    */
+  function writeNotes(patch: YardFields, flags: VanFlags) {
+    const next = withNotes(issues.value, flags);
+    issues.replace(next);
+    patch.vanIssues = next;
+  }
+
+  /** A check, and — for fuel alone — the sentence it writes underneath. */
   function setCheck(field: CheckField, value: Check) {
     const patch = checkPatch(field, value);
 
     if (field === "fuel") {
-      const nextIssues = withFuelNote(issues.value, value);
-      issues.replace(nextIssues);
-      patch.vanIssues = nextIssues;
+      writeNotes(patch, { fuel: value, grounded: entry.grounded });
     }
 
+    onSave(patch);
+  }
+
+  /** The van is off the road. One write: the flag and the sentence together. */
+  function setGrounded(grounded: boolean) {
+    const patch: YardFields = { grounded };
+    writeNotes(patch, { fuel: entry.fuel, grounded });
     onSave(patch);
   }
 
@@ -470,8 +505,11 @@ function VanPanel({
       />
 
       {/* Two rows of three, in the order he walks them. Six across would put
-          the last one past the reach of a thumb on the hand holding the phone. */}
-      <div className="mt-2.5 grid grid-cols-3 gap-2">
+          the last one past the reach of a thumb on the hand holding the phone.
+          Equal rows, so the one check whose name runs to two lines does not
+          make its row taller than the other and leave the grid looking like it
+          slipped. */}
+      <div className="mt-2.5 grid auto-rows-fr grid-cols-3 gap-2">
         {CHECKS.map((check) => (
           <CheckCycle
             key={check.field}
@@ -497,6 +535,40 @@ function VanPanel({
         placeholder="Anything wrong with it — leave empty if not"
         className="mt-1.5 w-full resize-y rounded-xl border border-line-strong bg-surface px-3.5 py-3 text-[16px] leading-snug text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-brand"
       />
+
+      {/* Under the box because it writes into it, and smaller than the six
+          because it is not one of them — those are things that came back with
+          the van, this is a decision about the van. Two states only: a van
+          nobody has grounded is not grounded, and there is no third thing it
+          could be. */}
+      <button
+        type="button"
+        onClick={() => setGrounded(!entry.grounded)}
+        aria-pressed={entry.grounded}
+        className={`mt-2.5 flex min-h-12 w-full items-center gap-2.5 rounded-xl border px-3.5 text-left transition-colors active:brightness-[0.97] ${
+          entry.grounded
+            ? "border-overdue-line bg-overdue-soft"
+            : "border-line bg-surface"
+        }`}
+      >
+        <span
+          aria-hidden="true"
+          className={`grid size-6 shrink-0 place-items-center rounded-md border text-[14px] font-bold ${
+            entry.grounded
+              ? "border-overdue bg-overdue text-ink-inverse"
+              : "border-line-strong bg-surface text-transparent"
+          }`}
+        >
+          ✓
+        </span>
+        <span
+          className={`text-[13px] font-bold uppercase tracking-wider ${
+            entry.grounded ? "text-overdue" : "text-ink-faint"
+          }`}
+        >
+          Grounded
+        </span>
+      </button>
     </section>
   );
 }

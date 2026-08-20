@@ -32,13 +32,17 @@ export const EMPTY_RETURNS: ParsedReturns = {
 };
 
 /**
- * Split the tail into `<count> <text>` segments.
+ * Split a line into `<count> <text>` segments.
  *
  * The lookahead is what makes free text safe: a reason runs until the next
  * "number followed by a space", so "Unsafe due to dog" survives intact and
  * "2 Damaged 1 RNI" still splits into two.
+ *
+ * Exported because the station types infractions the same way — "1 speeding",
+ * "2 distraction" — and that is one habit, not two. It should be read by one
+ * piece of code.
  */
-function parseReasons(tail: string): ReturnsReason[] {
+export function parseReasons(tail: string): ReturnsReason[] {
   const reasons: ReturnsReason[] = [];
   const segment = /(\d+)\s+(.+?)(?=\s+\d+\s+|$)/g;
 

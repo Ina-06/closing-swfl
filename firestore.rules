@@ -118,7 +118,7 @@ service cloud.firestore {
         // to six can still be corrected.
         function closerFields() {
           return changedKeys().hasOnly([
-            'status', 'clockOut', 'van', 'vanIssues',
+            'status', 'clockOut', 'van', 'vanIssues', 'grounded',
             'fuel', 'key', 'charger', 'mobile', 'snack', 'lights', 'cell',
             'addedByCloser', 'updatedAt', 'updatedBy'
           ]);

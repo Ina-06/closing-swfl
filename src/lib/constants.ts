@@ -41,16 +41,23 @@ export type MetricTone = (typeof METRICS)[number]["tone"];
  *
  * Defined once, here, because three different things render this list — his
  * phone, the dispatcher's table and the PDF — and an order that drifts between
- * them is an order nobody can trust. `letter` is what the dispatcher's table
- * shows for a check nobody has made yet, where the full word will not fit.
+ * them is an order nobody can trust.
+ *
+ * Three names each, for three widths, and the difference between them is the
+ * job each one is doing. `label` is what Karim reads standing at the van, so it
+ * names everything he is holding: the charger comes back with the sharpie, the
+ * mobile comes back switched off. `short` is the same check the next morning,
+ * as a column heading on the PDF a few characters wide, where the reminder has
+ * already done its work and only the thing needs naming. `letter` is the
+ * dispatcher's table, for a check nobody has made yet.
  */
 export const CHECKS = [
-  { field: "fuel", label: "Fuel", letter: "F" },
-  { field: "key", label: "Key", letter: "K" },
-  { field: "charger", label: "Charger", letter: "C" },
-  { field: "mobile", label: "Mobile", letter: "M" },
-  { field: "snack", label: "Snack", letter: "S" },
-  { field: "lights", label: "Lights", letter: "L" },
+  { field: "fuel", label: "Fuel", short: "Fuel", letter: "F" },
+  { field: "key", label: "Key", short: "Key", letter: "K" },
+  { field: "charger", label: "Charger + Sharpie", short: "Charger", letter: "C" },
+  { field: "mobile", label: "Mobile + Off", short: "Mobile", letter: "M" },
+  { field: "snack", label: "Snack", short: "Snack", letter: "S" },
+  { field: "lights", label: "Lights", short: "Lights", letter: "L" },
 ] as const;
 
 export type CheckField = (typeof CHECKS)[number]["field"];

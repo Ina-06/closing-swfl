@@ -1,23 +1,29 @@
 /**
- * The sentence a dry van writes into the van issues box.
+ * The sentences the van issues box writes for itself.
  *
- * Fuel and nothing else. It is the one check whose answer is somebody else's
- * problem tomorrow morning — the van issues column is what gets read off the
- * sheet, and a van that came back empty has to be in it. A missing snack or
- * charger is a handover detail that already has its own box on the sheet, and
- * repeating it in prose would only make the column longer and less read.
+ * Two controls put text in that box, and both are things somebody has to act on
+ * in the morning rather than facts about tonight. The van issues column is what
+ * gets read off the sheet, so a van that came back empty and a van that is off
+ * the road have to be in it. A missing snack or charger is a handover detail
+ * that already has its own box, and repeating it in prose would only make the
+ * column longer and less read.
  */
+const GROUNDED_NOTE = "🚨Grounded";
 const FUEL_NOTE = "No fuel";
 
 /**
  * Sentences this file has written at one time or another.
  *
- * Only the first is ever written now. The rest are here so a note left behind
- * by the version that wrote all six takes itself off the next time Karim
- * touches that driver, rather than sitting there as text nobody typed and
- * nobody can explain.
+ * Only the first two are ever written now. The rest are here so a note left
+ * behind by the version that wrote all six checks takes itself off the next
+ * time Karim touches that driver, rather than sitting there as text nobody
+ * typed and nobody can explain.
+ *
+ * Grounded leads, and that is the order it is written in too: it is the one
+ * that stops the van going out tomorrow.
  */
 const KNOWN_NOTES = [
+  GROUNDED_NOTE,
   FUEL_NOTE,
   "No key",
   "No charger",
@@ -26,25 +32,38 @@ const KNOWN_NOTES = [
   "No lights",
 ];
 
+/** What the two self-writing controls are set to. */
+export type VanFlags = {
+  /** Crossed fuel writes a note; ticked or unchecked does not. */
+  fuel: boolean | null;
+  grounded: boolean;
+};
+
 /**
- * Van issues, with the fuel note in front of whatever Karim typed.
+ * Van issues, with our own sentences in front of whatever Karim typed.
  *
- * Cross the fuel and "No fuel" appears; put it back to a tick, or back to
- * unchecked, and it goes. He should not have to type it one-handed in the dark
- * when the box he just crossed already says it.
+ * Ground the van and "🚨Grounded" appears; cross the fuel and "No fuel"
+ * appears. Undo either and it goes. He should not have to type them one-handed
+ * in the dark when the control he just used already says it.
  *
  * Everything he typed himself survives untouched. That is what stripNotes is
  * careful about, and it is the whole reason this is a tested function rather
  * than three lines in a click handler.
  */
-export function withFuelNote(current: string, fuel: boolean | null): string {
+export function withNotes(current: string, flags: VanFlags): string {
   const manual = stripNotes(current);
-  if (fuel !== false) return manual;
-  return [FUEL_NOTE, manual].filter((part) => part !== "").join(". ");
+
+  return [
+    flags.grounded ? GROUNDED_NOTE : "",
+    flags.fuel === false ? FUEL_NOTE : "",
+    manual,
+  ]
+    .filter((part) => part !== "")
+    .join(". ");
 }
 
 /**
- * Take our own sentence back off the front, and nothing else.
+ * Take our own sentences off the front, and nothing else.
  *
  * Only from the front, and only when the phrase ends where a phrase should —
  * at a separator or at the end of the text. "No fuel card in the holder" is

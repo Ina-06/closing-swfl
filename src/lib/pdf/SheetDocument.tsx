@@ -207,7 +207,10 @@ export function SheetDocument({
             {CHECKS.map((check) => (
               <Head
                 key={check.field}
-                label={check.label.toUpperCase()}
+                /* `short`, not `label`: the column is a few characters wide, and
+                     the reminder in the long name has already done its job at the
+                     van hours before anyone reads this. */
+                  label={check.short.toUpperCase()}
                 width={COLUMNS.check}
                 centre
                 tight

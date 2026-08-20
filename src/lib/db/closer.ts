@@ -106,7 +106,7 @@ export async function reopenEntry(
 
 /** The van itself — number, issues, and the six handover checks. */
 export type YardFields = Partial<
-  Pick<Entry, "van" | "vanIssues"> & EntryChecks
+  Pick<Entry, "van" | "vanIssues" | "grounded"> & EntryChecks
 >;
 
 /**
@@ -181,6 +181,7 @@ export async function addCloserEntry(
     clockOut: null,
     van: "",
     vanIssues: "",
+    grounded: false,
     fuel: null,
     key: null,
     charger: null,

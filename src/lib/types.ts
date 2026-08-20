@@ -96,6 +96,14 @@ export type Entry = {
   clockOut: Timestamp | null;
   van: string;
   vanIssues: string;
+  /**
+   * The van is off the road until someone deals with it.
+   *
+   * Two states, not the three the checks have. A check that nobody has looked
+   * at yet is real information; a van nobody has grounded is simply not
+   * grounded, and there is no third thing it could be.
+   */
+  grounded: boolean;
   fuel: boolean | null;
   key: boolean | null;
   charger: boolean | null;
