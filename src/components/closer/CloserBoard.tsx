@@ -5,14 +5,19 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import { AddDriverSheet } from "@/components/closer/AddDriverSheet";
 import { AllReturningBanner } from "@/components/closer/AllReturningBanner";
 import { ArrivalSheet } from "@/components/closer/ArrivalSheet";
-import { DoneCard, WaitingCard, YardCard } from "@/components/closer/DriverCard";
+import {
+  DoneCard,
+  RosterCard,
+  WaitingCard,
+  YardCard,
+} from "@/components/closer/DriverCard";
 import { EndDay } from "@/components/closer/EndDay";
 import { Summary } from "@/components/closer/Summary";
 import { ErrorNote } from "@/components/ui/Field";
-import { FlagTag } from "@/components/ui/FlagToggle";
+import { addCloserEntry } from "@/lib/db/closer";
 import { useEntries } from "@/lib/db/entries";
 import { etaMinutes, minutesLate, stationNowMinutes } from "@/lib/eta";
-import type { Entry, Session } from "@/lib/types";
+import type { Entry, RosterEntry, Session } from "@/lib/types";
 
 /**
  * Karim's screen for the night.
@@ -31,6 +36,11 @@ import type { Entry, Session } from "@/lib/types";
  */
 
 type SortKey = "eta" | "name" | "arrival";
+
+/** A driver still out with no time against him, with or without a row. */
+type Delivering =
+  | { kind: "entry"; key: string; fullName: string; entry: Entry }
+  | { kind: "roster"; key: string; fullName: string; roster: RosterEntry };
 
 const SORTS: { key: SortKey; label: string }[] = [
   { key: "eta", label: "ETA" },
@@ -100,9 +110,10 @@ export function CloserBoard({
   const [sort, setSort] = useState<SortKey>("eta");
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
   const now = useStationClock();
 
-  const { returning, delivering, inYard, done } = useMemo(() => {
+  const { returning, deliveringEntries, inYard, done } = useMemo(() => {
     const compare = sort === "name" ? byName : byEta;
     const out = entries.filter((entry) => entry.status === "enroute");
 
@@ -116,8 +127,9 @@ export function CloserBoard({
        */
       returning: out.filter((entry) => entry.eta.trim() !== "").sort(compare),
       // No ETA, so there is nothing to sort them by but their names — which is
-      // what byEta falls back to anyway.
-      delivering: out.filter((entry) => entry.eta.trim() === "").sort(compare),
+      // what byEta falls back to anyway. Merged with the roster names further
+      // down, since to Karim those are the same thing.
+      deliveringEntries: out.filter((entry) => entry.eta.trim() === "").sort(compare),
       inYard: entries
         .filter((entry) => entry.status === "arrived")
         .sort(compare),
@@ -135,8 +147,16 @@ export function CloserBoard({
     };
   }, [entries, sort]);
 
-  /** Anyone whose night is not finished — out on the road or stood at the van. */
-  const outstanding = returning.length + delivering.length + inYard.length;
+  /**
+   * Anyone whose night is not finished — out on the road or stood at the van.
+   *
+   * Names off the roster that were never entered are deliberately not in this.
+   * Karim cannot clock out a driver who has no row, so counting them here would
+   * hide End Day behind something he has no way of clearing. They get a soft
+   * warning on that panel instead, which is the dispatcher's problem to fix.
+   */
+  const outstanding =
+    returning.length + deliveringEntries.length + inYard.length;
 
   /**
    * On the roster, but dispatch has not heard from him yet.
@@ -146,14 +166,45 @@ export function CloserBoard({
    * arrived, 0 still out" is arithmetic Karim cannot act on, because the sixth
    * man was nowhere on his screen.
    */
-  const pending = useMemo(() => {
+  const notEntered = useMemo(() => {
     const entered = new Set(entries.map((entry) => entry.driverId));
     return session.roster.filter((row) => !entered.has(row.driverId));
   }, [session.roster, entries]);
 
+  /**
+   * Everyone still out with no time against him, whether he has a row or not.
+   *
+   * The two halves look identical from where Karim is standing — a driver on
+   * tonight's roster that dispatch has not entered is a driver out delivering,
+   * exactly like one who has been entered but has not phoned a time in. So they
+   * are one list, in one alphabet, rather than a list and a footnote.
+   */
+  const delivering = useMemo<Delivering[]>(() => {
+    const rows: Delivering[] = [
+      ...deliveringEntries.map(
+        (entry) =>
+          ({ kind: "entry", key: entry.id, fullName: entry.fullName, entry }) as const,
+      ),
+      ...notEntered.map(
+        (roster) =>
+          ({
+            kind: "roster",
+            key: `roster:${roster.driverId}`,
+            fullName: roster.fullName,
+            roster,
+          }) as const,
+      ),
+    ];
+
+    return rows.sort((a, b) => a.fullName.localeCompare(b.fullName));
+  }, [deliveringEntries, notEntered]);
+
   // Counts everyone expected tonight, including anyone the closer added who was
   // never on the roster at all.
-  const total = Math.max(session.totalExpected, entries.length + pending.length);
+  const total = Math.max(
+    session.totalExpected,
+    entries.length + notEntered.length,
+  );
   const open = openId ? (entries.find((e) => e.id === openId) ?? null) : null;
 
   /**
@@ -163,6 +214,31 @@ export function CloserBoard({
    * still be pointing at an entry the dispatcher has since removed.
    */
   const busyWithADriver = adding || open !== null;
+
+  /**
+   * A roster name turns into a real driver the moment Karim taps it.
+   *
+   * The same write Add a driver does, reached the short way: his van is in the
+   * yard, that is why Karim is looking at his name. It lands him in the yard
+   * and opens his sheet on the van, and the sheet's own Undo puts it back if
+   * the tap was a mis-hit.
+   */
+  async function addFromRoster(row: RosterEntry) {
+    setAddError(null);
+    try {
+      const entryId = await addCloserEntry(
+        nightKey,
+        entries,
+        { driverId: row.driverId, fullName: row.fullName, roster: row },
+        uid,
+      );
+      setOpenId(entryId);
+    } catch (err) {
+      setAddError(
+        err instanceof Error ? err.message : "Could not add him to the sheet.",
+      );
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -205,10 +281,6 @@ export function CloserBoard({
               <p className="text-[12px] font-semibold text-arrived">
                 {inYard.length} in the yard
               </p>
-            ) : pending.length > 0 ? (
-              <p className="text-[12px] font-semibold text-ink-muted">
-                {pending.length} not called in
-              </p>
             ) : null}
             {/* Lives in the sticky header rather than under the list: a van
                 turns up unannounced when there are still twenty names between
@@ -242,15 +314,16 @@ export function CloserBoard({
       </div>
 
       {error ? <ErrorNote>Lost the live feed: {error}</ErrorNote> : null}
+      {addError ? <ErrorNote>{addError}</ErrorNote> : null}
 
-      {entries.length === 0 && pending.length === 0 ? (
+      {entries.length === 0 && notEntered.length === 0 ? (
         <Empty
           title="Nobody on the sheet yet"
           blurb="Drivers appear here the moment dispatch enters one. Leave this open — it updates on its own."
         />
       ) : null}
 
-      {entries.length > 0 ? (
+      {entries.length > 0 || notEntered.length > 0 ? (
         <>
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
@@ -299,7 +372,7 @@ export function CloserBoard({
             </p>
           ) : (
             <p className="rounded-xl border border-arrived-line bg-arrived-soft px-4 py-3.5 text-[14px] font-semibold text-arrived">
-              {pending.length > 0
+              {notEntered.length > 0
                 ? "Everyone dispatch has entered is in."
                 : "Everyone on the sheet is in."}
             </p>
@@ -315,16 +388,32 @@ export function CloserBoard({
                 Still delivering · {delivering.length}
               </h2>
               <ul className="space-y-2">
-                {delivering.map((entry) => (
-                  <li key={entry.id}>
-                    <WaitingCard
-                      entry={entry}
-                      late={null}
-                      onOpen={() => setOpenId(entry.id)}
-                    />
-                  </li>
-                ))}
+                {delivering.map((row) =>
+                  row.kind === "entry" ? (
+                    <li key={row.key}>
+                      <WaitingCard
+                        entry={row.entry}
+                        late={null}
+                        onOpen={() => setOpenId(row.entry.id)}
+                      />
+                    </li>
+                  ) : (
+                    <li key={row.key}>
+                      <RosterCard
+                        row={row.roster}
+                        onOpen={() => void addFromRoster(row.roster)}
+                      />
+                    </li>
+                  ),
+                )}
               </ul>
+              {notEntered.length > 0 ? (
+                <p className="text-[12px] leading-relaxed text-ink-faint">
+                  The dashed ones are on tonight&rsquo;s roster but dispatch
+                  hasn&rsquo;t entered them. Tap one when his van pulls in and it
+                  puts him in the yard.
+                </p>
+              ) : null}
             </section>
           ) : null}
 
@@ -362,32 +451,6 @@ export function CloserBoard({
         </>
       ) : null}
 
-      {pending.length > 0 ? (
-        <section className="space-y-2 pt-2">
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
-            Not called in · {pending.length}
-          </h2>
-          <p className="text-[12px] leading-relaxed text-ink-faint">
-            On tonight&rsquo;s roster, but they haven&rsquo;t given dispatch an
-            ETA yet. If one of them is in front of you, use{" "}
-            <span className="font-semibold text-brand">+ Driver</span>.
-          </p>
-          <ul className="flex flex-wrap gap-1.5">
-            {pending.map((row) => (
-              <li
-                key={row.driverId}
-                className="flex items-center gap-1.5 rounded-full border border-line bg-sunken px-2.5 py-1.5 text-[13px] font-medium text-ink-muted"
-              >
-                {row.fullName}
-                {row.isBud ? <FlagTag flag="bud" /> : null}
-                {row.isTrainer ? <FlagTag flag="trn" /> : null}
-                {row.isRescuer ? <FlagTag flag="res" /> : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
       {/* The last thing on the screen that is information rather than a
           decision. End Day is underneath it on purpose: this is what he reads
           before he presses that. */}
@@ -398,7 +461,7 @@ export function CloserBoard({
         session={session}
         entries={entries}
         outstanding={outstanding}
-        pending={pending.length}
+        pending={notEntered.length}
         uid={uid}
       />
 

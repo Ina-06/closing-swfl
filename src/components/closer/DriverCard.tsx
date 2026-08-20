@@ -4,7 +4,7 @@ import { FLAGS, FlagTag } from "@/components/ui/FlagToggle";
 import { stationTimeLabel } from "@/lib/constants";
 import { lateLabel } from "@/lib/eta";
 import { countInfractions } from "@/lib/infractions";
-import type { Entry } from "@/lib/types";
+import type { Entry, RosterEntry } from "@/lib/types";
 
 /**
  * One driver, as a card on the closer's phone.
@@ -90,6 +90,59 @@ export function WaitingCard({
       </span>
 
       {entry.notes ? <NoteStrip>{entry.notes}</NoteStrip> : null}
+    </button>
+  );
+}
+
+/**
+ * A name off tonight's roster that nobody has entered yet.
+ *
+ * He is out delivering — that is what being on the roster with no ETA against
+ * you means — so he belongs in that list rather than in a footnote of grey
+ * chips at the bottom of the screen, which is where these used to sit. Karim
+ * counts vans, and a driver he cannot see is a driver he cannot count.
+ *
+ * Dashed, because there is genuinely nothing behind it: no ETA, no returns, no
+ * note, no row in the database. Tapping it makes one — the same thing picking
+ * his name in Add a driver does, which is what Karim wants when the van he was
+ * never told about is standing in front of him.
+ */
+export function RosterCard({
+  row,
+  onOpen,
+}: {
+  row: RosterEntry;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="block w-full rounded-xl border border-dashed border-line-strong bg-surface/60 px-3.5 py-3 text-left transition-colors active:brightness-[0.97]"
+    >
+      <span className="flex items-center gap-3.5">
+        <span className="w-[68px] shrink-0">
+          <span className="block font-mono text-[19px] font-bold leading-none tracking-tight text-ink-faint">
+            —
+          </span>
+          <span className="mt-1 block text-[10px] font-semibold uppercase leading-none tracking-wider text-ink-faint">
+            No ETA
+          </span>
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[16px] font-semibold leading-tight text-ink-muted">
+            {row.fullName}
+          </span>
+          <span className="mt-1.5 flex flex-wrap items-center gap-1">
+            {row.isBud ? <FlagTag flag="bud" /> : null}
+            {row.isTrainer ? <FlagTag flag="trn" /> : null}
+            {row.isRescuer ? <FlagTag flag="res" /> : null}
+          </span>
+        </span>
+
+        <Chevron />
+      </span>
     </button>
   );
 }
