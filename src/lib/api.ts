@@ -3,33 +3,78 @@
 import { getClientAuth } from "@/lib/firebase/client";
 
 /**
+ * How long any of our own routes gets before we give up on it.
+ *
+ * Generous, because the sheet route renders a PDF before it answers. But finite,
+ * because a phone in a metal building can hold a request open indefinitely and
+ * nothing in this app is worth a button that never comes back — a control stuck
+ * mid-press is worse than one that says it failed.
+ */
+const TIMEOUT_MS = 45_000;
+
+/** Rejects when the controller fires, so a hung promise cannot outlive it. */
+function untilAborted(signal: AbortSignal): Promise<never> {
+  return new Promise((_, reject) => {
+    signal.addEventListener("abort", () => reject(new Error("aborted")), {
+      once: true,
+    });
+  });
+}
+
+/**
  * Call one of our own routes as the signed-in user.
  *
  * The id token goes in the header and is verified server-side against the same
  * role claim firestore.rules reads, so a route is exactly as hard to reach as a
  * document is. Nothing here trusts the browser to say who it is.
+ *
+ * Both halves are under the same clock. Minting the token can hang on a phone
+ * that has lost the network just as easily as the request can, and either one
+ * hanging leaves whatever called this waiting forever.
  */
 export async function postAuthed(path: string, body: unknown): Promise<Response> {
   const user = getClientAuth().currentUser;
   if (!user) throw new Error("Signed out. Sign in again and retry.");
 
-  const response = await fetch(path, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${await user.getIdToken()}`,
-    },
-    body: JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-  if (!response.ok) {
-    // The route sends JSON on failure and a file on success, so this only ever
-    // parses the failure shape.
-    const payload: { error?: string } = await response.json().catch(() => ({}));
-    throw new Error(payload.error ?? `That request failed (${response.status}).`);
+  try {
+    const token = await Promise.race([
+      user.getIdToken(),
+      untilAborted(controller.signal),
+    ]);
+
+    const response = await fetch(path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      // The route sends JSON on failure and a file on success, so this only ever
+      // parses the failure shape.
+      const payload: { error?: string } = await response.json().catch(() => ({}));
+      throw new Error(payload.error ?? `That request failed (${response.status}).`);
+    }
+
+    return response;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(
+        "That took too long — the signal may have dropped. Try it again.",
+      );
+    }
+    throw error instanceof Error
+      ? error
+      : new Error("That request did not go through.");
+  } finally {
+    clearTimeout(timer);
   }
-
-  return response;
 }
 
 /**

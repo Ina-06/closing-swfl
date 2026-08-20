@@ -48,14 +48,15 @@ export function EndDay({
   /**
    * Tonight's PDF, rendered and kept before he ever reaches for Share.
    *
-   * This is not an optimisation. Building it inside the tap spends the user
-   * gesture on a network round trip and a server-side render, and by the time
-   * the share sheet is asked for, iOS has stopped counting the tap as
+   * Building it inside the tap spends the user gesture on a network round trip
+   * and a server-side render, and by then iOS has stopped counting the tap as
    * user-initiated — see shareOrSave. The file has to be in hand first.
    */
   const [sheet, setSheet] = useState<Blob | null>(null);
   const [building, setBuilding] = useState(false);
   const asked = useRef(false);
+  /** The build already running, so a tap during one joins it, never doubles it. */
+  const inflight = useRef<Promise<Blob> | null>(null);
 
   const closed = session.status === "closed";
   const filename = `closing-${nightKey}.pdf`;
@@ -70,33 +71,40 @@ export function EndDay({
    * again from its entries under Past nights, so there is nothing here that
    * only exists once.
    */
-  const prepare = useCallback(async () => {
-    asked.current = true;
-    setBuilding(true);
-    setError(null);
-    try {
-      const response = await postAuthed("/api/sheet", { nightKey });
-      setSheet(await response.blob());
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "The sheet would not build.",
-      );
-    } finally {
-      setBuilding(false);
+  const prepare = useCallback(() => {
+    if (!inflight.current) {
+      inflight.current = (async () => {
+        try {
+          const response = await postAuthed("/api/sheet", { nightKey });
+          const blob = await response.blob();
+          setSheet(blob);
+          return blob;
+        } finally {
+          inflight.current = null;
+        }
+      })();
     }
+    return inflight.current;
   }, [nightKey]);
 
   /**
    * Start building the moment the night is closed, however it got closed.
    *
    * Usually that is End Day on this phone, but the dispatcher can close a night
-   * from their end, and Karim can come back to a closed one after a reload. In
-   * all three he arrives at a Share button, and it has to be a button that
-   * sends rather than one that starts a download.
+   * from their end, and Karim can come back to a closed one after a reload. All
+   * three land on a Share button with the file already behind it.
+   *
+   * A failure here is swallowed on purpose. He has not asked for anything yet,
+   * the button below works either way, and it will say what went wrong if and
+   * when he presses it. What must never happen is this quietly disabling it.
    */
   useEffect(() => {
     if (!closed || asked.current) return;
-    void prepare();
+    asked.current = true;
+    setBuilding(true);
+    prepare()
+      .catch(() => {})
+      .finally(() => setBuilding(false));
   }, [closed, prepare]);
 
   async function end() {
@@ -105,10 +113,9 @@ export function EndDay({
     setNote(null);
     try {
       // Closed first, so the dispatcher's screen says so immediately. The
-      // document takes as long as it takes.
+      // listener flips `closed`, which is what starts the sheet building.
       await closeSession(nightKey, uid);
       setConfirming(false);
-      await prepare();
     } catch (err) {
       setError(err instanceof Error ? err.message : "That did not go through.");
     } finally {
@@ -117,26 +124,43 @@ export function EndDay({
   }
 
   /**
-   * The tap that sends it, and nothing else in front of it.
+   * The tap. It always does something.
    *
-   * No await before shareOrSave — not a fetch, not a token refresh. The gesture
-   * has to still be the user's when the share sheet is asked for.
+   * This button is never disabled waiting on a background build, and that is
+   * deliberate: a button greyed out behind work he cannot see is a button that
+   * is broken as far as he is concerned, and he is standing in a yard at
+   * midnight with a phone in one hand.
+   *
+   * So there are two jobs behind one label. With the sheet in hand it sends it,
+   * and nothing at all is awaited before shareOrSave — not a fetch, not a token
+   * — because the gesture has to still be his when the share sheet is asked
+   * for. Without it, this tap builds it and the next one sends it.
    */
   async function share() {
-    if (!sheet) return;
-    setBusy(true);
     setError(null);
     setNote(null);
+    setBusy(true);
+
     try {
-      const how = await shareOrSave(sheet, filename, `Closing sheet — ${dateLabel}`);
-      if (how === "saved") {
-        setNote("Saved to this device. Send it on from your files.");
-      }
-      if (how === "failed") {
-        setError(
-          "The phone did not open the share sheet that time. The sheet is built and waiting — tap Share again.",
+      if (sheet) {
+        const how = await shareOrSave(
+          sheet,
+          filename,
+          `Closing sheet — ${dateLabel}`,
         );
+        if (how === "saved") {
+          setNote("Saved to this device. Send it on from your files.");
+        }
+        if (how === "failed") {
+          setError(
+            "The phone would not open the share sheet. The sheet is built and waiting — tap Share again. If it keeps refusing, dispatch can post it from Past nights.",
+          );
+        }
+        return;
       }
+
+      await prepare();
+      setNote("Sheet ready. Tap Share to send it.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not share that.");
     } finally {
@@ -152,40 +176,24 @@ export function EndDay({
           Send the sheet to the group.
         </p>
 
-        {/* Three states, because the file behind this button has to exist
-            before the button is worth pressing. Sending it is one tap on a
-            sheet already rendered; a build that failed gets its own button
-            rather than leaving a dead one on screen. */}
-        {sheet ? (
-          <Button
-            variant="arrived"
-            size="lg"
-            loading={busy}
-            onClick={() => void share()}
-            className="mt-3 min-h-14 w-full text-[16px]"
-          >
-            Share the sheet
-          </Button>
-        ) : building ? (
-          <Button
-            variant="arrived"
-            size="lg"
-            loading
-            disabled
-            className="mt-3 min-h-14 w-full text-[16px]"
-          >
-            Building the sheet
-          </Button>
-        ) : (
-          <Button
-            variant="arrived"
-            size="lg"
-            onClick={() => void prepare()}
-            className="mt-3 min-h-14 w-full text-[16px]"
-          >
-            Build the sheet again
-          </Button>
-        )}
+        {/* One button, never disabled by work he cannot see. It is the last
+            thing he does all night and it has to answer a press every time —
+            what is behind it changes, what it does when pressed does not. */}
+        <Button
+          variant="arrived"
+          size="lg"
+          loading={busy}
+          onClick={() => void share()}
+          className="mt-3 min-h-14 w-full text-[16px]"
+        >
+          Share the sheet
+        </Button>
+
+        {building && !sheet ? (
+          <p className="mt-2 text-center text-[12px] text-arrived/80">
+            Getting the sheet ready&hellip;
+          </p>
+        ) : null}
 
         {note ? (
           <p className="mt-2 text-center text-[12px] text-arrived/80">{note}</p>
