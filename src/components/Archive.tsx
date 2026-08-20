@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/Field";
-import { postAuthed, saveAs } from "@/lib/api";
+import { postAuthed, saveBlob, shareOrSave, shareSheetOnly } from "@/lib/api";
 import { useSessions } from "@/lib/db/sessions";
 import { stationDateLabel } from "@/lib/constants";
 import type { Session, SessionStatus } from "@/lib/types";
@@ -11,13 +11,14 @@ import type { Session, SessionStatus } from "@/lib/types";
 /**
  * Every night on record.
  *
- * The files are rebuilt on demand rather than fetched from Storage, and that
- * is the whole design of this screen. A stored url is a url that can expire,
- * or that was never written because the bucket was not switched on that week.
- * The entries are the record; the PDF is a rendering of them, and it can be
+ * The files are rebuilt on demand rather than fetched from anywhere, and that
+ * is the whole design of this screen. A stored file is one that can go missing,
+ * or expire, or be the version from before someone corrected a clock-out. The
+ * entries are the record; the PDF is a rendering of them, and it can be
  * rendered again from any night that was ever opened.
  *
- * Nothing here deletes. There is no control for it and no route behind it.
+ * On a phone that takes two taps rather than one — see `pull`. Nothing here
+ * deletes. There is no control for it and no route behind it.
  */
 
 const STATUS: Record<SessionStatus, { label: string; tone: string }> = {
@@ -36,18 +37,52 @@ export function Archive({ canBuildReturns }: { canBuildReturns: boolean }) {
   const { sessions, loading, error } = useSessions();
   const [busy, setBusy] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  /**
+   * A file that has been built and is waiting for the tap that sends it.
+   *
+   * One slot, not one per night: he is sending a sheet, not collecting them.
+   */
+  const [held, setHeld] = useState<{ key: string; blob: Blob } | null>(null);
 
+  /**
+   * Build a night's file, then hand it over.
+   *
+   * One tap anywhere that downloads files properly. Two on an iPhone, and the
+   * split is the point: the second tap is the one that opens the share sheet,
+   * and it has to be a tap that has not just spent itself on a network request.
+   * Building inside the gesture is what stopped the share sheet opening at all.
+   */
   async function pull(nightKey: string, kind: "sheet" | "returns") {
-    setBusy(`${nightKey}:${kind}`);
+    const key = `${nightKey}:${kind}`;
+    const filename =
+      kind === "sheet" ? `closing-${nightKey}.pdf` : `returns-${nightKey}.xlsx`;
+    const label = `${kind === "sheet" ? "Closing sheet" : "Returns"} — ${stationDateLabel(
+      new Date(`${nightKey}T12:00:00Z`),
+    )}`;
+
+    // The second tap. Nothing may be awaited before shareOrSave here.
+    if (held?.key === key) {
+      setFailure(null);
+      const how = await shareOrSave(held.blob, filename, label);
+      if (how === "failed") {
+        setFailure(
+          "The phone did not open the share sheet that time. The file is still built — tap Send again.",
+        );
+      }
+      return;
+    }
+
+    setBusy(key);
     setFailure(null);
+    setHeld(null);
     try {
       const response = await postAuthed(`/api/${kind}`, { nightKey });
-      await saveAs(
-        response,
-        kind === "sheet"
-          ? `closing-${nightKey}.pdf`
-          : `returns-${nightKey}.xlsx`,
-      );
+      const blob = await response.blob();
+      if (shareSheetOnly()) {
+        setHeld({ key, blob });
+      } else {
+        saveBlob(blob, filename);
+      }
     } catch (err) {
       setFailure(err instanceof Error ? err.message : "That did not download.");
     } finally {
@@ -93,6 +128,7 @@ export function Archive({ canBuildReturns }: { canBuildReturns: boolean }) {
               nightKey={id}
               session={session}
               busy={busy}
+              heldKey={held?.key ?? null}
               canBuildReturns={canBuildReturns}
               onPull={pull}
             />
@@ -102,7 +138,8 @@ export function Archive({ canBuildReturns }: { canBuildReturns: boolean }) {
 
       <p className="pt-1 text-[12px] leading-relaxed text-ink-faint">
         Files are rebuilt from the night&rsquo;s entries each time you ask for
-        one, so they are never out of date and never expire.
+        one, so they are never out of date and never expire. On a phone that is
+        two taps: one to build it, one to send it.
       </p>
     </div>
   );
@@ -112,12 +149,15 @@ function Night({
   nightKey,
   session,
   busy,
+  heldKey,
   canBuildReturns,
   onPull,
 }: {
   nightKey: string;
   session: Session;
   busy: string | null;
+  /** The one file already built and waiting to be sent, if it is this one. */
+  heldKey: string | null;
   canBuildReturns: boolean;
   onPull: (nightKey: string, kind: "sheet" | "returns") => void;
 }) {
@@ -144,25 +184,57 @@ function Night({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button
-          variant="secondary"
-          loading={busy === `${nightKey}:sheet`}
-          disabled={busy !== null}
-          onClick={() => onPull(nightKey, "sheet")}
-        >
-          Sheet PDF
-        </Button>
+        <File
+          label="Sheet PDF"
+          fileKey={`${nightKey}:sheet`}
+          busy={busy}
+          heldKey={heldKey}
+          onPull={() => onPull(nightKey, "sheet")}
+        />
         {canBuildReturns ? (
-          <Button
-            variant="secondary"
-            loading={busy === `${nightKey}:returns`}
-            disabled={busy !== null}
-            onClick={() => onPull(nightKey, "returns")}
-          >
-            Returns
-          </Button>
+          <File
+            label="Returns"
+            fileKey={`${nightKey}:returns`}
+            busy={busy}
+            heldKey={heldKey}
+            onPull={() => onPull(nightKey, "returns")}
+          />
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * One file on one night.
+ *
+ * Turns into Send once it is built, which on a phone is the tap that opens the
+ * share sheet. Green, because at that point it is a different action: the file
+ * exists, and this sends it.
+ */
+function File({
+  label,
+  fileKey,
+  busy,
+  heldKey,
+  onPull,
+}: {
+  label: string;
+  fileKey: string;
+  busy: string | null;
+  heldKey: string | null;
+  onPull: () => void;
+}) {
+  const held = heldKey === fileKey;
+
+  return (
+    <Button
+      variant={held ? "arrived" : "secondary"}
+      loading={busy === fileKey}
+      disabled={busy !== null}
+      onClick={onPull}
+    >
+      {held ? `Send ${label.toLowerCase()}` : label}
+    </Button>
   );
 }

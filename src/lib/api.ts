@@ -33,21 +33,57 @@ export async function postAuthed(path: string, body: unknown): Promise<Response>
 }
 
 /**
+ * Whether handing a file to this device has to go through the share sheet.
+ *
+ * True on iOS and iPadOS. It is the platform being detected and not the
+ * browser, because every browser on an iPhone is WebKit underneath — Chrome
+ * there behaves exactly as Safari does.
+ *
+ * There is no feature test for this. `download` is present on every anchor on
+ * every platform; what differs is that WebKit treats a click on one pointing at
+ * a `blob:` url as a *navigation* to that url rather than as a download. A
+ * navigation is something a content blocker extension can refuse, and Karim's
+ * does — "The URL was blocked by a content blocker" is what he gets instead of
+ * a PDF. So on these devices the share sheet is not the nicer route, it is the
+ * only one, and a failed share must be reported rather than quietly turned into
+ * a download that cannot work.
+ */
+export function shareSheetOnly(): boolean {
+  const ua = navigator.userAgent;
+  // iPadOS reports itself as a Mac. The touch points are what give it away.
+  return (
+    /iPad|iPhone|iPod/.test(ua) ||
+    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+  );
+}
+
+/**
+ * What became of a file we tried to hand over.
+ *
+ * `failed` is its own answer rather than a thrown error: nothing went wrong
+ * with the sheet, it is still in hand, and the only thing to do about it is
+ * tap again. That is a sentence on the screen, not an exception.
+ */
+export type HandOff = "shared" | "saved" | "failed";
+
+/**
  * Hand a file to whatever the phone uses to send things.
  *
  * On a phone this is the system share sheet, which is where WhatsApp lives —
  * the same two taps Karim already uses to post a photo of the paper sheet.
- * Anywhere without it, and on a cancelled share, it falls back to a download.
+ * Anywhere that downloads files properly, it downloads instead.
  *
- * The blob must already be in hand when this is called. Fetching inside the
- * click and then sharing loses the user gesture on iOS, and the share sheet
- * silently never opens.
+ * The blob must already be in hand when this is called, and this is the whole
+ * reason both callers pre-build. Fetching inside the click and then sharing
+ * spends the user gesture on the network: by the time `share` is reached iOS no
+ * longer counts the tap as user-initiated, throws NotAllowedError, and what
+ * used to happen next was a fall back to a download the phone could not do.
  */
 export async function shareOrSave(
   blob: Blob,
   filename: string,
   text: string,
-): Promise<"shared" | "saved"> {
+): Promise<HandOff> {
   const file = new File([blob], filename, { type: blob.type });
 
   if (navigator.canShare?.({ files: [file] })) {
@@ -60,8 +96,11 @@ export async function shareOrSave(
       if (error instanceof Error && error.name === "AbortError") {
         return "shared";
       }
+      if (shareSheetOnly()) return "failed";
     }
   }
+
+  if (shareSheetOnly()) return "failed";
 
   saveBlob(blob, filename);
   return "saved";
