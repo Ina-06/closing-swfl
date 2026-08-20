@@ -1,15 +1,15 @@
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
-import { getStorage } from "firebase-admin/storage";
 
 /**
  * Server-side Firebase, for privileged work only.
  *
  * This module must never be imported from a client component — it carries the
  * service account, which bypasses every security rule. It is used by
- * /api/login to mint role-carrying custom tokens, and later by the PDF and
- * spreadsheet routes.
+ * /api/login to mint role-carrying custom tokens, by /api/keys for the one-time
+ * codes, and by the PDF and spreadsheet routes to read a night's entries
+ * without the caller having to be trusted with a query.
  *
  * FIREBASE_SERVICE_ACCOUNT_KEY holds the entire downloaded JSON key file, as
  * one value. Base64 is also accepted, because some shells mangle a pasted
@@ -66,20 +66,4 @@ export function getAdminAuth(): Auth {
 
 export function getAdminDb(): Firestore {
   return getFirestore(getAdminApp());
-}
-
-/**
- * The Storage bucket the spreadsheet and the PDF are archived into.
- *
- * The name is the same public value the browser config carries, so there is one
- * bucket and one place it is spelled. Reaching this without Storage switched on
- * in the Firebase console throws, and every caller treats that as a file that
- * did not get archived rather than a request that failed.
- */
-export function getAdminBucket() {
-  const bucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-  if (!bucket) {
-    throw new Error("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET is not set.");
-  }
-  return getStorage(getAdminApp()).bucket(bucket);
 }

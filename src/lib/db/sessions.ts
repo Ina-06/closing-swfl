@@ -50,8 +50,6 @@ function toSession(data: DocumentData, id: string): Session {
     roster,
     allReturningAt: data.allReturningAt ?? null,
     closedAt: data.closedAt ?? null,
-    pdfUrl: data.pdfUrl ?? null,
-    returnsXlsxUrl: data.returnsXlsxUrl ?? null,
   };
 }
 
@@ -133,9 +131,9 @@ type RosterInput = {
  * live listener saw. One document, one snapshot, no half-built night.
  *
  * `merge: true` and the explicit field list matter too: re-saving the roster
- * after All Returning has been called must not reset the status or wipe the
- * pdf and spreadsheet urls. Nothing here can remove a session — there is no
- * delete path in the app at all.
+ * after All Returning has been called must not reset the status or clear the
+ * times stamped on it. Nothing here can remove a session — there is no delete
+ * path in the app at all.
  */
 export async function saveRoster({
   nightKey,
@@ -168,8 +166,6 @@ export async function createSession(input: RosterInput) {
       status: "open",
       allReturningAt: null,
       closedAt: null,
-      pdfUrl: null,
-      returnsXlsxUrl: null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       updatedBy: input.updatedBy,

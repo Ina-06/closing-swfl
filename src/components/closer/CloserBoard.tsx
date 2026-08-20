@@ -134,13 +134,28 @@ export function CloserBoard({
   const total = Math.max(session.totalExpected, entries.length + pending.length);
   const open = openId ? (entries.find((e) => e.id === openId) ?? null) : null;
 
+  /**
+   * A sheet is over the list, so the list is not his screen at the moment.
+   *
+   * Read from what is actually rendered rather than from `openId`, which can
+   * still be pointing at an entry the dispatcher has since removed.
+   */
+  const busyWithADriver = adding || open !== null;
+
   return (
     <div className="space-y-4">
       <div className="sticky top-below-header z-10 -mx-4 border-b border-line bg-canvas/95 px-4 pb-3 pt-1 backdrop-blur-md">
         {/* Inside the sticky block, so "stays at the top" is literal — it does
-            not scroll away while he works down the list. */}
+            not scroll away while he works down the list. Held back entirely
+            while a driver is open: this row of the screen is underneath the
+            sheet then, so appearing there could only move the page behind a
+            box he is typing in, for a banner he cannot see or dismiss. */}
         {session.status === "allReturning" ? (
-          <AllReturningBanner nightKey={nightKey} expected={total} />
+          <AllReturningBanner
+            nightKey={nightKey}
+            expected={total}
+            hold={busyWithADriver}
+          />
         ) : null}
 
         <div className="flex items-center justify-between gap-3">

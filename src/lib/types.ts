@@ -150,6 +150,4 @@ export type Session = {
   roster: RosterEntry[];
   allReturningAt: Timestamp | null;
   closedAt: Timestamp | null;
-  pdfUrl: string | null;
-  returnsXlsxUrl: string | null;
 };

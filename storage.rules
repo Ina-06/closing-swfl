@@ -2,18 +2,19 @@ rules_version = '2';
 
 // Closing — SWFL, Storage
 //
-// Nothing in this app reaches Storage from a browser. The spreadsheet and,
-// from Phase 7, the PDF are written by the Admin SDK inside our own API
-// routes, and handed back either as a download or as a signed URL with an
-// expiry on it. The Admin SDK bypasses these rules entirely, so closing the
-// door on clients costs us nothing and removes a whole class of accident.
+// This app does not use Storage at all. The spreadsheet is downloaded and
+// pasted into the station's shared workbook; the PDF is shared straight into
+// the WhatsApp group. Both are rendered fresh from the night's entries every
+// time they are asked for, which is what Past nights does — the entries are the
+// record, and a second copy of a file in a bucket is a thing to keep, not an
+// archive.
 //
-// It matters here more than usual: these files carry every driver's full name.
-// A bucket left on the default "any signed-in user" rule would mean anyone
-// holding the station key could pull the archive straight out of Storage,
-// past every field-ownership rule in firestore.rules.
+// The file stays here as a lock on a door we are not using. If Storage is ever
+// switched on in the console it starts on a default rule that lets any signed-in
+// user read and write, and this app has signed-in users. These files would carry
+// every driver's full name, so the default is not one to leave standing.
 //
-// Paste into Firebase console → Storage → Rules → Publish.
+// If Storage is turned on: Firebase console → Storage → Rules → paste → Publish.
 
 service firebase.storage {
   match /b/{bucket}/o {

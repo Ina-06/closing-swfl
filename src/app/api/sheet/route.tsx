@@ -1,5 +1,5 @@
 import { renderToBuffer } from "@react-pdf/renderer";
-import { getAdminAuth, getAdminBucket, getAdminDb } from "@/lib/firebase/admin";
+import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
 import { SheetDocument } from "@/lib/pdf/SheetDocument";
 import { sheetRows } from "@/lib/sheet";
 import type { Entry } from "@/lib/types";
@@ -7,10 +7,12 @@ import type { Entry } from "@/lib/types";
 /**
  * The closing sheet, as the PDF that gets posted to the group.
  *
- * Either role can ask for it. Karim generates it at End Day; the dispatcher
- * pulls it again from the archive, or rebuilds one from a night whose file
- * never made it to Storage. Both are read-only operations against a night that
- * already exists, so there is nothing here that needs the stricter of the two.
+ * Either role can ask for it. Karim generates it at End Day and sends it to the
+ * group; the dispatcher pulls the same night again from the archive weeks
+ * later. It is rendered fresh from the entries every time — the entries are the
+ * record, the PDF is only a view of them — so both are read-only operations
+ * against a night that already exists, and there is nothing here that needs the
+ * stricter of the two roles.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -86,45 +88,12 @@ export async function POST(request: Request) {
 
   const filename = `closing-${nightKey}.pdf`;
 
-  // Same bargain as the spreadsheet: the file in his hand is the deliverable,
-  // the copy in Storage is the archive. One failing does not take the other.
-  let saved = false;
-  let archiveError = "";
-  let bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? "(not set)";
-  try {
-    const bucket = getAdminBucket();
-    bucketName = bucket.name;
-    const file = bucket.file(`sessions/${nightKey}/${filename}`);
-
-    await file.save(buffer, {
-      contentType: "application/pdf",
-      metadata: { cacheControl: "private, max-age=0" },
-    });
-
-    // Signed, never public: full names, van issues and infractions, all of it.
-    const [url] = await file.getSignedUrl({
-      action: "read",
-      expires: Date.now() + 365 * 24 * 60 * 60 * 1000,
-    });
-
-    await sessionRef.set({ pdfUrl: url }, { merge: true });
-    saved = true;
-  } catch (error) {
-    console.error("Could not save the PDF to Storage:", error);
-    archiveError = error instanceof Error ? error.message : String(error);
-  }
-
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="${filename}"`,
       "Cache-Control": "no-store",
       "X-Sheet-Rows": String(rows.length),
-      "X-Sheet-Archived": saved ? "1" : "0",
-      "X-Sheet-Bucket": encodeURIComponent(bucketName),
-      "X-Sheet-Archive-Error": encodeURIComponent(
-        archiveError.replace(/\s+/g, " ").slice(0, 300),
-      ),
     },
   });
 }

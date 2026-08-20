@@ -36,11 +36,6 @@ export function AllReturning({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [archive, setArchive] = useState<{
-    ok: boolean;
-    bucket: string;
-    reason: string;
-  }>({ ok: true, bucket: "", reason: "" });
 
   const called = session.status !== "open";
   const withReturns = returnsRows(entries).length;
@@ -49,20 +44,19 @@ export function AllReturning({
   ).length;
   const unreadable = unreadableReturns(entries);
 
+  /**
+   * Build the workbook and hand it straight to the browser's downloads.
+   *
+   * Nothing is filed anywhere on the way past. The station's copy of record is
+   * the shared workbook these rows get pasted into, so a second copy sitting in
+   * a bucket nobody opens is not an archive — it is another thing to keep. Any
+   * night can be built again from its entries, which is what the archive screen
+   * does.
+   */
   async function download() {
     const response = await postAuthed("/api/returns", { nightKey });
     await saveAs(response, `returns-${nightKey}.xlsx`);
-
-    const rows = Number(response.headers.get("X-Returns-Rows") ?? withReturns);
-    const read = (name: string) =>
-      decodeURIComponent(response.headers.get(name) ?? "");
-
-    setArchive({
-      ok: response.headers.get("X-Returns-Archived") !== "0",
-      bucket: read("X-Returns-Bucket"),
-      reason: read("X-Returns-Archive-Error"),
-    });
-    return rows;
+    return Number(response.headers.get("X-Returns-Rows") ?? withReturns);
   }
 
   async function call() {
@@ -190,24 +184,6 @@ export function AllReturning({
         <p className="mt-3 rounded-md border border-arrived-line bg-arrived-soft px-3 py-2 text-[13px] font-medium text-arrived">
           {note}
         </p>
-      ) : null}
-
-      {!archive.ok ? (
-        <div className="mt-3">
-          {/* The reason comes from the server rather than being guessed here.
-              There are four or five different things that stop an upload and
-              they have four or five different fixes. */}
-          <SoftWarning>
-            <strong>The file downloaded but was not archived.</strong> Nothing
-            is lost — the spreadsheet in your downloads is the same file — but
-            it will not be in the Phase 7 archive.
-            <span className="mt-1.5 block font-mono text-[12px] leading-relaxed">
-              bucket: {archive.bucket || "(none)"}
-              <br />
-              {archive.reason || "no reason reported"}
-            </span>
-          </SoftWarning>
-        </div>
       ) : null}
 
       {error ? (

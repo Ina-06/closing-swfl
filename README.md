@@ -15,10 +15,9 @@ Two roles, one codebase:
 | Framework | Next.js 16 (App Router), TypeScript, React 19 |
 | Styling | Tailwind CSS v4 |
 | Database / realtime | Firebase Firestore |
-| File storage | Firebase Storage *(Phase 6)* |
 | Privileged server work | Firebase Admin SDK in route handlers |
-| PDF | `@react-pdf/renderer`, Node runtime *(Phase 7)* |
-| Spreadsheet | `exceljs`, server-side *(Phase 6)* |
+| PDF | `@react-pdf/renderer`, Node runtime |
+| Spreadsheet | `exceljs`, server-side |
 | Hosting | Vercel |
 
 ## Local development

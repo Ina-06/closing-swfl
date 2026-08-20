@@ -52,15 +52,18 @@ export function EndDay({
   const filename = `closing-${nightKey}.pdf`;
   const everyoneIn = outstanding === 0 && entries.length > 0;
 
+  /**
+   * Render tonight's sheet, and keep it.
+   *
+   * Nothing is filed anywhere on the way past — the PDF goes to the group chat,
+   * which is where anyone actually looks for it. Any night can be rendered
+   * again from its entries under Past nights, so there is nothing here that
+   * only exists once.
+   */
   async function build(): Promise<Blob> {
     const response = await postAuthed("/api/sheet", { nightKey });
     const blob = await response.blob();
     setSheet(blob);
-    if (response.headers.get("X-Sheet-Archived") === "0") {
-      setNote(
-        "Sheet ready. It could not be filed in the archive — dispatch will see why.",
-      );
-    }
     return blob;
   }
 
@@ -75,7 +78,7 @@ export function EndDay({
       const blob = await build();
       setConfirming(false);
       saveBlob(blob, filename);
-      setNote((current) => current ?? "Sheet built and saved to this phone.");
+      setNote("Sheet built and saved to this phone.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "That did not go through.");
     } finally {
