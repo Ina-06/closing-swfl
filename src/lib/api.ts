@@ -103,13 +103,38 @@ export function shareSheetOnly(): boolean {
 }
 
 /**
+ * How long a share sheet needs to have been on screen for a person to have
+ * dismissed it.
+ *
+ * WebKit throws AbortError for two completely different things: the sheet was
+ * presented and the user closed it, and the sheet could not be presented at
+ * all. There is no other way to tell them apart — same error name, same empty
+ * message — but they do not take the same amount of time. A failure to present
+ * comes back within a few milliseconds. A person has to watch the sheet animate
+ * in, decide against it, and reach for Cancel.
+ *
+ * Getting it wrong in the cautious direction shows a message telling him to tap
+ * again, which is a small annoyance. Getting it wrong the other way is what we
+ * had: a tap that did nothing and said nothing, forever.
+ */
+const SHEET_WAS_SEEN_MS = 600;
+
+/**
  * What became of a file we tried to hand over.
  *
- * `failed` is its own answer rather than a thrown error: nothing went wrong
- * with the sheet, it is still in hand, and the only thing to do about it is
- * tap again. That is a sentence on the screen, not an exception.
+ * `cancelled` is separate from `shared` because only one of them means the file
+ * went somewhere, and separate from `failed` because he already knows about it
+ * — he saw the sheet and closed it. Nothing needs saying.
+ *
+ * `failed` is its own answer rather than a thrown error: nothing went wrong with
+ * the sheet, it is still in hand, and the only thing to do about it is tap
+ * again. That is a sentence on the screen, not an exception.
  */
-export type HandOff = "shared" | "saved" | "failed";
+export type HandOff = "shared" | "cancelled" | "saved" | "failed";
+
+function isAbort(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
 
 /**
  * Hand a file to whatever the phone uses to send things.
@@ -121,8 +146,8 @@ export type HandOff = "shared" | "saved" | "failed";
  * The blob must already be in hand when this is called, and this is the whole
  * reason both callers pre-build. Fetching inside the click and then sharing
  * spends the user gesture on the network: by the time `share` is reached iOS no
- * longer counts the tap as user-initiated, throws NotAllowedError, and what
- * used to happen next was a fall back to a download the phone could not do.
+ * longer counts the tap as user-initiated, throws NotAllowedError, and what used
+ * to happen next was a fall back to a download the phone could not do.
  */
 export async function shareOrSave(
   blob: Blob,
@@ -132,14 +157,17 @@ export async function shareOrSave(
   const file = new File([blob], filename, { type: blob.type });
 
   if (navigator.canShare?.({ files: [file] })) {
+    const asked = Date.now();
+
     try {
       await navigator.share({ files: [file], title: filename, text });
       return "shared";
     } catch (error) {
-      // Cancelling the sheet throws AbortError. That is a decision, not a
-      // failure, so it must not turn into a download he did not ask for.
-      if (error instanceof Error && error.name === "AbortError") {
-        return "shared";
+      // He saw it and closed it. That is a decision, not a failure, and it must
+      // not turn into a download he did not ask for or a message he does not
+      // need. Anything quicker than a person never reached the screen.
+      if (isAbort(error) && Date.now() - asked >= SHEET_WAS_SEEN_MS) {
+        return "cancelled";
       }
       if (shareSheetOnly()) return "failed";
     }

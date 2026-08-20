@@ -124,45 +124,57 @@ export function EndDay({
   }
 
   /**
-   * The tap. It always does something.
+   * The tap. It always does something, and it always says so.
    *
-   * This button is never disabled waiting on a background build, and that is
-   * deliberate: a button greyed out behind work he cannot see is a button that
-   * is broken as far as he is concerned, and he is standing in a yard at
-   * midnight with a phone in one hand.
+   * Two jobs behind one label. With the sheet in hand it sends it, and nothing
+   * at all is awaited before shareOrSave — not a fetch, not a token — because
+   * the gesture has to still be his when the share sheet is asked for. Without
+   * it, this tap builds it and the next one sends it.
    *
-   * So there are two jobs behind one label. With the sheet in hand it sends it,
-   * and nothing at all is awaited before shareOrSave — not a fetch, not a token
-   * — because the gesture has to still be his when the share sheet is asked
-   * for. Without it, this tap builds it and the next one sends it.
+   * The sending half deliberately does not set `busy`. A share promise that
+   * never settles would leave this button un-pressable for the rest of the
+   * night, and the button being pressable matters more than guarding against a
+   * double tap — the share sheet is its own answer to that, because it covers
+   * the screen.
+   *
+   * Every branch below ends in something visible. A tap that changes nothing on
+   * screen is indistinguishable from a broken button, and that is exactly what
+   * this was: a share that never opened came back as AbortError, went down the
+   * "he cancelled" path, and said nothing at all.
    */
   async function share() {
     setError(null);
     setNote(null);
-    setBusy(true);
 
-    try {
-      if (sheet) {
+    if (sheet) {
+      try {
         const how = await shareOrSave(
           sheet,
           filename,
           `Closing sheet — ${dateLabel}`,
         );
+        if (how === "shared") setNote("Sent.");
         if (how === "saved") {
           setNote("Saved to this device. Send it on from your files.");
         }
+        if (how === "cancelled") setNote("Not sent — you closed the share sheet.");
         if (how === "failed") {
           setError(
             "The phone would not open the share sheet. The sheet is built and waiting — tap Share again. If it keeps refusing, dispatch can post it from Past nights.",
           );
         }
-        return;
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not share that.");
       }
+      return;
+    }
 
+    setBusy(true);
+    try {
       await prepare();
       setNote("Sheet ready. Tap Share to send it.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not share that.");
+      setError(err instanceof Error ? err.message : "Could not build the sheet.");
     } finally {
       setBusy(false);
     }
