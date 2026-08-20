@@ -22,6 +22,23 @@ const SIZES: Record<Size, string> = {
   lg: "min-h-12 px-5 text-[15px] gap-2 rounded-lg",
 };
 
+/**
+ * The look, on its own.
+ *
+ * Exported because one control in the app has to be a real anchor rather than a
+ * button — View, which opens the sheet in the browser's own PDF viewer. That
+ * only works as a link the browser navigates, not as script run on a tap. It
+ * still has to sit next to Share and look like its equal, so it borrows the
+ * same classes instead of a copy of them that will drift.
+ */
+export function buttonClass(
+  variant: Variant = "secondary",
+  size: Size = "md",
+  className = "",
+) {
+  return `inline-flex items-center justify-center font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${SIZES[size]} ${VARIANTS[variant]} ${className}`;
+}
+
 export function Button({
   variant = "secondary",
   size = "md",
@@ -39,7 +56,7 @@ export function Button({
     <button
       {...props}
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${SIZES[size]} ${VARIANTS[variant]} ${className}`}
+      className={buttonClass(variant, size, className)}
     >
       {loading ? (
         <span className="size-3.5 animate-spin rounded-full border-2 border-current/30 border-t-current" />
