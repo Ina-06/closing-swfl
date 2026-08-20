@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BuildTag } from "@/components/BuildTag";
 import { RoleGate } from "@/components/RoleGate";
 import { SignOutButton } from "@/components/SignOutButton";
 import { StationDate } from "@/components/StationDate";
@@ -42,6 +43,7 @@ export default function CloserLayout({
       <main className="mx-auto max-w-lg px-4 py-6 pb-safe">
         {/* One-time keys land here too — they are a closer with an expiry. */}
         <RoleGate allow={["closer", "onetime"]}>{children}</RoleGate>
+        <BuildTag />
       </main>
     </div>
   );

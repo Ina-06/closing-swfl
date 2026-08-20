@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BuildTag } from "@/components/BuildTag";
 import { NavLink } from "@/components/dispatch/NavLink";
 import { RoleGate } from "@/components/RoleGate";
 import { SignOutButton } from "@/components/SignOutButton";
@@ -40,6 +41,7 @@ export default function DispatchLayout({
 
       <main className="mx-auto max-w-[1600px] px-5 py-8 sm:px-8 sm:py-12">
         <RoleGate allow={["dispatcher"]}>{children}</RoleGate>
+        <BuildTag />
       </main>
     </div>
   );
