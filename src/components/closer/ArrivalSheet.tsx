@@ -154,7 +154,13 @@ export function ArrivalSheet({
         tabIndex={-1}
         className="animate-sheet absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-2xl border-t border-line bg-surface pb-safe outline-none"
       >
-        <div className="mx-auto max-w-lg px-4 pb-6 pt-2.5">
+        <div
+          className={`mx-auto max-w-lg px-4 pt-2.5 ${
+            /* Room under the last control for the note to sit in, rather
+               than on top of it. */
+            error ? "pb-28" : "pb-6"
+          }`}
+        >
           <span
             aria-hidden="true"
             className="mx-auto mb-4 block h-1 w-10 rounded-full bg-line-strong"
@@ -300,9 +306,16 @@ export function ArrivalSheet({
               header. The writes that fail are the checks and the van number,
               and by the time he is tapping those the top of the sheet is well
               off the screen — an explanation up there is an explanation he
-              never sees. */}
+              never sees.
+
+              It cannot take a tap, and that is not a detail. A sticky element
+              floats over whatever is beneath it in the scrollport, and what is
+              beneath it here is Clock out — so with an error on screen, this
+              note sat on the button and swallowed every press. A note that
+              explains why one thing did nothing must never become the reason
+              the next thing does nothing. */}
           {error ? (
-            <div className="sticky bottom-2 z-10 mt-4">
+            <div className="pointer-events-none sticky bottom-2 z-10 mt-4">
               <ErrorNote>{error}</ErrorNote>
             </div>
           ) : null}
