@@ -63,10 +63,10 @@ export function Archive({ canBuildReturns }: { canBuildReturns: boolean }) {
     // The second tap. Nothing may be awaited before shareOrSave here.
     if (held?.key === key) {
       setFailure(null);
-      const how = await shareOrSave(held.blob, filename, label);
+      const { how, why } = await shareOrSave(held.blob, filename, label);
       if (how === "failed") {
         setFailure(
-          "The phone did not open the share sheet that time. The file is still built — tap Send again.",
+          `The phone did not open the share sheet that time. The file is still built — tap Send again. (${why})`,
         );
       }
       return;

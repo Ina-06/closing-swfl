@@ -62,6 +62,8 @@ export function EndDay({
   /** The link that opens the same sheet in the browser's own PDF viewer. */
   const [viewUrl, setViewUrl] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
+  /** What the last press of Share actually did. See HowThisPhoneOpens. */
+  const [trace, setTrace] = useState<string | null>(null);
   const asked = useRef(false);
   /** The build already running, so a tap during one joins it, never doubles it. */
   const inflight = useRef<Promise<Blob> | null>(null);
@@ -182,11 +184,12 @@ export function EndDay({
     setError(null);
     setNote(null);
     try {
-      const how = await shareOrSave(
+      const { how, why } = await shareOrSave(
         sheet,
         filename,
         `Closing sheet — ${dateLabel}`,
       );
+      setTrace(why);
       if (how === "shared") setNote("Sent.");
       if (how === "saved") {
         setNote("Saved to this device. Send it on from your files.");
@@ -278,7 +281,7 @@ export function EndDay({
           </div>
         ) : null}
 
-        <HowThisPhoneOpens />
+        <HowThisPhoneOpens trace={trace} />
       </section>
     );
   }
@@ -360,19 +363,20 @@ export function EndDay({
 }
 
 /**
- * What this particular phone actually is, in six words.
+ * What this phone is, and what the last press of Share actually did.
  *
- * Three nights have gone into guessing at two things the phone knows about
- * itself and we do not: whether the app is running from a Home Screen icon —
- * which has no address bar, no reload, and no share button of its own — and
- * whether iOS is willing to hand files to the share sheet at all. One property
- * each, and neither has ever been on screen where it could be read back over
- * the phone.
+ * Before a tap it reports what the phone says about itself. After one it is
+ * replaced by what happened — which path the share took, which error came back,
+ * and how many milliseconds it took to come back. That swap is the point: two
+ * quite different faults produce the identical sentence in the red box above,
+ * and for three nights the only way to tell them apart was a line of grey text
+ * that got covered by the arrow drawn on the photograph of it.
  *
- * It sits under the buttons and only on a closed night: in front of exactly the
- * person who can answer the question, and never in the way of the work.
+ * So it is deliberately the last thing on the panel, directly beneath the error
+ * it explains, and it holds the answer rather than the question. Karim is not
+ * expected to read it. It is there to be photographed.
  */
-function HowThisPhoneOpens() {
+function HowThisPhoneOpens({ trace }: { trace: string | null }) {
   /**
    * Read through useSyncExternalStore rather than an effect, because this is a
    * browser fact and the server has no answer for it. The server snapshot is
@@ -381,11 +385,13 @@ function HowThisPhoneOpens() {
    */
   const how = useSyncExternalStore(neverChanges, phoneReport, () => null);
 
-  if (!how) return null;
+  // The trace wins once there is one: what happened beats what was possible.
+  const line = trace ?? how;
+  if (!line) return null;
 
   return (
-    <p className="mt-3 text-center font-mono text-[11px] tracking-wide text-arrived/60">
-      {how}
+    <p className="mt-3 select-all text-center font-mono text-[11px] tracking-wide text-arrived/60">
+      {line}
     </p>
   );
 }
@@ -419,8 +425,6 @@ function phoneReport(): string {
     files = false;
   }
 
-  report = `${standalone ? "home screen" : "browser"} · share sheet ${
-    files ? "yes" : "no"
-  }`;
+  report = `${standalone ? "home" : "browser"} · files ${files ? "yes" : "no"}`;
   return report;
 }

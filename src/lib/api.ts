@@ -132,8 +132,55 @@ const SHEET_WAS_SEEN_MS = 600;
  */
 export type HandOff = "shared" | "cancelled" | "saved" | "failed";
 
-function isAbort(error: unknown): boolean {
-  return error instanceof Error && error.name === "AbortError";
+/**
+ * What happened, and the shortest note that says which way it happened.
+ *
+ * `why` exists because three nights were spent guessing between two paths that
+ * produce the identical message. It is a dozen characters of shorthand meant to
+ * be read back over the phone or photographed — never an explanation, and never
+ * the thing Karim is expected to act on. That is what the sentence beside it is
+ * for.
+ */
+export type Handover = { how: HandOff; why: string };
+
+/**
+ * Whether this is a Home Screen web app rather than a tab.
+ *
+ * Worth reporting rather than assuming: it decides whether there is an address
+ * bar on screen, and an address bar is where Safari keeps Reload Without
+ * Content Blockers. As it stands there is no manifest and no
+ * apple-mobile-web-app-capable in this app, so on iOS this is always false —
+ * but that is a property of today's build, not a law, and the day somebody adds
+ * a manifest this should start telling the truth on its own.
+ */
+function standalone(): boolean {
+  return (
+    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+    window.matchMedia("(display-mode: standalone)").matches
+  );
+}
+
+/**
+ * Ask the phone once, and report exactly what came back.
+ *
+ * The elapsed time is half the diagnosis. WebKit throws AbortError both when a
+ * person closes the sheet and when the sheet never opened, and the only thing
+ * that separates them is that a person takes longer than a few milliseconds.
+ */
+async function offer(
+  payload: ShareData,
+): Promise<{ ok: boolean; name: string; ms: number }> {
+  const asked = Date.now();
+  try {
+    await navigator.share(payload);
+    return { ok: true, name: "", ms: Date.now() - asked };
+  } catch (error) {
+    return {
+      ok: false,
+      name: error instanceof Error && error.name ? error.name : "unknown",
+      ms: Date.now() - asked,
+    };
+  }
 }
 
 /**
@@ -153,30 +200,54 @@ export async function shareOrSave(
   blob: Blob,
   filename: string,
   text: string,
-): Promise<HandOff> {
+): Promise<Handover> {
   const file = new File([blob], filename, { type: blob.type });
+  const phone = shareSheetOnly();
+  const where = standalone() ? "home" : "browser";
 
-  if (navigator.canShare?.({ files: [file] })) {
-    const asked = Date.now();
+  /** He saw the sheet and shut it. A decision, not a failure. */
+  const closed = (r: { name: string; ms: number }) =>
+    r.name === "AbortError" && r.ms >= SHEET_WAS_SEEN_MS;
 
-    try {
-      await navigator.share({ files: [file], title: filename, text });
-      return "shared";
-    } catch (error) {
-      // He saw it and closed it. That is a decision, not a failure, and it must
-      // not turn into a download he did not ask for or a message he does not
-      // need. Anything quicker than a person never reached the screen.
-      if (isAbort(error) && Date.now() - asked >= SHEET_WAS_SEEN_MS) {
-        return "cancelled";
-      }
-      if (shareSheetOnly()) return "failed";
+  if (!navigator.canShare?.({ files: [file] })) {
+    // The phone will not take a PDF through the share sheet at all, so there
+    // was never a sheet to open. On a desktop that is fine — it downloads
+    // below. On a phone it is the end of the road, and saying so names a cause
+    // that no amount of tapping Share again will change.
+    if (phone) return { how: "failed", why: `${where}·no-files` };
+  } else {
+    const full = await offer({ files: [file], title: filename, text });
+    if (full.ok) return { how: "shared", why: `${where}·full·${full.ms}ms` };
+    if (closed(full)) return { how: "cancelled", why: `${where}·closed` };
+
+    /**
+     * The same file with nothing attached to it.
+     *
+     * canShare is asked only about the files, so it answering yes says nothing
+     * about whether the phone will accept a share carrying a file *and* a
+     * caption — and iOS is measurably fussier about the pair than about the
+     * file on its own. This is the one thing that can be tried without asking
+     * Karim to do anything, and it costs a few milliseconds of the gesture he
+     * has already spent.
+     *
+     * Only ever reached on a fast failure. A sheet he opened and closed is
+     * settled above, so this can never pop a second sheet at somebody who has
+     * just said no to the first.
+     */
+    const bare = await offer({ files: [file] });
+    if (bare.ok) return { how: "shared", why: `${where}·bare·${bare.ms}ms` };
+    if (closed(bare)) return { how: "cancelled", why: `${where}·closed` };
+
+    if (phone) {
+      return {
+        how: "failed",
+        why: `${where}·${full.name}${full.ms}·${bare.name}${bare.ms}`,
+      };
     }
   }
 
-  if (shareSheetOnly()) return "failed";
-
   saveBlob(blob, filename);
-  return "saved";
+  return { how: "saved", why: `${where}·download` };
 }
 
 export function saveBlob(blob: Blob, filename: string) {
