@@ -207,6 +207,15 @@ export function ArrivalSheet({
           <FromDispatch entry={entry} />
 
           <div className="mt-6 space-y-3">
+            {/* Against the clock, wherever the clock is. For a driver still on
+                the road that is the Arrived button; for one already finished it
+                is the stamped time directly beneath this. In the yard the clock
+                is the Clock out at the foot of the sheet, so it travels down
+                there with it — see below. */}
+            {entry.eta && !inYard ? (
+              <EtaPanel eta={entry.eta} late={late} />
+            ) : null}
+
             {done ? (
               <ClockedOutPanel
                 entry={entry}
@@ -265,7 +274,9 @@ export function ArrivalSheet({
             {/* Directly above the button that stamps the real time, and set in
                 the same figures at the same size, because the only thing this
                 number is for now is being read against that one. */}
-            {entry.eta ? <EtaPanel eta={entry.eta} late={late} /> : null}
+            {entry.eta && inYard ? (
+              <EtaPanel eta={entry.eta} late={late} />
+            ) : null}
 
             {inYard ? (
               <>
@@ -341,24 +352,30 @@ function describeWriteError(error: unknown, fallback: string): string {
 }
 
 /**
- * What he said on the phone, sitting under what actually happened.
+ * What he said on the phone, sitting against what actually happened.
  *
- * Same typeface, same size, same shape of box as the stamped clock-out, so the
- * two read as one comparison rather than as a label and a number. That is the
- * whole point of it being here: eleven minutes late is a different handover to
- * bang on time, and he wants to know which he is having before he says hello.
+ * On one line, label and figure together, because that is how it gets said out
+ * loud — "ETA five twenty-five" — and because the two numbers this is here to
+ * be read against are each one line high. Same typeface and same size as the
+ * clock-out beneath it, so the pair reads as one comparison rather than as a
+ * heading and a number.
+ *
+ * It is never far from that clock-out now. Whichever control is the clock for
+ * this driver's state — Arrived, Clock out, or the stamped time itself — this
+ * renders directly against it, which is the whole reason to show it at all:
+ * eleven minutes late is a different handover to bang on time.
  */
 function EtaPanel({ eta, late }: { eta: string; late: number | null }) {
   return (
-    <div className="rounded-xl border border-line bg-sunken px-4 py-3.5 text-center">
-      <span className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
-        ETA
+    <div className="flex flex-wrap items-baseline justify-center gap-x-2.5 gap-y-1 rounded-xl border border-line bg-sunken px-4 py-3">
+      <span className="text-[15px] font-bold uppercase tracking-[0.08em] text-ink-faint">
+        ETA:
       </span>
-      <span className="tnum mt-1 block font-mono text-[30px] font-bold leading-none tracking-tight text-ink">
+      <span className="tnum font-mono text-[30px] font-bold leading-none tracking-tight text-ink">
         {eta}
       </span>
       {late !== null ? (
-        <span className="mt-2 inline-block rounded-full border border-overdue-line bg-overdue-soft px-2.5 py-0.5 text-[11px] font-bold text-overdue">
+        <span className="rounded-full border border-overdue-line bg-overdue-soft px-2.5 py-0.5 text-[11px] font-bold text-overdue">
           {lateLabel(late)}
         </span>
       ) : null}

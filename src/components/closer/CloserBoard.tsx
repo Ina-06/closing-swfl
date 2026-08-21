@@ -111,6 +111,8 @@ export function CloserBoard({
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  /** Open to begin with: a list he has not folded is a list he wants to see. */
+  const [deliveringOpen, setDeliveringOpen] = useState(true);
   const now = useStationClock();
 
   const { returning, deliveringEntries, inYard, done } = useMemo(() => {
@@ -266,17 +268,24 @@ export function CloserBoard({
           </p>
 
           <div className="flex items-center gap-2.5">
-            {/* Whichever number is the reason the night is not over. Falling
-                back down the list matters: with everyone on the sheet already
-                in, "0 still out" beside "5/6" reads like a broken counter. */}
-            {returning.length > 0 ? (
-              <p className="text-[12px] font-semibold text-ink-muted">
-                {returning.length} returning
-              </p>
-            ) : delivering.length > 0 ? (
-              <p className="text-[12px] font-semibold text-ink-muted">
-                {delivering.length} still delivering
-              </p>
+            {/* Both numbers, stacked, while anyone is still on the road. They
+                answer different questions — how many vans to watch the gate
+                for, and how many are not even heading back yet — and reading
+                one without the other tells him half of where the night is.
+
+                A zero stays on screen here, because during a wave "0 returning"
+                is a fact worth having: nobody has phoned a time in. Once
+                everyone is off the road both lines go, and the yard count takes
+                their place rather than leaving a pair of noughts behind. */}
+            {returning.length > 0 || delivering.length > 0 ? (
+              <div className="text-right leading-tight">
+                <p className="text-[12px] font-semibold text-ink">
+                  {returning.length} returning
+                </p>
+                <p className="text-[12px] font-semibold text-ink-muted">
+                  {delivering.length} still delivering
+                </p>
+              </div>
             ) : inYard.length > 0 ? (
               <p className="text-[12px] font-semibold text-arrived">
                 {inYard.length} in the yard
@@ -384,35 +393,55 @@ export function CloserBoard({
               above this one. */}
           {delivering.length > 0 ? (
             <section className="space-y-2 pt-2">
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
+              {/* Foldable, because early on it is the longest list on the
+                  screen and every name on it is a driver Karim can do nothing
+                  about. Folded, the count is still there — he has not lost the
+                  number, only the twenty rows between it and the vans that are
+                  actually coming in. */}
+              <button
+                type="button"
+                onClick={() => setDeliveringOpen(!deliveringOpen)}
+                aria-expanded={deliveringOpen}
+                aria-controls="still-delivering"
+                className="flex min-h-11 w-full items-center gap-1.5 text-left text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint"
+              >
+                <Caret open={deliveringOpen} />
                 Still delivering · {delivering.length}
-              </h2>
-              <ul className="space-y-2">
-                {delivering.map((row) =>
-                  row.kind === "entry" ? (
-                    <li key={row.key}>
-                      <WaitingCard
-                        entry={row.entry}
-                        late={null}
-                        onOpen={() => setOpenId(row.entry.id)}
-                      />
-                    </li>
-                  ) : (
-                    <li key={row.key}>
-                      <RosterCard
-                        row={row.roster}
-                        onOpen={() => void addFromRoster(row.roster)}
-                      />
-                    </li>
-                  ),
-                )}
-              </ul>
-              {notEntered.length > 0 ? (
-                <p className="text-[12px] leading-relaxed text-ink-faint">
-                  The dashed ones are on tonight&rsquo;s roster but dispatch
-                  hasn&rsquo;t entered them. Tap one when his van pulls in and it
-                  puts him in the yard.
-                </p>
+                <span className="sr-only">
+                  {deliveringOpen ? "(tap to hide)" : "(tap to show)"}
+                </span>
+              </button>
+
+              {deliveringOpen ? (
+                <div id="still-delivering" className="space-y-2">
+                  <ul className="space-y-2">
+                    {delivering.map((row) =>
+                      row.kind === "entry" ? (
+                        <li key={row.key}>
+                          <WaitingCard
+                            entry={row.entry}
+                            late={null}
+                            onOpen={() => setOpenId(row.entry.id)}
+                          />
+                        </li>
+                      ) : (
+                        <li key={row.key}>
+                          <RosterCard
+                            row={row.roster}
+                            onOpen={() => void addFromRoster(row.roster)}
+                          />
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                  {notEntered.length > 0 ? (
+                    <p className="text-[12px] leading-relaxed text-ink-faint">
+                      The dashed ones are on tonight&rsquo;s roster but dispatch
+                      hasn&rsquo;t entered them. Tap one when his van pulls in
+                      and it puts him in the yard.
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
             </section>
           ) : null}
@@ -454,7 +483,7 @@ export function CloserBoard({
       {/* The last thing on the screen that is information rather than a
           decision. End Day is underneath it on purpose: this is what he reads
           before he presses that. */}
-      <Summary entries={entries} />
+      <Summary nightKey={nightKey} entries={entries} uid={uid} />
 
       <EndDay
         nightKey={nightKey}
@@ -507,6 +536,24 @@ export function CloserBoard({
         />
       ) : null}
     </div>
+  );
+}
+
+/** Points down when the list is showing, right when it is folded away. */
+function Caret({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`size-3 shrink-0 transition-transform ${open ? "rotate-90" : ""}`}
+      aria-hidden="true"
+    >
+      <path d="M9 5l7 7-7 7" />
+    </svg>
   );
 }
 

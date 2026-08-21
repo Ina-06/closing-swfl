@@ -86,6 +86,14 @@ export function WaitingCard({
           </span>
         </span>
 
+        {/* The two things that change how the conversation opens, on the
+            outside of the card where the clocked-out rows already carry theirs.
+            Karim gets one look at this row while the van is still rolling in;
+            having to open the sheet to find out he is meeting a man who lost
+            eleven packages is finding out too late. */}
+        <Trend direction={entry.performance} />
+        <RescueCount count={entry.rescues} />
+
         <Chevron />
       </span>
 
@@ -256,6 +264,60 @@ export function DoneCard({
 
       <Chevron />
     </button>
+  );
+}
+
+/**
+ * Which way this driver's week is going, as the arrow and nothing else.
+ *
+ * The metric that sits beside it inside the sheet does not come out here. It
+ * needs its own scale of five colours to mean anything, and a row Karim reads
+ * in the half-second a van takes to park has room for one signal, not two.
+ */
+function Trend({ direction }: { direction: Entry["performance"] }) {
+  if (!direction) return null;
+
+  return (
+    <span
+      role="img"
+      aria-label={direction === "up" ? "Trending up" : "Trending down"}
+      className="shrink-0 text-[15px] leading-none"
+    >
+      {direction === "up" ? "📈" : "📉"}
+    </span>
+  );
+}
+
+/**
+ * Rescues, as a number in a colour.
+ *
+ * Green is packages this driver took off somebody else, red is packages that
+ * had to be taken off him — and on a card this size the colour is doing the
+ * work a `+` or a `-` does inside the sheet. A minus sign on a phone held at
+ * arm's length in a dark yard is one pixel wide; a red bubble is not.
+ *
+ * Nothing at all when the figure is zero, which is most of them. A row of
+ * grey noughts down the list would cost the two that are not.
+ */
+function RescueCount({ count }: { count: number }) {
+  if (count === 0) return null;
+
+  const took = count > 0;
+
+  return (
+    <span
+      className={`tnum shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[11px] font-bold ${
+        took
+          ? "border-arrived-line bg-arrived-soft text-arrived"
+          : "border-overdue-line bg-overdue-soft text-overdue"
+      }`}
+    >
+      <span className="sr-only">
+        {took ? "Rescued " : "Taken off him: "}
+      </span>
+      {Math.abs(count)}
+      <span className="sr-only"> packages</span>
+    </span>
   );
 }
 
