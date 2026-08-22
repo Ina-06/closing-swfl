@@ -57,7 +57,13 @@ export function sheetRows(entries: Entry[]): SheetRow[] {
       // Position, not the stored seq — the same numbering the dispatcher's
       // table shows, so a row removed mid-night leaves no hole on the sheet.
       number: String(index + 1),
-      name: entry.fullName,
+      /**
+       * Marked, because on paper the same name twice is the shape a duplicated
+       * row makes. It is not one: he went back out and came in again, and the
+       * two lines carry two vans and two times. Whoever reads this in the
+       * morning has to be able to tell those apart at a glance.
+       */
+      name: entry.secondTrip ? `${entry.fullName} (2nd)` : entry.fullName,
       time: timeLabel(entry),
       van: entry.van.trim(),
       checks,

@@ -1,8 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "@/components/ui/Button";
-import { CheckCycle, type Check } from "@/components/ui/Checks";
+import { CheckBar, CheckCycle, type Check } from "@/components/ui/Checks";
 import { ErrorNote } from "@/components/ui/Field";
 import { FlagTag } from "@/components/ui/FlagToggle";
 import { flagsOn } from "@/components/closer/DriverCard";
@@ -168,6 +174,14 @@ export function ArrivalSheet({
               {/* The ETA used to live here. It is down by the clock-out now,
                   where it is the number he is about to compare against. */}
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {/* First, and not a flag: it says which of this driver's two
+                    rows he is looking at, which decides whether anything else
+                    on the sheet is the one he meant to open. */}
+                {entry.secondTrip ? (
+                  <span className="rounded-full border border-brand-line bg-brand-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand">
+                    2nd trip
+                  </span>
+                ) : null}
                 {flagsOn(entry).map((flag) => (
                   <FlagTag key={flag} flag={flag} />
                 ))}
@@ -216,7 +230,21 @@ export function ArrivalSheet({
               <EtaPanel eta={entry.eta} late={late} />
             ) : null}
 
-            {done ? (
+            {entry.secondTrip ? (
+              /* His second turn of the night. There is no Arrived to press —
+                 by the time Karim is filling this in the trip is already over
+                 — so the whole state block collapses to the one thing that is
+                 still missing, which is what time it was. */
+              <TripTimePanel
+                entry={entry}
+                editing={editingTime}
+                draft={draft}
+                onDraft={setDraft}
+                onStartEditing={startEditing}
+                onCancelEditing={() => setEditingTime(false)}
+                onSaveTime={saveTime}
+              />
+            ) : done ? (
               <ClockedOutPanel
                 entry={entry}
                 editing={editingTime}
@@ -274,11 +302,11 @@ export function ArrivalSheet({
             {/* Directly above the button that stamps the real time, and set in
                 the same figures at the same size, because the only thing this
                 number is for now is being read against that one. */}
-            {entry.eta && inYard ? (
+            {entry.eta && inYard && !entry.secondTrip ? (
               <EtaPanel eta={entry.eta} late={late} />
             ) : null}
 
-            {inYard ? (
+            {inYard && !entry.secondTrip ? (
               <>
                 <Button
                   variant="primary"
@@ -455,6 +483,50 @@ function VanPanel({
     onSave({ vanIssues: value.trim() }),
   );
 
+  const box = useRef<HTMLTextAreaElement>(null);
+  /** Set by the tap that crossed the van, read by the layout effect below. */
+  const wantsCaret = useRef(false);
+  /**
+   * That the box was asked for on this tap, before the write has come back.
+   *
+   * Waiting for Firestore to echo the cross would put the textarea on screen a
+   * frame or two after the finger left the glass, and on iOS a field focused
+   * outside the gesture that asked for it gets no keyboard. So the cross is
+   * believed here first and confirmed by the record afterwards.
+   */
+  const [crossedNow, setCrossedNow] = useState(false);
+
+  /**
+   * Whether there is anything to write in.
+   *
+   * Crossing the van opens it, which is the whole point of the control. The
+   * other three are there so nothing already recorded can be hidden by it: text
+   * on the record, or a grounded van, means there is something to read, and a
+   * field Karim cannot see is a field he cannot correct.
+   */
+  const issuesOpen =
+    crossedNow ||
+    entry.vanOk === false ||
+    entry.vanIssues.trim() !== "" ||
+    entry.grounded;
+
+  /**
+   * Straight into the box, caret at the end, on the tap that opened it.
+   *
+   * A layout effect rather than a passive one because it has to run before the
+   * browser hands control back — that is what keeps this inside the tap, and
+   * the keyboard with it. No dependency list: the ref is the guard, so it fires
+   * on the render that put the box on screen and on no other.
+   */
+  useLayoutEffect(() => {
+    if (!wantsCaret.current) return;
+    const field = box.current;
+    if (!field) return;
+    wantsCaret.current = false;
+    field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+  });
+
   /**
    * Both self-writing controls go through here, and both rebuild the box.
    *
@@ -489,6 +561,20 @@ function VanPanel({
     onSave(patch);
   }
 
+  /**
+   * Is there anything wrong with the van.
+   *
+   * Crossing it is the only way into the box below, so this does that too
+   * rather than leaving him to find it: the answer to "what is wrong with it"
+   * is the next thing he was going to say, and he is holding the phone in one
+   * hand.
+   */
+  function setVanOk(value: Check) {
+    setCrossedNow(value === false);
+    if (value === false) wantsCaret.current = true;
+    onSave({ vanOk: value });
+  }
+
   return (
     <section className="mt-6">
       <SectionTitle>The van</SectionTitle>
@@ -521,71 +607,102 @@ function VanPanel({
         className="tnum mt-2 w-full rounded-xl border border-line-strong bg-surface px-4 py-3.5 text-center font-mono text-[26px] font-bold tracking-wide text-ink outline-none transition-colors placeholder:text-[17px] placeholder:font-sans placeholder:font-medium placeholder:tracking-normal placeholder:text-ink-faint focus:border-brand"
       />
 
-      {/* Two rows of three, in the order he walks them. Six across would put
-          the last one past the reach of a thumb on the hand holding the phone.
+      {/* Three across, in the order he walks them. Six across would put the
+          last one past the reach of a thumb on the hand holding the phone.
           Equal rows, so the one check whose name runs to two lines does not
           make its row taller than the other and leave the grid looking like it
           slipped. */}
       <div className="mt-2.5 grid auto-rows-fr grid-cols-3 gap-2">
-        {CHECKS.map((check) => (
+        {CHECKS.map((check, index) => (
           <CheckCycle
             key={check.field}
             label={check.label}
             value={entry[check.field]}
             onChange={(value) => setCheck(check.field, value)}
+            /* A last row holding one tile reads as a grid that slipped, so it
+               takes the whole row instead. Worked out from the count rather
+               than named, so the seventh check is still one line in
+               constants. */
+            className={
+              index === CHECKS.length - 1 && CHECKS.length % 3 === 1
+                ? "col-span-3"
+                : ""
+            }
           />
         ))}
       </div>
 
-      <label
-        htmlFor="van-issues"
-        className="mt-4 block text-[12px] font-semibold uppercase tracking-[0.1em] text-ink-faint"
-      >
+      {/* The gate. Most vans come back with nothing wrong, and for those this
+          is the whole of it — one tap, green, done, and the sheet stays as
+          short as the night was. Crossing it is what opens the box, because a
+          box is only worth a keyboard when there is something to put in it. */}
+      <p className="mt-4 text-[12px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
         Van issues
-      </label>
-      <textarea
-        id="van-issues"
-        value={issues.value}
-        onChange={(event) => issues.change(event.target.value)}
-        onBlur={issues.flush}
-        rows={2}
-        placeholder="Anything wrong with it — leave empty if not"
-        className="mt-1.5 w-full resize-y rounded-xl border border-line-strong bg-surface px-3.5 py-3 text-[16px] leading-snug text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-brand"
-      />
+      </p>
+      <div className="mt-1.5">
+        <CheckBar
+          label="Van issues"
+          words={{
+            null: "Not checked yet",
+            true: "None",
+            false: "Write them below",
+          }}
+          value={entry.vanOk}
+          onChange={setVanOk}
+        />
+      </div>
 
-      {/* Under the box because it writes into it, and smaller than the six
-          because it is not one of them — those are things that came back with
-          the van, this is a decision about the van. Two states only: a van
-          nobody has grounded is not grounded, and there is no third thing it
-          could be. */}
-      <button
-        type="button"
-        onClick={() => setGrounded(!entry.grounded)}
-        aria-pressed={entry.grounded}
-        className={`mt-2.5 flex min-h-12 w-full items-center gap-2.5 rounded-xl border px-3.5 text-left transition-colors active:brightness-[0.97] ${
-          entry.grounded
-            ? "border-overdue-line bg-overdue-soft"
-            : "border-line bg-surface"
-        }`}
-      >
-        <span
-          aria-hidden="true"
-          className={`grid size-6 shrink-0 place-items-center rounded-md border text-[14px] font-bold ${
-            entry.grounded
-              ? "border-overdue bg-overdue text-ink-inverse"
-              : "border-line-strong bg-surface text-transparent"
-          }`}
-        >
-          ✓
-        </span>
-        <span
-          className={`text-[13px] font-bold uppercase tracking-wider ${
-            entry.grounded ? "text-overdue" : "text-ink-faint"
-          }`}
-        >
-          Grounded
-        </span>
-      </button>
+      {issuesOpen ? (
+        <>
+          <label htmlFor="van-issues" className="sr-only">
+            What is wrong with the van
+          </label>
+          <textarea
+            id="van-issues"
+            ref={box}
+            value={issues.value}
+            onChange={(event) => issues.change(event.target.value)}
+            onBlur={issues.flush}
+            rows={2}
+            placeholder="What is wrong with it"
+            className="mt-2 w-full resize-y rounded-xl border border-line-strong bg-surface px-3.5 py-3 text-[16px] leading-snug text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-brand"
+          />
+
+          {/* Under the box because it writes into it, and smaller than the
+              checks because it is not one of them — those are things that came
+              back with the van, this is a decision about the van. Two states
+              only: a van nobody has grounded is not grounded, and there is no
+              third thing it could be. */}
+          <button
+            type="button"
+            onClick={() => setGrounded(!entry.grounded)}
+            aria-pressed={entry.grounded}
+            className={`mt-2 flex min-h-12 w-full items-center gap-2.5 rounded-xl border px-3.5 text-left transition-colors active:brightness-[0.97] ${
+              entry.grounded
+                ? "border-overdue-line bg-overdue-soft"
+                : "border-line bg-surface"
+            }`}
+          >
+            <span
+              aria-hidden="true"
+              className={`grid size-6 shrink-0 place-items-center rounded-md border text-[14px] font-bold ${
+                entry.grounded
+                  ? "border-overdue bg-overdue text-ink-inverse"
+                  : "border-line-strong bg-surface text-transparent"
+              }`}
+            >
+              ✓
+            </span>
+            <span
+              className={`text-[13px] font-bold uppercase tracking-wider ${
+                entry.grounded ? "text-overdue" : "text-ink-faint"
+              }`}
+            >
+              Grounded
+            </span>
+          </button>
+        </>
+      ) : null}
     </section>
   );
 }
@@ -807,6 +924,143 @@ function useSavedField(initial: string, save: (next: string) => void) {
 }
 
 /**
+ * A time, typed.
+ *
+ * The phone's own wheel rather than a text box, because there is exactly one
+ * way to get a time wrong on a keyboard in the dark and this removes it. Used
+ * for the two times on this sheet that are typed rather than stamped: a
+ * clock-out being corrected, and a second trip being recorded after the fact.
+ */
+function TimeEditor({
+  label,
+  draft,
+  onDraft,
+  onSave,
+  onCancel,
+}: {
+  label: string;
+  draft: string;
+  onDraft: (next: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-arrived-line bg-arrived-soft p-3.5">
+      <label
+        htmlFor="clock-out"
+        className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-arrived"
+      >
+        {label}
+      </label>
+      <input
+        id="clock-out"
+        type="time"
+        value={draft}
+        onChange={(event) => onDraft(event.target.value)}
+        className="tnum mt-2 w-full rounded-lg border border-arrived-line bg-surface px-3 py-3 text-center font-mono text-[24px] font-bold text-ink outline-none focus:border-arrived"
+      />
+      <div className="mt-3 flex gap-2">
+        <Button
+          variant="arrived"
+          size="lg"
+          onClick={onSave}
+          className="min-h-12 flex-1"
+        >
+          Save time
+        </Button>
+        <Button
+          variant="secondary"
+          size="lg"
+          onClick={onCancel}
+          className="min-h-12"
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The second trip's time, which Karim types.
+ *
+ * Nothing on this panel is stamped, and that is the honest rendering of what it
+ * is: he is writing down a van that came and went, often after it has gone. So
+ * there is no Arrived to press and no Clock out to press — one control, holding
+ * the one thing the row is missing.
+ *
+ * Until it is set the row counts as still out, which is deliberate. A half-
+ * written second trip would otherwise sit on the sheet with a blank time and
+ * reach the PDF that way, and End Day is the last moment anybody could have
+ * noticed.
+ */
+function TripTimePanel({
+  entry,
+  editing,
+  draft,
+  onDraft,
+  onStartEditing,
+  onCancelEditing,
+  onSaveTime,
+}: {
+  entry: Entry;
+  editing: boolean;
+  draft: string;
+  onDraft: (next: string) => void;
+  onStartEditing: () => void;
+  onCancelEditing: () => void;
+  onSaveTime: () => void;
+}) {
+  if (editing) {
+    return (
+      <TimeEditor
+        label="In / out time"
+        draft={draft}
+        onDraft={onDraft}
+        onSave={onSaveTime}
+        onCancel={onCancelEditing}
+      />
+    );
+  }
+
+  const stamped = entry.clockOut;
+
+  return (
+    <button
+      type="button"
+      onClick={onStartEditing}
+      className={`block w-full rounded-xl border px-4 py-4 text-center transition-colors active:brightness-[0.97] ${
+        stamped
+          ? "border-arrived-line bg-arrived-soft"
+          : "border-brand-line bg-brand-soft"
+      }`}
+    >
+      <span
+        className={`block text-[11px] font-semibold uppercase tracking-[0.1em] ${
+          stamped ? "text-arrived" : "text-brand"
+        }`}
+      >
+        In / out time
+      </span>
+      <span
+        className={`tnum mt-1 block font-mono text-[30px] font-bold leading-none tracking-tight ${
+          stamped ? "text-arrived" : "text-brand"
+        }`}
+      >
+        {stamped ? stationTimeLabel(stamped.toDate()) : "—:—"}
+      </span>
+      <span
+        className={`mt-2 block text-[12px] font-medium ${
+          stamped ? "text-arrived/80" : "text-brand/80"
+        }`}
+      >
+        {stamped ? "Tap to correct" : "Tap to set it"}
+      </span>
+    </button>
+  );
+}
+
+/**
  * What the sheet becomes once he is clocked out.
  *
  * The time is a button because it is the thing most likely to be wrong — the
@@ -838,39 +1092,13 @@ function ClockedOutPanel({
 
   if (editing) {
     return (
-      <div className="rounded-xl border border-arrived-line bg-arrived-soft p-3.5">
-        <label
-          htmlFor="clock-out"
-          className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-arrived"
-        >
-          Clocked out at
-        </label>
-        <input
-          id="clock-out"
-          type="time"
-          value={draft}
-          onChange={(event) => onDraft(event.target.value)}
-          className="tnum mt-2 w-full rounded-lg border border-arrived-line bg-surface px-3 py-3 text-center font-mono text-[24px] font-bold text-ink outline-none focus:border-arrived"
-        />
-        <div className="mt-3 flex gap-2">
-          <Button
-            variant="arrived"
-            size="lg"
-            onClick={onSaveTime}
-            className="min-h-12 flex-1"
-          >
-            Save time
-          </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={onCancelEditing}
-            className="min-h-12"
-          >
-            Cancel
-          </Button>
-        </div>
-      </div>
+      <TimeEditor
+        label="Clocked out at"
+        draft={draft}
+        onDraft={onDraft}
+        onSave={onSaveTime}
+        onCancel={onCancelEditing}
+      />
     );
   }
 

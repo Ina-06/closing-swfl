@@ -196,8 +196,18 @@ export function EndDay({
       }
       if (how === "cancelled") setNote("Not sent — you closed the share sheet.");
       if (how === "failed") {
+        /**
+         * Named as precisely as the trace allows.
+         *
+         * `home` means this is the icon on his Home Screen rather than a Safari
+         * tab, and that is the one place this phone has never opened a share
+         * sheet — so the message says which button works instead, and why, in
+         * the words of the thing he is actually holding.
+         */
         setError(
-          "The phone would not open the share sheet. Press View instead — the sheet opens in the browser, and you can send it from the share button there.",
+          why.startsWith("home")
+            ? "The Home Screen app will not open the share sheet. Press View — the sheet opens in Safari, and the share button there works."
+            : "The phone would not open the share sheet. Press View instead — the sheet opens in the browser, and you can send it from the share button there.",
         );
       }
     } catch (err) {

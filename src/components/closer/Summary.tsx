@@ -123,6 +123,15 @@ export function Summary({
 
                     <td className="px-3 py-2.5 text-[13px] font-semibold leading-snug">
                       {entry.fullName}
+                      {/* Two rows under one name are two trips, not a slip of
+                          the thumb. Said here as well as on the cards, because
+                          this grid is the last thing he reads before he signs
+                          the night off. */}
+                      {entry.secondTrip ? (
+                        <span className="ml-1.5 rounded-full border border-brand-line bg-brand-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand">
+                          2nd
+                        </span>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

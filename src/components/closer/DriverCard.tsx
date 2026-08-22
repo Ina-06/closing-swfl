@@ -188,6 +188,7 @@ export function YardCard({
           {entry.fullName}
         </span>
         <span className="mt-1 flex flex-wrap items-center gap-1">
+          {entry.secondTrip ? <SecondTrip /> : null}
           {flagsOn(entry).map((flag) => (
             <FlagTag key={flag} flag={flag} />
           ))}
@@ -238,8 +239,13 @@ export function DoneCard({
         )}
       </span>
 
-      <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink-muted">
-        {entry.fullName}
+      <span className="flex min-w-0 flex-1 items-center gap-1.5">
+        <span className="min-w-0 truncate text-[15px] font-medium text-ink-muted">
+          {entry.fullName}
+        </span>
+        {/* Two rows carrying one name is the one thing on this list that could
+            be read as a mistake. It is not, and this is what says so. */}
+        {entry.secondTrip ? <SecondTrip /> : null}
       </span>
 
       {/* The van is what tells him this record is finished. Missing is worth
@@ -264,6 +270,15 @@ export function DoneCard({
 
       <Chevron />
     </button>
+  );
+}
+
+/** He went back out and came in again. This row is the second one. */
+function SecondTrip() {
+  return (
+    <span className="shrink-0 rounded-full border border-brand-line bg-brand-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand">
+      2nd
+    </span>
   );
 }
 

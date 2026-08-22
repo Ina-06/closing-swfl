@@ -40,11 +40,14 @@ export function CheckCycle({
   value,
   onChange,
   disabled = false,
+  className = "",
 }: {
   label: string;
   value: Check;
   onChange: (next: Check) => void;
   disabled?: boolean;
+  /** For the odd tile out — see the grid in ArrivalSheet. */
+  className?: string;
 }) {
   const state = String(value);
 
@@ -54,7 +57,7 @@ export function CheckCycle({
       disabled={disabled}
       onClick={() => onChange(next(value))}
       aria-label={`${label} — ${WORD[state]}. Tap to change.`}
-      className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border transition-colors active:brightness-[0.97] disabled:opacity-55 ${TONE[state]}`}
+      className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border transition-colors active:brightness-[0.97] disabled:opacity-55 ${TONE[state]} ${className}`}
     >
       <span aria-hidden="true" className="text-[24px] font-bold leading-none">
         {GLYPH[state]}
@@ -70,7 +73,52 @@ export function CheckCycle({
 }
 
 /**
- * The same six states, read-only and small enough for a table row.
+ * The same three states, across the width of the sheet.
+ *
+ * For a check that is not one of the tiles — one that decides what the rest of
+ * the screen shows rather than recording something that came back with the van.
+ * It gets its own row because it is a gate, and because the answer is the point:
+ * "None" and "Not checked yet" are two different nights, and neither of them
+ * fits under a glyph in a tile a thumb-width across.
+ *
+ * The words are the caller's, since the tiles' "back / missing" says nothing
+ * about a van. The cycle, the glyphs and the colours are shared with them, so a
+ * green tick means the same thing everywhere on the screen.
+ */
+export function CheckBar({
+  label,
+  words,
+  value,
+  onChange,
+}: {
+  /** For the screen reader. What is on screen is the state, not the name. */
+  label: string;
+  /** Keyed by state: what this control means when it is grey, green and red. */
+  words: Record<string, string>;
+  value: Check;
+  onChange: (next: Check) => void;
+}) {
+  const state = String(value);
+
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(next(value))}
+      aria-label={`${label} — ${words[state]}. Tap to change.`}
+      className={`flex min-h-14 w-full items-center gap-3 rounded-xl border px-4 text-left transition-colors active:brightness-[0.97] ${TONE[state]}`}
+    >
+      <span aria-hidden="true" className="text-[24px] font-bold leading-none">
+        {GLYPH[state]}
+      </span>
+      <span className="text-[14px] font-bold uppercase tracking-wider">
+        {words[state]}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * The same states, read-only and small enough for a table row.
  *
  * The dispatcher cannot write these — the rules see to that — so on their
  * screen this is a row of status lights, not controls someone switched off.

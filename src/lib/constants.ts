@@ -58,6 +58,7 @@ export const CHECKS = [
   { field: "mobile", label: "Mobile + Off", short: "Mobile", letter: "M" },
   { field: "snack", label: "Snack", short: "Snack", letter: "S" },
   { field: "lights", label: "Lights", short: "Lights", letter: "L" },
+  { field: "bungees", label: "2 Bungees", short: "Bungees", letter: "B" },
 ] as const;
 
 export type CheckField = (typeof CHECKS)[number]["field"];

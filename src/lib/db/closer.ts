@@ -104,9 +104,9 @@ export async function reopenEntry(
   });
 }
 
-/** The van itself — number, issues, and the six handover checks. */
+/** The van itself — number, issues, and the handover checks. */
 export type YardFields = Partial<
-  Pick<Entry, "van" | "vanIssues" | "grounded"> & EntryChecks
+  Pick<Entry, "van" | "vanOk" | "vanIssues" | "grounded"> & EntryChecks
 >;
 
 /**
@@ -145,11 +145,20 @@ export async function saveYard(
  *
  * Kept here rather than reusing addEntry: that one takes the dispatcher's
  * fields as its argument, and this side has none of them to give.
+ *
+ * `secondTrip` is the one variation. A driver who went back out and came in
+ * again gets a row of his own rather than overwriting the first one, and that
+ * row's time is typed instead of stamped — see the sheet.
  */
 export async function addCloserEntry(
   nightKey: string,
   existing: Entry[],
-  driver: { driverId: string; fullName: string; roster?: RosterEntry },
+  driver: {
+    driverId: string;
+    fullName: string;
+    roster?: RosterEntry;
+    secondTrip?: boolean;
+  },
   updatedBy: string,
 ): Promise<string> {
   const seq =
@@ -180,6 +189,7 @@ export async function addCloserEntry(
     status: "arrived",
     clockOut: null,
     van: "",
+    vanOk: null,
     vanIssues: "",
     grounded: false,
     fuel: null,
@@ -188,7 +198,9 @@ export async function addCloserEntry(
     mobile: null,
     snack: null,
     lights: null,
+    bungees: null,
     addedByCloser: true,
+    secondTrip: driver.secondTrip === true,
 
     updatedAt: serverTimestamp(),
     updatedBy,

@@ -41,6 +41,16 @@ export function AddDriverSheet({
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * The driver already on the sheet whose row he has just tapped, by id.
+   *
+   * Tapping a name that is already there is ambiguous in a way no other tap on
+   * this screen is — he could mean the row that exists, or a second one for a
+   * second trip — so it asks rather than guesses. Two taps, on the rare case,
+   * to keep the common one from silently duplicating a row nobody notices
+   * until the PDF.
+   */
+  const [asking, setAsking] = useState<string | null>(null);
 
   useEffect(() => {
     search.current?.focus();
@@ -99,31 +109,40 @@ export function AddDriverSheet({
   const exact = (drivers ?? []).some((driver) => driver.nameKey === key);
   const canCreate = key.length > 1 && !exact;
 
-  async function add(driver: {
-    driverId: string;
-    fullName: string;
-    roster?: RosterEntry;
-  }) {
+  async function add(
+    driver: {
+      driverId: string;
+      fullName: string;
+      roster?: RosterEntry;
+    },
+    /** Set only from the second-trip button, which has already asked. */
+    secondTrip = false,
+  ) {
     if (busy) return;
 
     /**
      * He is already on the sheet.
      *
-     * Adding a second row for one driver is the one mistake this screen can
-     * make that nobody notices until the PDF, so it does not happen — the tap
-     * opens the row he already has instead. That is what he wanted anyway; the
-     * name was in front of him and he pressed it.
+     * Two things this could mean, and they are far enough apart that guessing
+     * is worse than asking: the row he already has, or a fresh one because he
+     * went back out and came in again. So the tap opens the choice, and the
+     * button he picks does the thing.
      */
     const already = entries.find((entry) => entry.driverId === driver.driverId);
-    if (already) {
-      onAdded(already.id);
+    if (already && !secondTrip) {
+      setAsking(driver.driverId);
       return;
     }
 
     setBusy(true);
     setError(null);
     try {
-      const entryId = await addCloserEntry(nightKey, entries, driver, uid);
+      const entryId = await addCloserEntry(
+        nightKey,
+        entries,
+        { ...driver, secondTrip },
+        uid,
+      );
       onAdded(entryId);
     } catch (err) {
       setError(
@@ -131,6 +150,12 @@ export function AddDriverSheet({
       );
       setBusy(false);
     }
+  }
+
+  /** The row he already has. Nothing is written; this only opens it. */
+  function openExisting(driverId: string) {
+    const already = entries.find((entry) => entry.driverId === driverId);
+    if (already) onAdded(already.id);
   }
 
   /** A name that is not in the database yet. Create the driver, then add him. */
@@ -236,12 +261,53 @@ export function AddDriverSheet({
 
         <div className="mt-3 min-h-0 flex-1 overflow-y-auto">
           <ul className="mx-auto w-full max-w-lg space-y-1.5 px-4 pb-5">
-            {matches.map((option) => (
+            {matches.map((option) =>
+              asking === option.driverId ? (
+                <li key={option.driverId}>
+                  {/* Opened in place, where his finger already is, rather than
+                      as a dialog over the top of the list. The question is
+                      about this one name and the answer is one of two taps. */}
+                  <div className="rounded-xl border border-brand-line bg-brand-soft p-2.5">
+                    <p className="px-1 pt-0.5 text-[13px] font-semibold leading-snug text-brand">
+                      {option.fullName} is already on tonight&rsquo;s sheet.
+                    </p>
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => openExisting(option.driverId)}
+                        className="min-h-14 flex-1 rounded-xl border border-line bg-surface px-3 text-[14px] font-bold text-ink transition-colors active:brightness-[0.97] disabled:opacity-55"
+                      >
+                        Open his row
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void add(option, true)}
+                        className="min-h-14 flex-1 rounded-xl bg-brand px-3 text-[14px] font-bold text-ink-inverse transition-colors active:brightness-[0.97] disabled:opacity-55"
+                      >
+                        Second trip
+                      </button>
+                    </div>
+                    <p className="mt-1.5 px-1 text-[11px] leading-snug text-brand/80">
+                      A second trip is a row of its own — its own van, its own
+                      checks, and a time you type in.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setAsking(null)}
+                      className="mt-1 min-h-11 w-full text-[13px] font-semibold text-brand/80"
+                    >
+                      Neither — go back
+                    </button>
+                  </div>
+                </li>
+              ) : (
               <li key={option.driverId}>
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => add(option)}
+                  onClick={() => void add(option)}
                   className="flex min-h-14 w-full items-center gap-2.5 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-left transition-colors active:brightness-[0.97] disabled:opacity-55"
                 >
                   <span className="min-w-0 flex-1">
@@ -261,12 +327,13 @@ export function AddDriverSheet({
 
                   {option.entered ? (
                     <span className="shrink-0 rounded-full border border-line bg-sunken px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink-faint">
-                      Open
+                      On the sheet
                     </span>
                   ) : null}
                 </button>
               </li>
-            ))}
+              ),
+            )}
 
             {canCreate ? (
               <li>

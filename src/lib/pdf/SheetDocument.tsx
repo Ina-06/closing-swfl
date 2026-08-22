@@ -18,7 +18,7 @@ import type { Mark, SheetRow } from "@/lib/sheet";
  * trying to look like the app. It is trying to look like the grid Karim has
  * been drawing by hand, so nobody reading it has to learn anything.
  *
- * Landscape, because the six handover checks each need a column wide enough to
+ * Landscape, because the handover checks each need a column wide enough to
  * carry their own name — a sheet where you have to remember what the fourth
  * tick means is a sheet that gets read wrong at midnight.
  */
@@ -26,12 +26,12 @@ import type { Mark, SheetRow } from "@/lib/sheet";
 /** Column widths, in percent of the printable width. They sum to 100. */
 const COLUMNS = {
   number: 4,
-  name: 19,
-  time: 7.5,
+  name: 17.5,
+  time: 7,
   van: 7,
-  /** Six of these. 5.5% of the printable width is ~41pt, which fits "CHARGER". */
+  /** Seven of these. 5.5% of the printable width is ~41pt, which fits "CHARGER". */
   check: 5.5,
-  vanIssues: 29.5,
+  vanIssues: 26,
 } as const;
 
 const INK = "#101820";

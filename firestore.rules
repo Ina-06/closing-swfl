@@ -116,11 +116,15 @@ service cloud.firestore {
         // What happened when the van pulled in. `cell` is the old name for
         // `mobile`, kept in the list so a night written before the checks grew
         // to six can still be corrected.
+        //
+        // `secondTrip` is deliberately absent: it is written once when the row
+        // is created and is the reason that row exists, so nothing should be
+        // able to turn a second trip into a first one afterwards.
         function closerFields() {
           return changedKeys().hasOnly([
-            'status', 'clockOut', 'van', 'vanIssues', 'grounded',
+            'status', 'clockOut', 'van', 'vanOk', 'vanIssues', 'grounded',
             'fuel', 'key', 'charger', 'mobile', 'snack', 'lights', 'cell',
-            'addedByCloser', 'updatedAt', 'updatedBy'
+            'bungees', 'addedByCloser', 'updatedAt', 'updatedBy'
           ]);
         }
 

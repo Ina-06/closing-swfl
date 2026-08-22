@@ -95,6 +95,16 @@ export type Entry = {
   status: EntryStatus;
   clockOut: Timestamp | null;
   van: string;
+  /**
+   * Whether there is anything wrong with the van at all.
+   *
+   * The same three states as the checks, and it is the gate in front of the two
+   * fields below it: crossed means there is something to write, and the box and
+   * the Grounded switch appear. Ticked means he looked and it is fine — which is
+   * a different thing from nobody having looked, and the reason this is not a
+   * plain boolean.
+   */
+  vanOk: boolean | null;
   vanIssues: string;
   /**
    * The van is off the road until someone deals with it.
@@ -110,8 +120,21 @@ export type Entry = {
   mobile: boolean | null;
   snack: boolean | null;
   lights: boolean | null;
+  bungees: boolean | null;
   /** Turned up without being announced. The dispatcher fills the rest in after. */
   addedByCloser: boolean;
+  /**
+   * A driver's second turn of the night, on a row of his own.
+   *
+   * He went back out and came in again, so there are two vans, two sets of
+   * checks and two times against one name — and one row cannot hold that. This
+   * one's time is typed rather than stamped: by the time Karim is putting it in
+   * he is recording a trip, not standing at the end of one.
+   *
+   * Written once, when the row is created, and never touched again. It is a
+   * fact about why the row exists.
+   */
+  secondTrip: boolean;
 
   updatedAt: Timestamp | null;
   updatedBy: string;

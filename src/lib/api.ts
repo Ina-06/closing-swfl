@@ -146,12 +146,14 @@ export type Handover = { how: HandOff; why: string };
 /**
  * Whether this is a Home Screen web app rather than a tab.
  *
- * Worth reporting rather than assuming: it decides whether there is an address
- * bar on screen, and an address bar is where Safari keeps Reload Without
- * Content Blockers. As it stands there is no manifest and no
- * apple-mobile-web-app-capable in this app, so on iOS this is always false —
- * but that is a property of today's build, not a law, and the day somebody adds
- * a manifest this should start telling the truth on its own.
+ * Not a detail. Karim's phone reports `home`, which settles two things we had
+ * been guessing at: there is no address bar on his screen, so Safari's Reload
+ * Without Content Blockers is nowhere he can reach it; and the share sheet is
+ * being asked for from a standalone web app, which is the one context where
+ * this phone has never once opened it.
+ *
+ * (Modern iOS makes a Home Screen icon standalone whether or not the site ships
+ * a manifest, which is why this is true here despite there being none.)
  */
 function standalone(): boolean {
   return (
@@ -216,33 +218,36 @@ export async function shareOrSave(
     // that no amount of tapping Share again will change.
     if (phone) return { how: "failed", why: `${where}·no-files` };
   } else {
-    const full = await offer({ files: [file], title: filename, text });
-    if (full.ok) return { how: "shared", why: `${where}·full·${full.ms}ms` };
-    if (closed(full)) return { how: "cancelled", why: `${where}·closed` };
-
     /**
-     * The same file with nothing attached to it.
+     * One attempt. There is only ever one to be had.
      *
-     * canShare is asked only about the files, so it answering yes says nothing
-     * about whether the phone will accept a share carrying a file *and* a
-     * caption — and iOS is measurably fussier about the pair than about the
-     * file on its own. This is the one thing that can be tried without asking
-     * Karim to do anything, and it costs a few milliseconds of the gesture he
-     * has already spent.
+     * This used to try the full payload and then fall back to the file on its
+     * own, and the trace off Karim's phone is what killed that:
+     * `home·AbortError7·NotAllowedError0`. The first call was refused in seven
+     * milliseconds, and the second came back as NotAllowedError in none at all
+     * — which is iOS saying the gesture is spent. A failed share consumes the
+     * tap exactly as a successful one does, so the fallback could never have
+     * worked, whatever was wrong with the payload.
      *
-     * Only ever reached on a fast failure. A sheet he opened and closed is
-     * settled above, so this can never pop a second sheet at somebody who has
-     * just said no to the first.
+     * So the one attempt carries the file and nothing else. canShare is only
+     * ever asked about the files, so it answering yes says nothing about
+     * whether a share carrying a file *and* a caption will be accepted, and
+     * iOS is measurably fussier about the pair. The caption was a nicety; the
+     * date is in the filename either way.
+     *
+     * A laptop keeps it, because it is not the one attempt there — the
+     * download below is waiting behind it.
      */
-    const bare = await offer({ files: [file] });
-    if (bare.ok) return { how: "shared", why: `${where}·bare·${bare.ms}ms` };
-    if (closed(bare)) return { how: "cancelled", why: `${where}·closed` };
+    const payload: ShareData = phone
+      ? { files: [file] }
+      : { files: [file], title: filename, text };
+
+    const tried = await offer(payload);
+    if (tried.ok) return { how: "shared", why: `${where}·sent·${tried.ms}ms` };
+    if (closed(tried)) return { how: "cancelled", why: `${where}·closed` };
 
     if (phone) {
-      return {
-        how: "failed",
-        why: `${where}·${full.name}${full.ms}·${bare.name}${bare.ms}`,
-      };
+      return { how: "failed", why: `${where}·${tried.name}${tried.ms}` };
     }
   }
 
