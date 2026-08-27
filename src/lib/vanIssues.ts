@@ -8,22 +8,35 @@
  * that already has its own box, and repeating it in prose would only make the
  * column longer and less read.
  */
-const GROUNDED_NOTE = "🚨Grounded";
+/**
+ * Shouted in capitals rather than with a siren.
+ *
+ * It used to be "🚨Grounded". The emoji was there to make the one line on the
+ * sheet that stops a van going out tomorrow impossible to skim past, and on the
+ * phone it did exactly that — but the PDF is laid out in Helvetica, and the
+ * standard PDF fonts have no emoji in them at all. What came off the printer
+ * was a blank where the siren should have been, on the single most important
+ * cell of the night. Capitals carry the same weight and survive the trip.
+ */
+const GROUNDED_NOTE = "GROUNDED";
 const FUEL_NOTE = "No fuel";
 
 /**
  * Sentences this file has written at one time or another.
  *
  * Only the first two are ever written now. The rest are here so a note left
- * behind by the version that wrote all six checks takes itself off the next
- * time Karim touches that driver, rather than sitting there as text nobody
- * typed and nobody can explain.
+ * behind by an older version takes itself off the next time Karim touches that
+ * driver, rather than sitting there as text nobody typed and nobody can
+ * explain. That includes the siren: a van grounded last week still reads
+ * "🚨Grounded", and the moment anyone touches it, it becomes the new wording
+ * instead of ending up written twice.
  *
  * Grounded leads, and that is the order it is written in too: it is the one
  * that stops the van going out tomorrow.
  */
 const KNOWN_NOTES = [
   GROUNDED_NOTE,
+  "🚨Grounded",
   FUEL_NOTE,
   "No key",
   "No charger",

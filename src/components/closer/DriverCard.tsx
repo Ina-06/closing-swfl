@@ -175,38 +175,46 @@ export function YardCard({
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-center gap-3 rounded-xl border border-arrived-line bg-arrived-soft px-3.5 py-3 text-left transition-colors active:brightness-[0.97]"
+      className="block w-full rounded-xl border border-arrived-line bg-arrived-soft px-3.5 py-3 text-left transition-colors active:brightness-[0.97]"
     >
-      <span className="w-[68px] shrink-0">
-        <span className="block text-[11px] font-bold uppercase tracking-wider leading-none text-arrived">
-          In the yard
+      <span className="flex items-center gap-3">
+        <span className="w-[68px] shrink-0">
+          <span className="block text-[11px] font-bold uppercase tracking-wider leading-none text-arrived">
+            In the yard
+          </span>
         </span>
+
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[16px] font-semibold leading-tight">
+            {entry.fullName}
+          </span>
+          <span className="mt-1 flex flex-wrap items-center gap-1">
+            {entry.secondTrip ? <SecondTrip /> : null}
+            {flagsOn(entry).map((flag) => (
+              <FlagTag key={flag} flag={flag} />
+            ))}
+            {entry.infractions.trim() ? (
+              <span className="rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
+                Infraction
+              </span>
+            ) : null}
+          </span>
+        </span>
+
+        {entry.van ? (
+          <span className="tnum shrink-0 rounded-md border border-line bg-surface px-1.5 py-0.5 font-mono text-[11px] font-bold text-ink-muted">
+            {entry.van}
+          </span>
+        ) : null}
+
+        <Chevron />
       </span>
 
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[16px] font-semibold leading-tight">
-          {entry.fullName}
-        </span>
-        <span className="mt-1 flex flex-wrap items-center gap-1">
-          {entry.secondTrip ? <SecondTrip /> : null}
-          {flagsOn(entry).map((flag) => (
-            <FlagTag key={flag} flag={flag} />
-          ))}
-          {entry.infractions.trim() ? (
-            <span className="rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
-              Infraction
-            </span>
-          ) : null}
-        </span>
-      </span>
-
-      {entry.van ? (
-        <span className="tnum shrink-0 rounded-md border border-line bg-surface px-1.5 py-0.5 font-mono text-[11px] font-bold text-ink-muted">
-          {entry.van}
-        </span>
-      ) : null}
-
-      <Chevron />
+      {/* Here as well as on the waiting card, because the note is at its most
+          useful in the ninety seconds this card describes: he is stood at the
+          van with the driver in front of him. It used to disappear the moment
+          the van pulled in, which is exactly when it was needed. */}
+      {entry.notes ? <NoteStrip>{entry.notes}</NoteStrip> : null}
     </button>
   );
 }
@@ -360,7 +368,13 @@ function Infractions({ raw }: { raw: string }) {
   );
 }
 
-/** Anything the dispatcher needed Karim to know. This is why it exists. */
+/**
+ * Anything anybody needed Karim to know when this driver turns up.
+ *
+ * Written from the laptop or from his own phone — it is one note either way,
+ * and it reads the same however it got there. That is the point of it being one
+ * field: he does not have to know who wrote it to act on it.
+ */
 function NoteStrip({ children }: { children: React.ReactNode }) {
   return (
     <span className="mt-2.5 flex gap-2 rounded-lg border border-warn-line bg-warn-soft px-2.5 py-2">

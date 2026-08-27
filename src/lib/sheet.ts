@@ -37,6 +37,29 @@ function mark(value: boolean | null): Mark {
 }
 
 /**
+ * Characters the PDF's fonts do not have, and the space they leave behind.
+ *
+ * The sheet is set in Helvetica, and the standard PDF fonts stop at Latin-1 —
+ * there is no emoji in any of them. A siren or a thumbs-up typed into the van
+ * issues box does not come out small or ugly, it comes out as nothing at all,
+ * silently, in the one column somebody reads in the morning. So they are taken
+ * out here, where it can be tested, rather than being discovered on paper.
+ *
+ * Deliberately narrow. It is the emoji planes and the symbol block they get
+ * picked from, plus the invisible selectors and joiners that hang off them —
+ * not "anything unusual". Accents, curly quotes and dashes are all in the
+ * fonts and all things Karim actually types, and losing an accent off a name
+ * would be a worse bug than the one this fixes.
+ */
+const NOT_IN_THE_FONT =
+  /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}\u{200D}]/gu;
+
+/** Whatever was typed, in characters the sheet can actually print. */
+export function printable(text: string): string {
+  return text.replace(NOT_IN_THE_FONT, "").replace(/\s+/g, " ").trim();
+}
+
+/**
  * The clock-out, in the station's timezone whatever machine builds this.
  *
  * A stamped time and a time relayed over the phone both end up here as the
@@ -63,11 +86,13 @@ export function sheetRows(entries: Entry[]): SheetRow[] {
        * two lines carry two vans and two times. Whoever reads this in the
        * morning has to be able to tell those apart at a glance.
        */
-      name: entry.secondTrip ? `${entry.fullName} (2nd)` : entry.fullName,
+      name: printable(
+        entry.secondTrip ? `${entry.fullName} (2nd)` : entry.fullName,
+      ),
       time: timeLabel(entry),
       van: entry.van.trim(),
       checks,
-      vanIssues: entry.vanIssues.trim(),
+      vanIssues: printable(entry.vanIssues),
     };
   });
 }

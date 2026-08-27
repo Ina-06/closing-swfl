@@ -117,6 +117,13 @@ service cloud.firestore {
         // `mobile`, kept in the list so a night written before the checks grew
         // to six can still be corrected.
         //
+        // `notes` is on both lists, and it is the only field that is. It is one
+        // note per driver — the amber strip on his card and at the top of his
+        // sheet — and it has to be writable from the yard as well as the desk,
+        // because half of what needs saying about a driver only becomes true
+        // when his van pulls in. Both editors open with what is already there,
+        // so sharing it adds text rather than replacing it.
+        //
         // `secondTrip` is deliberately absent: it is written once when the row
         // is created and is the reason that row exists, so nothing should be
         // able to turn a second trip into a first one afterwards.
@@ -124,7 +131,7 @@ service cloud.firestore {
           return changedKeys().hasOnly([
             'status', 'clockOut', 'van', 'vanOk', 'vanIssues', 'grounded',
             'fuel', 'key', 'charger', 'mobile', 'snack', 'lights', 'cell',
-            'bungees', 'addedByCloser', 'updatedAt', 'updatedBy'
+            'bungees', 'addedByCloser', 'notes', 'updatedAt', 'updatedBy'
           ]);
         }
 

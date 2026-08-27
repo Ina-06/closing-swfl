@@ -130,6 +130,31 @@ export async function saveYard(
 }
 
 /**
+ * A note about a driver, written from the yard.
+ *
+ * The same field the dispatcher writes, on purpose — one note per driver, in
+ * one place, appearing on the card and at the top of the sheet however it got
+ * there. Two note fields would mean two amber strips to read and a card that
+ * could show one while hiding the other.
+ *
+ * Sharing it does mean either side can write over the other, so the editor
+ * opens with whatever is already there rather than empty: what Karim adds goes
+ * underneath what dispatch said, and nothing has to be remembered to keep it.
+ */
+export async function saveNote(
+  nightKey: string,
+  entryId: string,
+  notes: string,
+  updatedBy: string,
+) {
+  await updateDoc(entryRef(nightKey, entryId), {
+    notes,
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  });
+}
+
+/**
  * A driver who turned up without being announced.
  *
  * He lands arrived, not waiting. The only way Karim knows to add someone is
@@ -149,6 +174,12 @@ export async function saveYard(
  * `secondTrip` is the one variation. A driver who went back out and came in
  * again gets a row of his own rather than overwriting the first one, and that
  * row's time is typed instead of stamped — see the sheet.
+ *
+ * `status` is the other, and it is the note screen that needs it. Writing a
+ * note against a name that has no row yet has to make one, and that driver is
+ * still out on the road — landing him in the yard would put a van in front of
+ * Karim that is not there, and take a name off the list he is watching the gate
+ * for. So a row born to hold a note is born en route.
  */
 export async function addCloserEntry(
   nightKey: string,
@@ -158,6 +189,9 @@ export async function addCloserEntry(
     fullName: string;
     roster?: RosterEntry;
     secondTrip?: boolean;
+    status?: "enroute" | "arrived";
+    /** Written straight in, so a row made to hold a note is never briefly empty. */
+    notes?: string;
   },
   updatedBy: string,
 ): Promise<string> {
@@ -181,12 +215,13 @@ export async function addCloserEntry(
     metric: null,
     infractions: "",
     rescues: 0,
-    notes: "",
+    notes: driver.notes ?? "",
     clockOutManual: "",
 
     // In the yard, exactly as tapping Arrived would leave him. His sheet opens
-    // straight after this, on the van.
-    status: "arrived",
+    // straight after this, on the van. Unless he is only here to be written
+    // about — see `status` above.
+    status: driver.status ?? "arrived",
     clockOut: null,
     van: "",
     vanOk: null,

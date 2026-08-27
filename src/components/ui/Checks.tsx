@@ -57,15 +57,19 @@ export function CheckCycle({
       disabled={disabled}
       onClick={() => onChange(next(value))}
       aria-label={`${label} — ${WORD[state]}. Tap to change.`}
-      className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border transition-colors active:brightness-[0.97] disabled:opacity-55 ${TONE[state]} ${className}`}
+      className={`flex min-h-[74px] flex-col items-center justify-center gap-1 rounded-xl border transition-colors active:brightness-[0.97] disabled:opacity-55 ${TONE[state]} ${className}`}
     >
       <span aria-hidden="true" className="text-[24px] font-bold leading-none">
         {GLYPH[state]}
       </span>
-      {/* Small and barely tracked, because two of these six carry a reminder
-          as well as a name — "Charger + Sharpie" has to break onto a second
-          line inside a tile a thumb-width across without touching the sides. */}
-      <span className="px-1 text-center text-[10px] font-bold uppercase leading-tight tracking-[0.04em]">
+      {/* Names, at a size that can be read at arm's length in a dark yard.
+          They were 10px and Karim could not pick "Bungees" out from "Lights"
+          without stopping to look, which is the whole job of the label.
+          Barely tracked and allowed two lines instead, because two of these
+          carry a reminder as well as a name — "Charger + Sharpie" has to break
+          inside a tile a thumb-width across without touching the sides, and
+          the tile is tall enough for it to. */}
+      <span className="px-1 text-center text-[13px] font-bold uppercase leading-[1.15] tracking-[0.01em]">
         {label}
       </span>
     </button>
@@ -105,12 +109,12 @@ export function CheckBar({
       type="button"
       onClick={() => onChange(next(value))}
       aria-label={`${label} — ${words[state]}. Tap to change.`}
-      className={`flex min-h-14 w-full items-center gap-3 rounded-xl border px-4 text-left transition-colors active:brightness-[0.97] ${TONE[state]}`}
+      className={`flex min-h-16 w-full items-center gap-3 rounded-xl border px-4 text-left transition-colors active:brightness-[0.97] ${TONE[state]}`}
     >
-      <span aria-hidden="true" className="text-[24px] font-bold leading-none">
+      <span aria-hidden="true" className="text-[26px] font-bold leading-none">
         {GLYPH[state]}
       </span>
-      <span className="text-[14px] font-bold uppercase tracking-wider">
+      <span className="text-[16px] font-bold uppercase tracking-[0.06em]">
         {words[state]}
       </span>
     </button>

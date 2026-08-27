@@ -60,6 +60,20 @@ export function ArrivalSheet({
   const [error, setError] = useState<string | null>(null);
   const [editingTime, setEditingTime] = useState(false);
   const [draft, setDraft] = useState("");
+  /**
+   * That Arrived was pressed on this tap, before the write has come back.
+   *
+   * The van panel does not exist until the driver is in the yard, and the yard
+   * is a field on a record that has to go to Firestore and come back. Waiting
+   * for that would put the van number box on screen a frame or two after the
+   * finger left the glass — and on iOS a field focused outside the gesture that
+   * asked for it gets no keyboard, which is the whole point of the jump.
+   *
+   * So the arrival is believed here first and confirmed by the record after. If
+   * the write is refused it is taken back, and the button he pressed comes back
+   * with the reason underneath it.
+   */
+  const [arrivedNow, setArrivedNow] = useState(false);
 
   useEffect(() => {
     panel.current?.focus();
@@ -106,9 +120,30 @@ export function ArrivalSheet({
     [write, nightKey, entry.id, uid],
   );
 
-  const inYard = entry.status === "arrived";
+  /** Only while the record still says he is out — see arrivedNow. */
+  const arrivingNow = arrivedNow && entry.status === "enroute";
+  const inYard = entry.status === "arrived" || arrivingNow;
   const done = entry.status === "clockedOut";
   const stamped = entry.clockOut;
+
+  /**
+   * He is here. Straight into the van number, which is the next thing he types.
+   *
+   * The whole handover is one pass down this sheet, and it used to break at the
+   * top of it: press Arrived, then scroll, then find the box, then tap it, then
+   * wait for the keyboard. Now the keyboard is up with the caret in the box by
+   * the time he has looked back at the phone.
+   */
+  function arrive() {
+    setArrivedNow(true);
+    write(
+      markArrived(nightKey, entry.id, uid).catch((err: unknown) => {
+        setArrivedNow(false);
+        throw err;
+      }),
+      "That did not go through.",
+    );
+  }
 
   function startEditing() {
     setDraft(
@@ -279,12 +314,7 @@ export function ArrivalSheet({
               <Button
                 variant="arrived"
                 size="lg"
-                onClick={() =>
-                  write(
-                    markArrived(nightKey, entry.id, uid),
-                    "That did not go through.",
-                  )
-                }
+                onClick={arrive}
                 className="min-h-14 w-full text-[17px]"
               >
                 Arrived
@@ -295,7 +325,14 @@ export function ArrivalSheet({
           {/* Only once he is in. On a driver still out these are eight controls
               he cannot use standing between him and the one he can. */}
           {inYard || done ? (
-            <VanPanel entry={entry} onSave={writeYard} />
+            <VanPanel
+              entry={entry}
+              onSave={writeYard}
+              /* Only on the tap that put him in the yard. Opening the sheet on
+                 a driver who is already in it must not throw a keyboard over
+                 the record Karim came to read. */
+              focusVan={arrivingNow}
+            />
           ) : null}
 
           <div className="mt-6 space-y-3">
@@ -474,14 +511,30 @@ function InYardPanel({ onReopen }: { onReopen: () => void }) {
 function VanPanel({
   entry,
   onSave,
+  focusVan,
 }: {
   entry: Entry;
   onSave: (fields: YardFields) => void;
+  /** Put the caret in the van number as this panel appears. See `arrive`. */
+  focusVan: boolean;
 }) {
   const van = useSavedField(entry.van, (value) => onSave({ van: value.trim() }));
   const issues = useSavedField(entry.vanIssues, (value) =>
     onSave({ vanIssues: value.trim() }),
   );
+
+  const number = useRef<HTMLInputElement>(null);
+  /** Once, on the render that brought the panel in with the tap still live. */
+  const vanCaretDone = useRef(false);
+
+  useLayoutEffect(() => {
+    if (!focusVan || vanCaretDone.current) return;
+    const field = number.current;
+    if (!field) return;
+    vanCaretDone.current = true;
+    field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+  });
 
   const box = useRef<HTMLTextAreaElement>(null);
   /** Set by the tap that crossed the van, read by the layout effect below. */
@@ -543,12 +596,30 @@ function VanPanel({
     patch.vanIssues = next;
   }
 
-  /** A check, and — for fuel alone — the sentence it writes underneath. */
+  /**
+   * A check, and — for fuel alone — the sentence it writes underneath.
+   *
+   * Crossing the fuel is the one tile that is also a van issue. A van handed
+   * back empty is something the morning has to deal with, so it writes "No
+   * fuel" into the box, and it opens the box to say so: the sentence is no use
+   * sitting in a field that is folded away, and a van with a written issue
+   * against it that still shows a grey van-issues tick is the sheet
+   * contradicting itself. So the gate is crossed too, and Karim can see both.
+   *
+   * Un-crossing takes the sentence back out but leaves the gate where it is.
+   * Whether there is still something else wrong with the van is his answer to
+   * give, not ours to assume.
+   */
   function setCheck(field: CheckField, value: Check) {
     const patch = checkPatch(field, value);
 
     if (field === "fuel") {
       writeNotes(patch, { fuel: value, grounded: entry.grounded });
+
+      if (value === false) {
+        patch.vanOk = false;
+        setCrossedNow(true);
+      }
     }
 
     onSave(patch);
@@ -584,6 +655,7 @@ function VanPanel({
       </label>
       <input
         id="van"
+        ref={number}
         value={van.value}
         onChange={(event) => van.change(event.target.value)}
         onBlur={van.flush}
@@ -642,8 +714,12 @@ function VanPanel({
       <div className="mt-1.5">
         <CheckBar
           label="Van issues"
+          /* Grey says what the control is, not what state it is in. It is the
+             one check on this screen that reads as an instruction — a bar
+             saying "Not checked yet" was a status Karim scrolled past, and the
+             thing it was waiting for went unasked. */
           words={{
-            null: "Not checked yet",
+            null: "Van issues",
             true: "None",
             false: "Write them below",
           }}
@@ -677,7 +753,7 @@ function VanPanel({
             type="button"
             onClick={() => setGrounded(!entry.grounded)}
             aria-pressed={entry.grounded}
-            className={`mt-2 flex min-h-12 w-full items-center gap-2.5 rounded-xl border px-3.5 text-left transition-colors active:brightness-[0.97] ${
+            className={`mt-2 flex min-h-14 w-full items-center gap-2.5 rounded-xl border px-3.5 text-left transition-colors active:brightness-[0.97] ${
               entry.grounded
                 ? "border-overdue-line bg-overdue-soft"
                 : "border-line bg-surface"
@@ -685,7 +761,7 @@ function VanPanel({
           >
             <span
               aria-hidden="true"
-              className={`grid size-6 shrink-0 place-items-center rounded-md border text-[14px] font-bold ${
+              className={`grid size-7 shrink-0 place-items-center rounded-md border text-[16px] font-bold ${
                 entry.grounded
                   ? "border-overdue bg-overdue text-ink-inverse"
                   : "border-line-strong bg-surface text-transparent"
@@ -694,7 +770,7 @@ function VanPanel({
               ✓
             </span>
             <span
-              className={`text-[13px] font-bold uppercase tracking-wider ${
+              className={`text-[15px] font-bold uppercase tracking-[0.06em] ${
                 entry.grounded ? "text-overdue" : "text-ink-faint"
               }`}
             >

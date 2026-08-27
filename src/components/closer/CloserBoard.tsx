@@ -12,11 +12,13 @@ import {
   YardCard,
 } from "@/components/closer/DriverCard";
 import { EndDay } from "@/components/closer/EndDay";
+import { NoteSheet } from "@/components/closer/NoteSheet";
 import { Summary } from "@/components/closer/Summary";
 import { ErrorNote } from "@/components/ui/Field";
 import { addCloserEntry } from "@/lib/db/closer";
 import { useEntries } from "@/lib/db/entries";
 import { etaMinutes, minutesLate, stationNowMinutes } from "@/lib/eta";
+import { nightTotals } from "@/lib/totals";
 import type { Entry, RosterEntry, Session } from "@/lib/types";
 
 /**
@@ -110,6 +112,7 @@ export function CloserBoard({
   const [sort, setSort] = useState<SortKey>("eta");
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [noting, setNoting] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   /** Open to begin with: a list he has not folded is a list he wants to see. */
   const [deliveringOpen, setDeliveringOpen] = useState(true);
@@ -209,13 +212,16 @@ export function CloserBoard({
   );
   const open = openId ? (entries.find((e) => e.id === openId) ?? null) : null;
 
+  /** Tonight's two figures. Counted in one place — see lib/totals. */
+  const totals = useMemo(() => nightTotals(entries), [entries]);
+
   /**
    * A sheet is over the list, so the list is not his screen at the moment.
    *
    * Read from what is actually rendered rather than from `openId`, which can
    * still be pointing at an entry the dispatcher has since removed.
    */
-  const busyWithADriver = adding || open !== null;
+  const busyWithADriver = adding || noting || open !== null;
 
   /**
    * A roster name turns into a real driver the moment Karim taps it.
@@ -267,37 +273,61 @@ export function CloserBoard({
             </span>
           </p>
 
-          <div className="flex items-center gap-2.5">
-            {/* Both numbers, stacked, while anyone is still on the road. They
-                answer different questions — how many vans to watch the gate
-                for, and how many are not even heading back yet — and reading
-                one without the other tells him half of where the night is.
+          {/* Both numbers, stacked, while anyone is still on the road. They
+              answer different questions — how many vans to watch the gate
+              for, and how many are not even heading back yet — and reading
+              one without the other tells him half of where the night is.
 
-                A zero stays on screen here, because during a wave "0 returning"
-                is a fact worth having: nobody has phoned a time in. Once
-                everyone is off the road both lines go, and the yard count takes
-                their place rather than leaving a pair of noughts behind. */}
-            {returning.length > 0 || delivering.length > 0 ? (
-              <div className="text-right leading-tight">
-                <p className="text-[12px] font-semibold text-ink">
-                  {returning.length} returning
-                </p>
-                <p className="text-[12px] font-semibold text-ink-muted">
-                  {delivering.length} still delivering
-                </p>
-              </div>
-            ) : inYard.length > 0 ? (
-              <p className="text-[12px] font-semibold text-arrived">
-                {inYard.length} in the yard
+              A zero stays on screen here, because during a wave "0 returning"
+              is a fact worth having: nobody has phoned a time in. Once
+              everyone is off the road both lines go, and the yard count takes
+              their place rather than leaving a pair of noughts behind. */}
+          {returning.length > 0 || delivering.length > 0 ? (
+            <div className="text-right leading-tight">
+              <p className="text-[12px] font-semibold text-ink">
+                {returning.length} returning
               </p>
-            ) : null}
-            {/* Lives in the sticky header rather than under the list: a van
-                turns up unannounced when there are still twenty names between
-                Karim and the bottom of the screen. */}
+              <p className="text-[12px] font-semibold text-ink-muted">
+                {delivering.length} still delivering
+              </p>
+            </div>
+          ) : inYard.length > 0 ? (
+            <p className="text-[12px] font-semibold text-arrived">
+              {inYard.length} in the yard
+            </p>
+          ) : null}
+        </div>
+
+        <div className="mt-2 flex items-center gap-2">
+          {/* The night's two figures, in the middle of the top of his screen.
+              They are not about any one driver, which is why they are up here
+              and not on a card: at End Day somebody always asks how many
+              returns and how many infractions, and until now the only way to
+              answer was to add up the sheet by eye. */}
+          <div className="flex flex-1 justify-center gap-2">
+            <Total label="Returns" value={totals.returns} />
+            <Total label="Infractions" value={totals.infractions} warn />
+          </div>
+
+          {/* Both live in the sticky header rather than under the list. A van
+              turns up unannounced, and something worth writing down about a
+              driver occurs to him, at moments when there are still twenty
+              names between Karim and the bottom of the screen. */}
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setNoting(true)}
+              className="flex min-h-11 items-center gap-1 rounded-full border border-line-strong bg-surface px-3 text-[13px] font-bold text-ink active:brightness-[0.97]"
+            >
+              <span aria-hidden="true" className="text-[16px] leading-none">
+                +
+              </span>
+              Note
+            </button>
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="flex min-h-11 items-center gap-1 rounded-full border border-brand-line bg-brand-soft px-3.5 text-[13px] font-bold text-brand active:brightness-[0.97]"
+              className="flex min-h-11 items-center gap-1 rounded-full border border-brand-line bg-brand-soft px-3 text-[13px] font-bold text-brand active:brightness-[0.97]"
             >
               <span aria-hidden="true" className="text-[16px] leading-none">
                 +
@@ -520,6 +550,16 @@ export function CloserBoard({
         />
       ) : null}
 
+      {noting ? (
+        <NoteSheet
+          nightKey={nightKey}
+          session={session}
+          entries={entries}
+          uid={uid}
+          onClose={() => setNoting(false)}
+        />
+      ) : null}
+
       {open ? (
         <ArrivalSheet
           /* Keyed by driver: the van number and issues are local drafts, and a
@@ -536,6 +576,51 @@ export function CloserBoard({
         />
       ) : null}
     </div>
+  );
+}
+
+/**
+ * One of the night's running totals.
+ *
+ * Label and figure on one line, because that is how it gets read out — "seven
+ * returns" — and because two of these have to sit side by side across the
+ * middle of a phone. Amber only once an infraction actually exists: a warning
+ * colour on a nought is a warning about nothing, and it stops meaning anything
+ * by the third night.
+ */
+function Total({
+  label,
+  value,
+  warn = false,
+}: {
+  label: string;
+  value: number;
+  warn?: boolean;
+}) {
+  const loud = warn && value > 0;
+
+  return (
+    <span
+      className={`flex flex-col items-center rounded-lg border px-2.5 py-1 leading-none ${
+        loud
+          ? "border-warn-line bg-warn-soft text-warn"
+          : "border-line bg-surface text-ink-muted"
+      }`}
+    >
+      {/* Stacked, not side by side. "Infractions" beside its figure made a pill
+          114px wide, and two of those plus the two buttons ran off the right of
+          a 390px phone. Over the top it costs the width of the word alone. */}
+      <span className="text-[10px] font-bold uppercase tracking-[0.06em]">
+        {label}
+      </span>
+      <span
+        className={`tnum mt-1 font-mono text-[17px] font-bold ${
+          loud ? "text-warn" : "text-ink"
+        }`}
+      >
+        {value}
+      </span>
+    </span>
   );
 }
 
