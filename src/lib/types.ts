@@ -179,6 +179,21 @@ export type Session = {
    * small — one wave — and read as part of the session document.
    */
   roster: RosterEntry[];
+  /**
+   * Notes Karim has left himself about drivers who have no row yet, by driverId.
+   *
+   * They live on the session rather than as entries because creating a row is
+   * not a neutral act: a row means dispatch has heard from him, it takes his
+   * name off the still-to-call-in list, and the next thing anyone does — the
+   * dispatcher entering him properly — would add a *second* row for the same
+   * driver. Half of what Karim wants to write down is about a driver nobody has
+   * heard from yet, so the note has to be able to exist before the row does.
+   *
+   * It moves onto the entry the moment one is created, wherever it is created
+   * from. Until then it shows on his dashed card, and the driver stays exactly
+   * what he is: on the roster, still out, not yet entered.
+   */
+  rosterNotes: Record<string, string>;
   allReturningAt: Timestamp | null;
   closedAt: Timestamp | null;
 };

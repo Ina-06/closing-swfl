@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/Field";
 import { FlagTag } from "@/components/ui/FlagToggle";
-import { addCloserEntry, saveNote } from "@/lib/db/closer";
+import { saveNote } from "@/lib/db/closer";
+import { saveRosterNote } from "@/lib/db/sessions";
 import { nameKey } from "@/lib/names";
+import { pendingNote } from "@/lib/notes";
 import type { Entry, RosterEntry, Session } from "@/lib/types";
 
 /**
@@ -72,8 +74,14 @@ export function NoteSheet({
    *
    * A name off tonight's roster that dispatch has not entered has no document
    * behind it, and that is exactly the driver Karim most wants to leave himself
-   * a note about — nobody has heard from him yet. So the row is made here, en
-   * route, which is where that driver actually is.
+   * a note about — nobody has heard from him yet.
+   *
+   * It does *not* make him a row. A row is what "dispatch has heard from him"
+   * means: it takes his name off their still-to-call-in list, it stops him
+   * being dashed on this screen, and when the dispatcher then enters him
+   * properly it would put a second row on the sheet under one name. So the note
+   * waits on the session instead, and moves onto his row the moment there is
+   * one — see lib/notes.
    */
   async function save(text: string) {
     if (busy || !picked) return;
@@ -81,21 +89,12 @@ export function NoteSheet({
     setError(null);
 
     try {
-      if (picked.kind === "entry") {
+      // Which of the two places it goes is decided by whether he has a row,
+      // and by nothing else.
+      if (picked.entry) {
         await saveNote(nightKey, picked.entry.id, text, uid);
       } else {
-        await addCloserEntry(
-          nightKey,
-          entries,
-          {
-            driverId: picked.driverId,
-            fullName: picked.fullName,
-            roster: picked.roster,
-            status: "enroute",
-            notes: text,
-          },
-          uid,
-        );
+        await saveRosterNote(nightKey, picked.driverId, text, uid);
       }
       onClose();
     } catch (err) {
@@ -131,9 +130,11 @@ export function NoteSheet({
                 {picked ? picked.fullName : "Add a note"}
               </h2>
               <p className="mt-1 text-[13px] leading-snug text-ink-muted">
-                {picked
-                  ? "It shows on his card and at the top of his sheet when he comes in."
-                  : "Pick a driver. The note pops up on his card the moment he is back."}
+                {!picked
+                  ? "Pick a driver. The note pops up on his card the moment he is back."
+                  : picked.entry
+                    ? "It shows on his card and at the top of his sheet when he comes in."
+                    : "Nobody has entered him yet. The note sits on his card and stays with him when dispatch does."}
               </p>
             </div>
 
@@ -212,7 +213,7 @@ export function NoteSheet({
                           </span>
                           {/* Two rows under one name. Without this he cannot
                               tell which trip he is writing about. */}
-                          {row.kind === "entry" && row.entry.secondTrip ? (
+                          {row.entry?.secondTrip ? (
                             <span className="shrink-0 rounded-full border border-brand-line bg-brand-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand">
                               2nd
                             </span>
@@ -230,7 +231,7 @@ export function NoteSheet({
                       {/* He has one already. Tapping adds to it rather than
                           starting again, and this is what says so before he
                           taps. */}
-                      {row.kind === "entry" && row.entry.notes.trim() ? (
+                      {row.note.trim() ? (
                         <span className="shrink-0 rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
                           Note
                         </span>
@@ -264,22 +265,16 @@ export function NoteSheet({
  * yet is not something he should have to know before he can leave himself a
  * note.
  */
-type Target =
-  | {
-      kind: "entry";
-      key: string;
-      driverId: string;
-      fullName: string;
-      roster?: RosterEntry;
-      entry: Entry;
-    }
-  | {
-      kind: "roster";
-      key: string;
-      driverId: string;
-      fullName: string;
-      roster: RosterEntry;
-    };
+type Target = {
+  key: string;
+  driverId: string;
+  fullName: string;
+  roster?: RosterEntry;
+  /** Whatever is already written about him, from wherever it is stored. */
+  note: string;
+  /** Absent exactly when nobody has entered him yet. */
+  entry?: Entry;
+};
 
 /** Everyone on tonight, in one alphabet, rows and roster names together. */
 function useTonight(session: Session, entries: Entry[]): Target[] {
@@ -290,33 +285,27 @@ function useTonight(session: Session, entries: Entry[]): Target[] {
     const entered = new Set(entries.map((entry) => entry.driverId));
 
     const rows: Target[] = [
-      ...entries.map(
-        (entry) =>
-          ({
-            kind: "entry",
-            key: entry.id,
-            driverId: entry.driverId,
-            fullName: entry.fullName,
-            roster: rosterByDriver.get(entry.driverId),
-            entry,
-          }) as const,
-      ),
+      ...entries.map((entry) => ({
+        key: entry.id,
+        driverId: entry.driverId,
+        fullName: entry.fullName,
+        roster: rosterByDriver.get(entry.driverId),
+        note: entry.notes,
+        entry,
+      })),
       ...session.roster
         .filter((row) => !entered.has(row.driverId))
-        .map(
-          (row) =>
-            ({
-              kind: "roster",
-              key: `roster:${row.driverId}`,
-              driverId: row.driverId,
-              fullName: row.fullName,
-              roster: row,
-            }) as const,
-        ),
+        .map((row) => ({
+          key: `roster:${row.driverId}`,
+          driverId: row.driverId,
+          fullName: row.fullName,
+          roster: row,
+          note: pendingNote(session, row.driverId),
+        })),
     ];
 
     return rows.sort((a, b) => a.fullName.localeCompare(b.fullName));
-  }, [session.roster, entries]);
+  }, [session, entries]);
 }
 
 /**
@@ -328,10 +317,11 @@ function useTonight(session: Session, entries: Entry[]): Target[] {
  * rather than a reminder.
  */
 function whereHeIs(row: Target): string {
-  if (row.kind === "roster") return "Still out · dispatch hasn't entered him";
-  if (row.entry.status === "arrived") return "In the yard";
-  if (row.entry.status === "clockedOut") return "Clocked out";
-  return row.entry.eta.trim() ? `Returning · ${row.entry.eta}` : "Still out";
+  const entry = row.entry;
+  if (!entry) return "Still out · dispatch hasn't entered him";
+  if (entry.status === "arrived") return "In the yard";
+  if (entry.status === "clockedOut") return "Clocked out";
+  return entry.eta.trim() ? `Returning · ${entry.eta}` : "Still out";
 }
 
 /**
@@ -352,7 +342,7 @@ function NoteEditor({
   onSave: (text: string) => void;
   onBack: () => void;
 }) {
-  const existing = target.kind === "entry" ? target.entry.notes : "";
+  const existing = target.note;
   const [text, setText] = useState(existing);
   const box = useRef<HTMLTextAreaElement>(null);
 

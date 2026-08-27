@@ -175,11 +175,11 @@ export async function saveNote(
  * again gets a row of his own rather than overwriting the first one, and that
  * row's time is typed instead of stamped — see the sheet.
  *
- * `status` is the other, and it is the note screen that needs it. Writing a
- * note against a name that has no row yet has to make one, and that driver is
- * still out on the road — landing him in the yard would put a van in front of
- * Karim that is not there, and take a name off the list he is watching the gate
- * for. So a row born to hold a note is born en route.
+ * `notes` is the other, and it is only ever a note Karim already wrote. A
+ * driver he made a note about before anyone had heard from him has it stored on
+ * the session, and this is where it moves onto the row — see rosterNotes. It is
+ * never a fresh note: creating a row is how a driver arrives, and nothing about
+ * arriving is a thing to write down.
  */
 export async function addCloserEntry(
   nightKey: string,
@@ -189,8 +189,7 @@ export async function addCloserEntry(
     fullName: string;
     roster?: RosterEntry;
     secondTrip?: boolean;
-    status?: "enroute" | "arrived";
-    /** Written straight in, so a row made to hold a note is never briefly empty. */
+    /** Carried over from the session, never typed here. */
     notes?: string;
   },
   updatedBy: string,
@@ -219,9 +218,8 @@ export async function addCloserEntry(
     clockOutManual: "",
 
     // In the yard, exactly as tapping Arrived would leave him. His sheet opens
-    // straight after this, on the van. Unless he is only here to be written
-    // about — see `status` above.
-    status: driver.status ?? "arrived",
+    // straight after this, on the van.
+    status: "arrived",
     clockOut: null,
     van: "",
     vanOk: null,

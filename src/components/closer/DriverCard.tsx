@@ -110,16 +110,24 @@ export function WaitingCard({
  * chips at the bottom of the screen, which is where these used to sit. Karim
  * counts vans, and a driver he cannot see is a driver he cannot count.
  *
- * Dashed, because there is genuinely nothing behind it: no ETA, no returns, no
- * note, no row in the database. Tapping it makes one — the same thing picking
- * his name in Add a driver does, which is what Karim wants when the van he was
- * never told about is standing in front of him.
+ * Dashed, because there is almost nothing behind it: no ETA, no returns, no row
+ * in the database. Tapping it makes one — the same thing picking his name in
+ * Add a driver does, which is what Karim wants when the van he was never told
+ * about is standing in front of him.
+ *
+ * The one thing there can be is a note he left himself, and it does not undash
+ * the card. A note is Karim writing something down; it is not dispatch having
+ * heard from the driver, and letting it read as though it were would take the
+ * name off the list the dispatcher is working through.
  */
 export function RosterCard({
   row,
+  note,
   onOpen,
 }: {
   row: RosterEntry;
+  /** Written before he had a row. Stored on the session — see lib/notes. */
+  note: string;
   onOpen: () => void;
 }) {
   return (
@@ -151,6 +159,8 @@ export function RosterCard({
 
         <Chevron />
       </span>
+
+      {note ? <NoteStrip>{note}</NoteStrip> : null}
     </button>
   );
 }

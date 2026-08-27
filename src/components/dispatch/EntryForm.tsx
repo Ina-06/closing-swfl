@@ -14,6 +14,7 @@ import { addDriver } from "@/lib/db/drivers";
 import { addEntry, returnsFields } from "@/lib/db/entries";
 import { describeReturns, parseReturns } from "@/lib/returns";
 import { nameKey } from "@/lib/names";
+import { joinNotes, pendingNote } from "@/lib/notes";
 import type { Metric } from "@/lib/constants";
 import type { Driver, Entry, Session } from "@/lib/types";
 
@@ -96,6 +97,9 @@ export function EntryForm({
 
   const duplicate = resolved ? enteredIds.has(resolved.driverId) : false;
 
+  /** Karim's note about this driver, still waiting for a row to land on. */
+  const waitingNote = resolved ? pendingNote(session, resolved.driverId) : "";
+
   function reset() {
     setName("");
     setPicked(null);
@@ -158,7 +162,19 @@ export function EntryForm({
           performance: form.performance,
           metric: form.metric,
           infractions: form.infractions.trim(),
-          notes: form.notes.trim(),
+          /**
+           * Karim's note comes first, then whatever was typed here.
+           *
+           * He can write against a name before anybody has heard from the
+           * driver, and that note has been waiting on the session for this
+           * moment — this is the row it was always for. Both are kept: the
+           * dispatcher cannot see his while typing, so picking one would
+           * silently throw away a note somebody wrote on purpose.
+           */
+          notes: joinNotes(
+            pendingNote(session, resolved.driverId),
+            form.notes.trim(),
+          ),
           rescues: form.rescues,
           clockOutManual: done ? form.clockOutManual.trim() : "",
           status: done ? "clockedOut" : "enroute",
@@ -239,6 +255,20 @@ export function EntryForm({
           </div>
         </div>
       </div>
+
+      {/* Karim wrote this against the name before anyone had heard from the
+          driver, and it is about to be carried onto the row. Shown rather than
+          applied silently: the dispatcher is on the phone to this person, and a
+          note saying "ask him about the third stop" is a thing to ask about
+          now, not to read off the sheet afterwards. */}
+      {waitingNote ? (
+        <p className="mt-2 flex gap-2 rounded-md border border-warn-line bg-warn-soft px-2.5 py-2 text-[12px] leading-snug text-warn">
+          <span className="shrink-0 font-bold uppercase tracking-wider">
+            Karim&rsquo;s note
+          </span>
+          <span>{waitingNote}</span>
+        </p>
+      ) : null}
 
       {resolved ? (
         <p className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-ink-muted">

@@ -18,6 +18,7 @@ import { ErrorNote } from "@/components/ui/Field";
 import { addCloserEntry } from "@/lib/db/closer";
 import { useEntries } from "@/lib/db/entries";
 import { etaMinutes, minutesLate, stationNowMinutes } from "@/lib/eta";
+import { pendingNote } from "@/lib/notes";
 import { nightTotals } from "@/lib/totals";
 import type { Entry, RosterEntry, Session } from "@/lib/types";
 
@@ -237,7 +238,14 @@ export function CloserBoard({
       const entryId = await addCloserEntry(
         nightKey,
         entries,
-        { driverId: row.driverId, fullName: row.fullName, roster: row },
+        {
+          driverId: row.driverId,
+          fullName: row.fullName,
+          roster: row,
+          // Anything he wrote against this name while it was still dashed comes
+          // with him onto the row, so it is on the sheet he is about to open.
+          notes: pendingNote(session, row.driverId),
+        },
         uid,
       );
       setOpenId(entryId);
@@ -458,6 +466,7 @@ export function CloserBoard({
                         <li key={row.key}>
                           <RosterCard
                             row={row.roster}
+                            note={pendingNote(session, row.roster.driverId)}
                             onOpen={() => void addFromRoster(row.roster)}
                           />
                         </li>

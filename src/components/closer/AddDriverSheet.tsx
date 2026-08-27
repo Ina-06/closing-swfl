@@ -6,6 +6,7 @@ import { FlagTag } from "@/components/ui/FlagToggle";
 import { addCloserEntry } from "@/lib/db/closer";
 import { addDriver, useDrivers } from "@/lib/db/drivers";
 import { nameKey } from "@/lib/names";
+import { pendingNote } from "@/lib/notes";
 import type { Entry, RosterEntry, Session } from "@/lib/types";
 
 /**
@@ -140,7 +141,14 @@ export function AddDriverSheet({
       const entryId = await addCloserEntry(
         nightKey,
         entries,
-        { ...driver, secondTrip },
+        {
+          ...driver,
+          secondTrip,
+          /* A note he left while nobody had heard from this driver moves onto
+             the row — but only onto the first one. A second trip is its own
+             record of its own van, and it did not exist when that was written. */
+          notes: secondTrip ? "" : pendingNote(session, driver.driverId),
+        },
         uid,
       );
       onAdded(entryId);
@@ -165,6 +173,8 @@ export function AddDriverSheet({
     setError(null);
     try {
       const driverId = await addDriver(typed);
+      // A brand new name in the database. Nobody can have written a note about
+      // him tonight — he did not exist to be picked from a list.
       const entryId = await addCloserEntry(
         nightKey,
         entries,

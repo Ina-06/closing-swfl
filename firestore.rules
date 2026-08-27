@@ -82,11 +82,16 @@ service cloud.firestore {
     }
 
     match /sessions/{sessionId} {
-      // The closer's only session-level job is End Day: flip the status and
-      // attach the PDF. Everything else about the night is the dispatcher's.
+      // The closer's session-level jobs: End Day — flip the status and attach
+      // the PDF — and the notes he leaves himself about drivers who have no row
+      // yet. Everything else about the night is the dispatcher's.
+      //
+      // `rosterNotes` is his own map and nothing else's. `roster` and
+      // `totalExpected` are not on this list, so writing a note can never
+      // reshape the night: who is on tonight stays the dispatcher's to say.
       function closerSessionFields() {
         return changedKeys().hasOnly([
-          'status', 'closedAt', 'pdfUrl', 'updatedAt', 'updatedBy'
+          'status', 'closedAt', 'pdfUrl', 'rosterNotes', 'updatedAt', 'updatedBy'
         ]);
       }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   collection,
+  deleteField,
   doc,
   limit,
   onSnapshot,
@@ -38,6 +39,16 @@ function toSession(data: DocumentData, id: string): Session {
       }))
     : [];
 
+  /** Strings only, keyed by driverId. Anything else in there is not a note. */
+  const rosterNotes: Record<string, string> = {};
+  if (data.rosterNotes && typeof data.rosterNotes === "object") {
+    for (const [driverId, note] of Object.entries(data.rosterNotes)) {
+      if (typeof note === "string" && note.trim() !== "") {
+        rosterNotes[driverId] = note;
+      }
+    }
+  }
+
   return {
     date: typeof data.date === "string" ? data.date : id,
     managedBy: typeof data.managedBy === "string" ? data.managedBy : "",
@@ -48,6 +59,7 @@ function toSession(data: DocumentData, id: string): Session {
     totalExpected:
       typeof data.totalExpected === "number" ? data.totalExpected : roster.length,
     roster,
+    rosterNotes,
     allReturningAt: data.allReturningAt ?? null,
     closedAt: data.closedAt ?? null,
   };
@@ -257,6 +269,32 @@ export function useSessions(max = 60) {
   }, [max]);
 
   return { sessions, loading: sessions === null, error };
+}
+
+/**
+ * A note about a driver who has no row yet.
+ *
+ * One field path, not the whole map, so two notes written a second apart on two
+ * devices cannot overwrite each other. An empty note deletes the key rather
+ * than storing a blank — clearing the box has to actually clear it, and a map
+ * full of empty strings would put a "Note" badge on drivers who have none.
+ *
+ * It stays put after the driver gets a row. The row already carries a copy by
+ * then, and leaving this one alone means a row deleted in error takes his note
+ * back to the dashed card rather than losing it — which is the behaviour worth
+ * having, and one fewer write in the path that creates the row.
+ */
+export async function saveRosterNote(
+  nightKey: string,
+  driverId: string,
+  notes: string,
+  updatedBy: string,
+) {
+  await updateDoc(doc(getDb(), COLLECTION, nightKey), {
+    [`rosterNotes.${driverId}`]: notes.trim() === "" ? deleteField() : notes,
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  });
 }
 
 export async function touchSession(nightKey: string, updatedBy: string) {
