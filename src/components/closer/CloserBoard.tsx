@@ -13,6 +13,7 @@ import {
 } from "@/components/closer/DriverCard";
 import { EndDay } from "@/components/closer/EndDay";
 import { NoteSheet } from "@/components/closer/NoteSheet";
+import { RosterSheet } from "@/components/closer/RosterSheet";
 import { Summary } from "@/components/closer/Summary";
 import { ErrorNote } from "@/components/ui/Field";
 import { addCloserEntry } from "@/lib/db/closer";
@@ -114,6 +115,15 @@ export function CloserBoard({
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [noting, setNoting] = useState(false);
+  /** The dashed name whose sheet is open. Opening it writes nothing. */
+  const [openRoster, setOpenRoster] = useState<RosterEntry | null>(null);
+  const [arriving, setArriving] = useState(false);
+  /**
+   * The sheet about to open belongs to a driver who has just this second
+   * arrived, so it should land on the van number the way pressing Arrived
+   * inside the sheet does. Cleared when the sheet closes.
+   */
+  const [openOnVan, setOpenOnVan] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   /** Open to begin with: a list he has not folded is a list he wants to see. */
   const [deliveringOpen, setDeliveringOpen] = useState(true);
@@ -222,17 +232,23 @@ export function CloserBoard({
    * Read from what is actually rendered rather than from `openId`, which can
    * still be pointing at an entry the dispatcher has since removed.
    */
-  const busyWithADriver = adding || noting || open !== null;
+  const busyWithADriver =
+    adding || noting || openRoster !== null || open !== null;
 
   /**
-   * A roster name turns into a real driver the moment Karim taps it.
+   * A roster name becomes a real driver — but only once Karim has said so.
    *
-   * The same write Add a driver does, reached the short way: his van is in the
-   * yard, that is why Karim is looking at his name. It lands him in the yard
-   * and opens his sheet on the van, and the sheet's own Undo puts it back if
-   * the tap was a mis-hit.
+   * This is the Arrived button on his dashed card's sheet, not the tap that
+   * opened it. Tapping the card writes nothing: it is as often a thumb on the
+   * wrong line as it is a van, and a tap that silently put a row on the sheet
+   * had no way back to being a name on the roster.
+   *
+   * From here it is the ordinary write Add a driver does. He lands in the yard
+   * with his sheet open on the van, which is where the next thing he types is.
    */
   async function addFromRoster(row: RosterEntry) {
+    if (arriving) return;
+    setArriving(true);
     setAddError(null);
     try {
       const entryId = await addCloserEntry(
@@ -248,11 +264,17 @@ export function CloserBoard({
         },
         uid,
       );
+      setOpenRoster(null);
       setOpenId(entryId);
+      // He is in the yard and the sheet is opening on the van, so the caret
+      // starts where the Arrived button leaves it for everybody else.
+      setOpenOnVan(true);
     } catch (err) {
       setAddError(
         err instanceof Error ? err.message : "Could not add him to the sheet.",
       );
+    } finally {
+      setArriving(false);
     }
   }
 
@@ -467,7 +489,10 @@ export function CloserBoard({
                           <RosterCard
                             row={row.roster}
                             note={pendingNote(session, row.roster.driverId)}
-                            onOpen={() => void addFromRoster(row.roster)}
+                            onOpen={() => {
+                              setAddError(null);
+                              setOpenRoster(row.roster);
+                            }}
                           />
                         </li>
                       ),
@@ -554,6 +579,7 @@ export function CloserBoard({
             // the number and the checks are the next thing, and the clock-out
             // is at the bottom where it is for everyone else.
             setOpenId(entryId);
+            setOpenOnVan(true);
           }}
           onClose={() => setAdding(false)}
         />
@@ -569,6 +595,17 @@ export function CloserBoard({
         />
       ) : null}
 
+      {openRoster ? (
+        <RosterSheet
+          row={openRoster}
+          note={pendingNote(session, openRoster.driverId)}
+          busy={arriving}
+          error={addError}
+          onArrived={() => void addFromRoster(openRoster)}
+          onClose={() => setOpenRoster(null)}
+        />
+      ) : null}
+
       {open ? (
         <ArrivalSheet
           /* Keyed by driver: the van number and issues are local drafts, and a
@@ -581,7 +618,11 @@ export function CloserBoard({
              up on a driver who parked early. */
           late={open.status === "enroute" ? minutesLate(open.eta, now) : null}
           uid={uid}
-          onClose={() => setOpenId(null)}
+          openOnVan={openOnVan}
+          onClose={() => {
+            setOpenId(null);
+            setOpenOnVan(false);
+          }}
         />
       ) : null}
     </div>

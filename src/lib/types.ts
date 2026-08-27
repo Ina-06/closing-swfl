@@ -121,7 +121,14 @@ export type Entry = {
   snack: boolean | null;
   lights: boolean | null;
   bungees: boolean | null;
-  /** Turned up without being announced. The dispatcher fills the rest in after. */
+  /**
+   * Turned up without being announced, and is not on tonight's roster either.
+   *
+   * Nobody knew he was coming — that is what the badge on both screens means,
+   * and why it is worth one. A driver Karim gets to before the dispatcher does
+   * is not this: his name is on the roster, he was expected, and the only thing
+   * missing is the ETA the dispatcher has not typed yet.
+   */
   addedByCloser: boolean;
   /**
    * A driver's second turn of the night, on a row of his own.

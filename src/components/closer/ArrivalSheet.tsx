@@ -47,6 +47,7 @@ export function ArrivalSheet({
   entry,
   late,
   uid,
+  openOnVan = false,
   onClose,
 }: {
   nightKey: string;
@@ -54,6 +55,14 @@ export function ArrivalSheet({
   entry: Entry;
   late: number | null;
   uid: string;
+  /**
+   * He arrived on the tap that opened this, rather than on a press inside it.
+   *
+   * Add a driver and the Arrived button on a dashed name both put the driver in
+   * the yard and then open this sheet, so the caret belongs in the van number
+   * exactly as it would if he had pressed Arrived in here.
+   */
+  openOnVan?: boolean;
   onClose: () => void;
 }) {
   const panel = useRef<HTMLDivElement>(null);
@@ -328,10 +337,11 @@ export function ArrivalSheet({
             <VanPanel
               entry={entry}
               onSave={writeYard}
-              /* Only on the tap that put him in the yard. Opening the sheet on
-                 a driver who is already in it must not throw a keyboard over
-                 the record Karim came to read. */
-              focusVan={arrivingNow}
+              /* Only on the tap that put him in the yard, whether that tap was
+                 the Arrived button in here or the one that opened the sheet.
+                 Opening it on a driver who was already in the yard must not
+                 throw a keyboard over the record Karim came to read. */
+              focusVan={arrivingNow || openOnVan}
             />
           ) : null}
 

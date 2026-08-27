@@ -14,6 +14,8 @@ rules_version = '2';
 //   2. Nothing is ever deleted except a mistaken entry, and only by the
 //      dispatcher. Sessions are permanent — closing sets status, it does not
 //      remove the night.
+
+
 //
 // Paste this into Firebase console → Firestore Database → Rules → Publish.
 

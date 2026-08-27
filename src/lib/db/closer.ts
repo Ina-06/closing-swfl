@@ -157,16 +157,16 @@ export async function saveNote(
 /**
  * A driver who turned up without being announced.
  *
- * He lands arrived, not waiting. The only way Karim knows to add someone is
- * that the van is in front of him, so adding *is* the arrival — making him tap
- * Arrived afterwards would be asking him to confirm something he just did. The
- * clock-out is still his to make at the end of the handover, same as everyone
- * else's.
+ * He lands arrived, not waiting, because by the time this is reached the
+ * arrival is the thing that just happened: a name picked out of Add a driver is
+ * a van standing in front of Karim, and a name off the roster has had Arrived
+ * pressed on it. Landing him waiting would be asking him to confirm it twice.
+ * The clock-out is still his to make at the end of the handover, same as
+ * everyone else's.
  *
  * The dispatcher's half is written empty rather than omitted, so every entry
- * has the same shape however it was born. `addedByCloser` is what marks the row
- * as half-written — the dispatcher fills in the ETA and returns afterwards, and
- * until then it is flagged on both screens.
+ * has the same shape however it was born — they fill in the ETA and the returns
+ * afterwards.
  *
  * Kept here rather than reusing addEntry: that one takes the dispatcher's
  * fields as its argument, and this side has none of them to give.
@@ -232,7 +232,20 @@ export async function addCloserEntry(
     snack: null,
     lights: null,
     bungees: null,
-    addedByCloser: true,
+    /**
+     * Nobody told anyone he was coming.
+     *
+     * Read off the roster, not off which button made the row. A driver on
+     * tonight's roster *was* announced — his name is on the list the dispatcher
+     * is working down — and flagging him Unannounced because Karim got to him
+     * first said the opposite of what happened. It put a warning on the one
+     * screen where the roster is the reason his name is there at all.
+     *
+     * What it is genuinely for is the other case: a van in the yard belonging
+     * to somebody who is not on tonight's list. That is worth a badge, because
+     * somebody has to work out why.
+     */
+    addedByCloser: driver.roster === undefined,
     secondTrip: driver.secondTrip === true,
 
     updatedAt: serverTimestamp(),
