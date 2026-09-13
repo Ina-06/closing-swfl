@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BuildTag } from "@/components/BuildTag";
+import { DispatchNote } from "@/components/dispatch/DispatchNote";
 import { NavLink } from "@/components/dispatch/NavLink";
 import { RoleGate } from "@/components/RoleGate";
 import { SignOutButton } from "@/components/SignOutButton";
@@ -31,6 +32,11 @@ export default function DispatchLayout({
 
           <div className="flex items-center gap-3">
             <StationDate className="tnum hidden font-mono text-xs text-ink-muted sm:inline" />
+            {/* In the bar rather than on the sheet: it is worth reaching from
+                the drivers list and the archive too, and the moment somebody
+                remembers a driver needs a word is not a moment they are
+                looking at tonight's table. */}
+            <DispatchNote />
             <SignOutButton />
             <span className="rounded-full border border-brand-line bg-brand-soft px-2.5 py-1 text-[11px] font-semibold text-brand">
               Dispatcher

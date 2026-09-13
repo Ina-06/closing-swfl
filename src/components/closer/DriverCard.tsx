@@ -78,11 +78,7 @@ export function WaitingCard({
             ) : null}
             {/* Worth knowing before he walks over, not after he opens the
                 sheet. The infraction itself is in there. */}
-            {entry.infractions.trim() ? (
-              <span className="rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
-                Infraction
-              </span>
-            ) : null}
+            <InfractionTag raw={entry.infractions} />
           </span>
         </span>
 
@@ -203,11 +199,7 @@ export function YardCard({
             {flagsOn(entry).map((flag) => (
               <FlagTag key={flag} flag={flag} />
             ))}
-            {entry.infractions.trim() ? (
-              <span className="rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
-                Infraction
-              </span>
-            ) : null}
+            <InfractionTag raw={entry.infractions} />
           </span>
         </span>
 
@@ -240,53 +232,88 @@ export function DoneCard({
   // phone. Different sources, so they read differently on the card.
   const stamped = entry.clockOut;
 
+  /**
+   * Whether there is anything about this driver worth a second look.
+   *
+   * Most nights, for most rows, there is not: he went out, he came back, the
+   * van is fine. Those stay the single line this list has always been, and it
+   * is the reason the whole clocked-out list fits on a screen. The row only
+   * grows for the drivers it has something to say about.
+   */
+  const signals =
+    entry.performance !== null ||
+    entry.rescues !== 0 ||
+    entry.infractions.trim() !== "";
+
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-center gap-3 rounded-xl border border-line bg-sunken/70 px-3.5 py-3 text-left transition-colors active:brightness-[0.97]"
+      className="block w-full rounded-xl border border-line bg-sunken/70 px-3.5 py-3 text-left transition-colors active:brightness-[0.97]"
     >
-      <span className="w-[68px] shrink-0">
-        <span className="tnum block font-mono text-[15px] font-bold leading-none text-arrived">
-          {stamped ? stationTimeLabel(stamped.toDate()) : entry.clockOutManual || "—"}
+      <span className="flex items-center gap-3">
+        <span className="w-[68px] shrink-0">
+          <span className="tnum block font-mono text-[15px] font-bold leading-none text-arrived">
+            {stamped ? stationTimeLabel(stamped.toDate()) : entry.clockOutManual || "—"}
+          </span>
+          {stamped ? null : (
+            <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wider leading-none text-ink-faint">
+              Reported
+            </span>
+          )}
         </span>
-        {stamped ? null : (
-          <span className="mt-1 block text-[10px] font-semibold uppercase tracking-wider leading-none text-ink-faint">
-            Reported
+
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          <span className="min-w-0 truncate text-[15px] font-medium text-ink-muted">
+            {entry.fullName}
+          </span>
+          {/* Two rows carrying one name is the one thing on this list that could
+              be read as a mistake. It is not, and this is what says so. */}
+          {entry.secondTrip ? <SecondTrip /> : null}
+        </span>
+
+        {/* The van is what tells him this record is finished. Missing is worth
+            seeing from the list, because at End Day it is too late to go and
+            look, and the spanner is worth seeing for the same reason — it is the
+            only thing on this row that somebody has to do something about
+            tomorrow. */}
+        {entry.van ? (
+          <span className="tnum shrink-0 rounded-md border border-line bg-surface px-1.5 py-0.5 font-mono text-[11px] font-bold text-ink-muted">
+            {entry.van}
+            {entry.vanIssues.trim() ? (
+              <span aria-hidden="true"> 🛠️</span>
+            ) : null}
+          </span>
+        ) : (
+          <span className="shrink-0 rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
+            No van
           </span>
         )}
+
+        <Chevron />
       </span>
 
-      <span className="flex min-w-0 flex-1 items-center gap-1.5">
-        <span className="min-w-0 truncate text-[15px] font-medium text-ink-muted">
-          {entry.fullName}
-        </span>
-        {/* Two rows carrying one name is the one thing on this list that could
-            be read as a mistake. It is not, and this is what says so. */}
-        {entry.secondTrip ? <SecondTrip /> : null}
-      </span>
+      {/* The same signals the returning card carries, in the same order,
+          because a driver does not stop being the man who lost eleven packages
+          the moment he is clocked out. Karim reads this list back at the end of
+          the night and after End Day, and having to open every sheet to find
+          out who the conversation is with is the reason they are here.
 
-      {/* The van is what tells him this record is finished. Missing is worth
-          seeing from the list, because at End Day it is too late to go and
-          look, and the spanner is worth seeing for the same reason — it is the
-          only thing on this row that somebody has to do something about
-          tomorrow. */}
-      {entry.van ? (
-        <span className="tnum shrink-0 rounded-md border border-line bg-surface px-1.5 py-0.5 font-mono text-[11px] font-bold text-ink-muted">
-          {entry.van}
-          {entry.vanIssues.trim() ? (
-            <span aria-hidden="true"> 🛠️</span>
-          ) : null}
-        </span>
-      ) : (
-        <span className="shrink-0 rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
-          No van
-        </span>
-      )}
+          Under the name rather than beside it. Alongside, three more things
+          fighting the van chip for the right-hand side of a 390px phone left
+          "Marcus Webb" reading "Marcus …", and a list of drivers whose names
+          are cut off is not a list of drivers.
 
-      <Infractions raw={entry.infractions} />
-
-      <Chevron />
+          The metric that sits beside the arrow inside the sheet still does not
+          come out: it needs its own scale of five colours to mean anything, and
+          this row has room for a signal, not a legend. */}
+      {signals ? (
+        <span className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[80px]">
+          <Trend direction={entry.performance} />
+          <RescueCount count={entry.rescues} />
+          <InfractionTag raw={entry.infractions} />
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -358,22 +385,37 @@ function RescueCount({ count }: { count: number }) {
  * How many he picked up, when the dispatcher wrote a number.
  *
  * A count rather than the word, because the difference between one and three is
- * the difference between a mention and a conversation, and this row is the last
- * place Karim sees the driver's name before the sheet goes up. The triangle on
- * its own is for an infraction typed without a figure in front of it — real,
- * and not something to invent a number for.
+ * the difference between a mention and a conversation, and these rows are the
+ * last place Karim sees the driver's name before the sheet goes up. "Infraction"
+ * on its own told him there was at least one and nothing else, which on a driver
+ * who has had three is the wrong half of the fact.
+ *
+ * Read by the same parser as returns — see lib/infractions — so a station that
+ * types "2 speeding 1 distraction" gets a 3 without anyone teaching this file
+ * how the dispatcher writes.
+ *
+ * The bare word is for an infraction typed without a figure in front of it.
+ * "Spoke to him about his scan rate" is real and has no number in it, and
+ * inventing a 1 would be putting a count on the card that nobody wrote.
+ *
+ * One tag for all three cards. It was three copies of the same pill, and they
+ * had already drifted — the clocked-out one carried a triangle the others did
+ * not.
  */
-function Infractions({ raw }: { raw: string }) {
+function InfractionTag({ raw }: { raw: string }) {
   if (!raw.trim()) return null;
   const count = countInfractions(raw);
 
   return (
-    <span className="tnum shrink-0 rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[11px] font-bold text-warn">
-      <span aria-hidden="true">⚠️</span>
-      <span className="sr-only">
-        {count === null ? "Infraction" : `${count} infractions`}
+    <span
+      className="tnum shrink-0 rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn"
+      aria-label={
+        count === null ? "Infraction" : `${count} infractions`
+      }
+    >
+      <span aria-hidden="true">
+        {count === null ? "Infra" : `${count} Infra`}
       </span>
-      {count === null ? "" : ` ${count}`}
     </span>
   );
 }

@@ -12,9 +12,9 @@ import {
   YardCard,
 } from "@/components/closer/DriverCard";
 import { EndDay } from "@/components/closer/EndDay";
-import { NoteSheet } from "@/components/closer/NoteSheet";
 import { RosterSheet } from "@/components/closer/RosterSheet";
 import { Summary } from "@/components/closer/Summary";
+import { NoteSheet } from "@/components/NoteSheet";
 import { ErrorNote } from "@/components/ui/Field";
 import { addCloserEntry } from "@/lib/db/closer";
 import { useEntries } from "@/lib/db/entries";
@@ -125,8 +125,17 @@ export function CloserBoard({
    */
   const [openOnVan, setOpenOnVan] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-  /** Open to begin with: a list he has not folded is a list he wants to see. */
-  const [deliveringOpen, setDeliveringOpen] = useState(true);
+  /**
+   * Folded to begin with.
+   *
+   * Early in a wave this is the longest list on the screen and every name on it
+   * is a driver Karim can do nothing about — he has no time for them and no van
+   * to watch the gate for. Open, it pushed the vans that *are* coming in, and
+   * the yard, and the clocked-out list, off the bottom of the phone. The count
+   * beside the heading is the part he actually reads, and that is still there
+   * folded.
+   */
+  const [deliveringOpen, setDeliveringOpen] = useState(false);
   const now = useStationClock();
 
   const { returning, deliveringEntries, inYard, done } = useMemo(() => {
@@ -613,10 +622,11 @@ export function CloserBoard({
           key={open.id}
           nightKey={nightKey}
           entry={open}
-          /* Lateness is measured against the clock, so it stops meaning
-             anything the moment he is in — an hour later it would be counting
-             up on a driver who parked early. */
-          late={open.status === "enroute" ? minutesLate(open.eta, now) : null}
+          /* The clock itself, not a lateness worked out from it. The sheet
+             needs to compare the ETA against a different moment in each state —
+             now while he is on the road or stood at the van, the stamp once he
+             is clocked out — and only the sheet knows which state it is in. */
+          now={now}
           uid={uid}
           openOnVan={openOnVan}
           onClose={() => {

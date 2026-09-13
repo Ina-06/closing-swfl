@@ -72,8 +72,11 @@ persistent chrome without adding a segment to the URL.
 - **One timezone.** All times render through `STATION_TIMEZONE`. The device
   clock is never trusted, and clock-out uses `serverTimestamp()`.
 - **One night, not one date.** Session ids come from `stationNightKey()`, which
-  counts anything before 4am as still belonging to the previous night. A van
-  stamped in at 00:40 lands on the sheet it belongs to.
+  counts anything before 7am as still belonging to the previous night. A van
+  stamped in at 00:40 lands on the sheet it belongs to, and a sheet nobody sent
+  is still on screen for whoever opens the app at six. Note that `eta.ts` reads
+  a bare hour against its own `EVENING_AFTER_HOUR` (4) — an ETA of "5" is five
+  in the afternoon, and that must not move with the rollover.
 - **Nothing typed is ever lost.** Raw input is stored verbatim alongside any
   parsed structure; parse failures warn softly inline and still save.
 - **Sessions are never deleted.** Closing sets `status: 'closed'`.

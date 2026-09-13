@@ -7,7 +7,21 @@
  * it cannot read sorts to the bottom and is simply never called overdue.
  */
 
-import { NIGHT_ROLLOVER_HOUR, STATION_TIMEZONE } from "@/lib/constants";
+import { STATION_TIMEZONE } from "@/lib/constants";
+
+/**
+ * A bare hour above this one is the evening.
+ *
+ * "5" typed into the ETA box is five in the afternoon; "3" is three in the
+ * morning, at the far end of a close that has run long. Four is the hinge.
+ *
+ * It used to be NIGHT_ROLLOVER_HOUR, which read as the same idea and is not.
+ * That one says when a night's sheet stops being tonight's, and it moved to
+ * seven so a forgotten EOD sheet survives until the morning shift — at which
+ * point every ETA of "5" and "6" in the station would have started meaning
+ * breakfast. Two numbers, two jobs, and they are only equal by coincidence.
+ */
+const EVENING_AFTER_HOUR = 4;
 
 /**
  * Minutes since noon — the timeline a close actually runs on.
@@ -46,7 +60,7 @@ export function etaMinutes(raw: string): number | null {
     if (meridiem === "p") hours += 12;
   } else if (hours === 12) {
     hours = 0;
-  } else if (hours > NIGHT_ROLLOVER_HOUR && hours < 12) {
+  } else if (hours > EVENING_AFTER_HOUR && hours < 12) {
     hours += 12;
   }
 
@@ -89,4 +103,49 @@ export function lateLabel(late: number): string {
   const hours = Math.floor(late / 60);
   const rest = late % 60;
   return rest === 0 ? `${hours}h late` : `${hours}h ${rest}m late`;
+}
+
+/**
+ * How this driver did against the time he gave, signed.
+ *
+ * Positive is early, negative is late, and the sign is the whole point — one
+ * number that says both which side of the ETA he landed on and by how far,
+ * which is what Karim is reading in the second before he clocks somebody out.
+ *
+ * `against` is whatever the honest reference is at the moment it is asked for:
+ * the clock while he is still out or stood at the van, and the stamped
+ * clock-out once the handover is over. That is why it is a parameter — a sheet
+ * reopened an hour later must not carry on counting up on a man who went home.
+ */
+export function etaOffset(eta: string, against: number | null): number | null {
+  if (against === null) return null;
+  const due = etaMinutes(eta);
+  if (due === null) return null;
+  return due - against;
+}
+
+/**
+ * The signed offset as Karim reads it out: "+12 mins", "-24 mins".
+ *
+ * Minutes for anything inside the hour, which is every figure this was asked
+ * for — a handover runs on how many minutes either side of the time he gave.
+ *
+ * Hours above that, and it is not tidiness. A driver entered at five with an
+ * ETA of half ten is five and a half hours early, and "+330 mins" is a number
+ * nobody reads as anything; it looks like the app has lost count. "+5h 30m" is
+ * the same fact and is obviously a driver who has not left yet.
+ *
+ * Bang on the minute gets words rather than a "+0" — nought early and nought
+ * late are the same thing, and it is worth saying so.
+ */
+export function offsetLabel(offset: number): string {
+  if (offset === 0) return "On time";
+
+  const sign = offset > 0 ? "+" : "-";
+  const size = Math.abs(offset);
+  if (size < 60) return `${sign}${size} mins`;
+
+  const hours = Math.floor(size / 60);
+  const rest = size % 60;
+  return rest === 0 ? `${sign}${hours}h` : `${sign}${hours}h ${rest}m`;
 }

@@ -8,21 +8,23 @@ import { saveNote } from "@/lib/db/closer";
 import { saveRosterNote } from "@/lib/db/sessions";
 import { nameKey } from "@/lib/names";
 import { pendingNote } from "@/lib/notes";
+import { useViewport } from "@/lib/viewport";
 import type { Entry, RosterEntry, Session } from "@/lib/types";
 
 /**
- * A note Karim leaves himself, for when the van pulls in.
+ * A note about a driver, for when the van pulls in.
  *
- * The dispatcher has had this since the beginning and it is the most useful
- * thing on the card: an amber strip that appears the moment the driver is on
- * screen. Half of what needs saying, though, is only known in the yard — take
- * his badge off him, the ramp is jammed, ask him about the third stop — and
- * until now the only way to keep it was in his head, at eleven at night, with
- * nine vans still out.
+ * Opened from both screens, which is why it lives out here rather than under
+ * closer/. One note per driver, one amber strip, whoever wrote it — Karim in
+ * the yard at eleven at night, or the dispatcher at the desk hours before the
+ * wave goes out. The editor opens with what is already there, so a second
+ * writer adds to the note rather than over it.
  *
- * So it writes the same field. One note per driver, one amber strip, whoever
- * wrote it. The editor opens with what is already there so his goes underneath
- * the dispatcher's rather than over it.
+ * Each side reaches it from a different direction. Karim's is what he has just
+ * been told at the van — take his badge off him, the ramp is jammed. Dispatch's
+ * is what they already know and will not be awake to say: this one is on his
+ * last warning, this one needs his route looked at. Both end up on the same
+ * card at the same moment, which is the only moment either of them is any use.
  *
  * Two screens in one sheet, because that is the shape of the job: find the name,
  * then say the thing.
@@ -62,6 +64,38 @@ export function NoteSheet({
   }, [onClose]);
 
   const everyone = useTonight(session, entries);
+
+  /**
+   * The sheet sizes itself to the glass that is left, not to the whole screen.
+   *
+   * Two things were wrong at once while he was typing a name. The sheet is
+   * anchored to the bottom of the screen, and with the keyboard up that bottom
+   * is underneath the keyboard — so the list of matches was behind it. And the
+   * sheet is only as tall as its contents, so filtering twenty names down to
+   * one shrank the panel as he typed, dropping the answer further into the
+   * keyboard the closer he got to it.
+   *
+   * Lifting it by the keyboard's height fixes the first. Holding the picker at
+   * a fixed share of what is left fixes the second: the box stays where his
+   * thumb left it and the matches appear underneath it, however many there are.
+   */
+  const viewport = useViewport();
+  const lifted = viewport.height !== null && viewport.inset > 0;
+  const panelStyle =
+    viewport.height === null
+      ? undefined
+      : {
+          bottom: viewport.inset,
+          // With the keyboard up, every pixel left is worth having. With it
+          // down, the same 88% of the screen the stylesheet always gave it, so
+          // the list behind is still visible over the top.
+          maxHeight: lifted
+            ? viewport.height - 8
+            : Math.round(viewport.height * 0.88),
+          // The editor is a textarea and two buttons and should stay the size
+          // it is; only the list he searches is held open.
+          height: picked || !lifted ? undefined : Math.round(viewport.height * 0.86),
+        };
 
   const key = nameKey(query);
   const matches = useMemo(
@@ -116,6 +150,7 @@ export function NoteSheet({
         role="dialog"
         aria-modal="true"
         aria-label={picked ? `Note for ${picked.fullName}` : "Add a note"}
+        style={panelStyle}
         className="animate-sheet absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col rounded-t-2xl border-t border-line bg-surface pb-safe"
       >
         <div className="mx-auto w-full max-w-lg px-4 pt-2.5">

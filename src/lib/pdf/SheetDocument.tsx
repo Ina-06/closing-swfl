@@ -204,6 +204,12 @@ export function SheetDocument({
             <Head label="NAME" width={COLUMNS.name} />
             <Head label="TIME" width={COLUMNS.time} centre />
             <Head label="VAN" width={COLUMNS.van} centre />
+            {/* Next to the van it is about, not seven tick columns away at the
+                far edge of a landscape page. Whoever picks this up in the
+                morning is looking for which van needs dealing with, and the
+                number and the fault are one fact — reading them apart meant
+                tracking a row across the whole sheet with a finger. */}
+            <Head label="VAN ISSUES" width={COLUMNS.vanIssues} />
             {CHECKS.map((check) => (
               <Head
                 key={check.field}
@@ -216,7 +222,6 @@ export function SheetDocument({
                 tight
               />
             ))}
-            <Head label="VAN ISSUES" width={COLUMNS.vanIssues} />
           </View>
 
           {rows.map((row) => (
@@ -233,6 +238,9 @@ export function SheetDocument({
               <View style={[styles.cell, { width: `${COLUMNS.van}%` }]}>
                 <Text style={styles.centre}>{row.van}</Text>
               </View>
+              <View style={[styles.cell, { width: `${COLUMNS.vanIssues}%` }]}>
+                <Text>{row.vanIssues}</Text>
+              </View>
               {CHECKS.map((check) => (
                 <View
                   key={check.field}
@@ -241,9 +249,6 @@ export function SheetDocument({
                   <CheckMark value={row.checks[check.field]} />
                 </View>
               ))}
-              <View style={[styles.cell, { width: `${COLUMNS.vanIssues}%` }]}>
-                <Text>{row.vanIssues}</Text>
-              </View>
             </View>
           ))}
         </View>

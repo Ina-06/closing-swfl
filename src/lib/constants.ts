@@ -57,8 +57,13 @@ export const CHECKS = [
   { field: "charger", label: "Charger + Sharpie", short: "Charger", letter: "C" },
   { field: "mobile", label: "Mobile + Off", short: "Mobile", letter: "M" },
   { field: "snack", label: "Snack", short: "Snack", letter: "S" },
-  { field: "lights", label: "Lights", short: "Lights", letter: "L" },
   { field: "bungees", label: "2 Bungees", short: "Bungees", letter: "B" },
+  /* Last, so it is the tile that takes the whole width — see the grid in
+     ArrivalSheet, which works the odd one out from the length of this list
+     rather than from a name. It is the check Karim walks round the van for,
+     and the widest target is the right one for the one that is not in his
+     hands. */
+  { field: "lights", label: "Lights", short: "Lights", letter: "L" },
 ] as const;
 
 export type CheckField = (typeof CHECKS)[number]["field"];
@@ -82,8 +87,18 @@ export function stationDateKey(at: Date = new Date()): string {
  * belongs to the night that started the evening before — not to a brand new,
  * empty session. Every session id goes through stationNightKey, never through
  * the raw calendar date.
+ *
+ * Seven rather than four, and the extra three hours are not about the close —
+ * that is finished long before either. They are about the morning after one.
+ * If Karim forgets to send the EOD sheet, somebody coming in at six has to be
+ * able to open the app and still find last night on it; at four it had already
+ * rolled to an empty session and the only way back was the archive.
+ *
+ * Deliberately not the same number as the hour eta.ts reads a bare "5" by. That
+ * one decides whether a typed ETA means morning or evening and has to stay at
+ * four — see EVENING_AFTER_HOUR there.
  */
-export const NIGHT_ROLLOVER_HOUR = 4;
+export const NIGHT_ROLLOVER_HOUR = 7;
 
 /** The session id for the night a given moment belongs to. */
 export function stationNightKey(at: Date = new Date()): string {

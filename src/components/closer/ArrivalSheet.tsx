@@ -29,7 +29,7 @@ import {
   type CheckField,
   type MetricTone,
 } from "@/lib/constants";
-import { lateLabel } from "@/lib/eta";
+import { etaOffset, offsetLabel, stationNowMinutes } from "@/lib/eta";
 import { withNotes, type VanFlags } from "@/lib/vanIssues";
 import type { Entry } from "@/lib/types";
 
@@ -45,7 +45,7 @@ import type { Entry } from "@/lib/types";
 export function ArrivalSheet({
   nightKey,
   entry,
-  late,
+  now,
   uid,
   openOnVan = false,
   onClose,
@@ -53,7 +53,8 @@ export function ArrivalSheet({
   nightKey: string;
   /** Read live from the snapshot, so a correction on the laptop lands here. */
   entry: Entry;
-  late: number | null;
+  /** Where we are on tonight's timeline, or null before the client hydrates. */
+  now: number | null;
   uid: string;
   /**
    * He arrived on the tap that opened this, rather than on a press inside it.
@@ -84,11 +85,38 @@ export function ArrivalSheet({
    */
   const [arrivedNow, setArrivedNow] = useState(false);
 
+  /**
+   * The latest way out, without the effect below having to watch for it.
+   *
+   * The caller writes `onClose={() => setOpenId(null)}` inline, so it is a new
+   * function on every render of the board — and the board re-renders every time
+   * a snapshot lands, which during a handover is constantly. See below for why
+   * that mattered.
+   */
+  const closer = useRef(onClose);
+  useEffect(() => {
+    closer.current = onClose;
+  });
+
+  /**
+   * Once, when the sheet opens. Emphatically once.
+   *
+   * This used to list `onClose` as a dependency, which looked harmless and was
+   * not: a new function identity every render meant this ran again on every
+   * render, and `panel.focus()` took the caret out of whatever Karim was typing
+   * in and closed his keyboard. In the yard that is the van number — he presses
+   * Arrived, the caret lands in the box, Firestore echoes the write back a
+   * moment later, the board re-renders, and the keyboard he was about to type
+   * into drops. It looked like the phone had lost the tap.
+   *
+   * The handler reads through a ref instead, so Escape still calls whatever the
+   * current one is while this effect never has a reason to run twice.
+   */
   useEffect(() => {
     panel.current?.focus();
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") closer.current();
     };
     window.addEventListener("keydown", onKeyDown);
 
@@ -100,7 +128,7 @@ export function ArrivalSheet({
       window.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = overflow;
     };
-  }, [onClose]);
+  }, []);
 
   /**
    * Every write on this screen, fired and not waited on.
@@ -134,6 +162,23 @@ export function ArrivalSheet({
   const inYard = entry.status === "arrived" || arrivingNow;
   const done = entry.status === "clockedOut";
   const stamped = entry.clockOut;
+
+  /**
+   * How he did against the time he gave, as a signed number of minutes.
+   *
+   * Measured against whatever the honest moment is. On the road and stood at
+   * the van that is the clock, and it ticks — he is still accruing. Once the
+   * handover is over it is the stamp, and it stops: a sheet reopened an hour
+   * later must read what happened, not keep counting on a man who went home.
+   *
+   * A clock-out relayed over the phone has no stamp behind it, so there is
+   * nothing to measure and this is null. Inventing one from the typed string
+   * would be putting a figure on hearsay.
+   */
+  const offset = etaOffset(
+    entry.eta,
+    stamped ? stationNowMinutes(stamped.toDate()) : done ? null : now,
+  );
 
   /**
    * He is here. Straight into the van number, which is the next thing he types.
@@ -202,6 +247,11 @@ export function ArrivalSheet({
         aria-modal="true"
         aria-label={entry.fullName}
         tabIndex={-1}
+        /* This element is the sheet's scrollport, and the van panel has to be
+           able to find it to put itself at the top — see VanPanel. Marked
+           rather than walked up to, so wrapping a div round the content later
+           cannot silently break the jump. */
+        data-sheet-scroll=""
         className="animate-sheet absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-2xl border-t border-line bg-surface pb-safe outline-none"
       >
         <div className="mx-auto max-w-lg px-4 pb-6 pt-2.5">
@@ -271,7 +321,7 @@ export function ArrivalSheet({
                 is the Clock out at the foot of the sheet, so it travels down
                 there with it — see below. */}
             {entry.eta && !inYard ? (
-              <EtaPanel eta={entry.eta} late={late} />
+              <EtaPanel eta={entry.eta} offset={offset} />
             ) : null}
 
             {entry.secondTrip ? (
@@ -350,7 +400,7 @@ export function ArrivalSheet({
                 the same figures at the same size, because the only thing this
                 number is for now is being read against that one. */}
             {entry.eta && inYard && !entry.secondTrip ? (
-              <EtaPanel eta={entry.eta} late={late} />
+              <EtaPanel eta={entry.eta} offset={offset} />
             ) : null}
 
             {inYard && !entry.secondTrip ? (
@@ -439,8 +489,14 @@ function describeWriteError(error: unknown, fallback: string): string {
  * this driver's state — Arrived, Clock out, or the stamped time itself — this
  * renders directly against it, which is the whole reason to show it at all:
  * eleven minutes late is a different handover to bang on time.
+ *
+ * The figure beside it is signed, and the sign is doing the reading: green and
+ * a `+` is minutes early, red and a `-` is minutes late. It used to say "14m
+ * late" and say nothing at all about a driver who came in ahead of himself,
+ * which is half the sheet and the better half — the number Karim wants at the
+ * top of a shift review is the one he can say out loud either way round.
  */
-function EtaPanel({ eta, late }: { eta: string; late: number | null }) {
+function EtaPanel({ eta, offset }: { eta: string; offset: number | null }) {
   return (
     <div className="flex flex-wrap items-baseline justify-center gap-x-2.5 gap-y-1 rounded-xl border border-line bg-sunken px-4 py-3">
       <span className="text-[15px] font-bold uppercase tracking-[0.08em] text-ink-faint">
@@ -449,9 +505,17 @@ function EtaPanel({ eta, late }: { eta: string; late: number | null }) {
       <span className="tnum font-mono text-[30px] font-bold leading-none tracking-tight text-ink">
         {eta}
       </span>
-      {late !== null ? (
-        <span className="rounded-full border border-overdue-line bg-overdue-soft px-2.5 py-0.5 text-[11px] font-bold text-overdue">
-          {lateLabel(late)}
+      {offset !== null ? (
+        <span
+          className={`tnum rounded-full border px-2.5 py-0.5 text-[13px] font-bold ${
+            offset > 0
+              ? "border-arrived-line bg-arrived-soft text-arrived"
+              : offset < 0
+                ? "border-overdue-line bg-overdue-soft text-overdue"
+                : "border-line-strong bg-surface text-ink-muted"
+          }`}
+        >
+          {offsetLabel(offset)}
         </span>
       ) : null}
     </div>
@@ -533,17 +597,44 @@ function VanPanel({
     onSave({ vanIssues: value.trim() }),
   );
 
+  const panel = useRef<HTMLElement>(null);
   const number = useRef<HTMLInputElement>(null);
   /** Once, on the render that brought the panel in with the tap still live. */
   const vanCaretDone = useRef(false);
 
+  /**
+   * He is here, so this is the top of the sheet now.
+   *
+   * The caret in the van number was only half of it. Everything above this
+   * panel — the note, what dispatch typed, the Arrived button he has just
+   * pressed — is read before the van pulls in, and once it has pulled in it is
+   * nothing but the distance between Karim's thumb and the box he needs. With
+   * the keyboard up that left the van issues field off the bottom of the
+   * screen, and the whole handover stalled on a scroll he had to do one-handed.
+   *
+   * So the panel goes to the top of the scrollport and the caret goes in the
+   * number, in that order: focus first with the browser's own scrolling held
+   * off, then put it exactly where we want it. Letting focus scroll on its own
+   * lands the field wherever "nearest" happens to be, which is usually the
+   * bottom edge.
+   */
   useLayoutEffect(() => {
     if (!focusVan || vanCaretDone.current) return;
     const field = number.current;
-    if (!field) return;
+    const section = panel.current;
+    if (!field || !section) return;
     vanCaretDone.current = true;
-    field.focus();
+
+    field.focus({ preventScroll: true });
     field.setSelectionRange(field.value.length, field.value.length);
+
+    const scroller = section.closest<HTMLElement>("[data-sheet-scroll]");
+    if (!scroller) return;
+    // Measured rather than read off offsetTop: the offset parent is whichever
+    // ancestor happens to be positioned, and that is not this file's to know.
+    const delta =
+      section.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    scroller.scrollTop += delta - 8;
   });
 
   const box = useRef<HTMLTextAreaElement>(null);
@@ -657,7 +748,7 @@ function VanPanel({
   }
 
   return (
-    <section className="mt-6">
+    <section ref={panel} className="mt-6">
       <SectionTitle>The van</SectionTitle>
 
       <label htmlFor="van" className="sr-only">
@@ -714,14 +805,22 @@ function VanPanel({
         ))}
       </div>
 
+      {/* A rule, not a heading. "Van issues" was written twice here — once in
+          grey above the bar and once inside it, where it is the instruction the
+          control is waiting on — and the one on top was the one Karim read
+          past. What the gap was actually for is separating the seven things
+          that came back with the van from the one decision about the van, and a
+          line does that without saying anything. */}
+      <div
+        aria-hidden="true"
+        className="mt-5 border-t border-dashed border-line-strong"
+      />
+
       {/* The gate. Most vans come back with nothing wrong, and for those this
           is the whole of it — one tap, green, done, and the sheet stays as
           short as the night was. Crossing it is what opens the box, because a
           box is only worth a keyboard when there is something to put in it. */}
-      <p className="mt-4 text-[12px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
-        Van issues
-      </p>
-      <div className="mt-1.5">
+      <div className="mt-3">
         <CheckBar
           label="Van issues"
           /* Grey says what the control is, not what state it is in. It is the
