@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { TimeEditNotice } from "@/components/TimeEditNotice";
 import { Button } from "@/components/ui/Button";
 import { CheckBar, CheckCycle, type Check } from "@/components/ui/Checks";
 import { ErrorNote } from "@/components/ui/Field";
@@ -45,6 +46,7 @@ import type { Entry } from "@/lib/types";
 export function ArrivalSheet({
   nightKey,
   entry,
+  timeEdit,
   now,
   uid,
   openOnVan = false,
@@ -53,6 +55,14 @@ export function ArrivalSheet({
   nightKey: string;
   /** Read live from the snapshot, so a correction on the laptop lands here. */
   entry: Entry;
+  /**
+   * What HR changed about his hours tonight, or "".
+   *
+   * Passed in rather than read off the entry, because it was never put on one:
+   * it is keyed by driver, so a second trip carries the same edit as the first
+   * and a row removed in error does not take it away. See lib/timeEdits.
+   */
+  timeEdit: string;
   /** Where we are on tonight's timeline, or null before the client hydrates. */
   now: number | null;
   uid: string;
@@ -310,6 +320,8 @@ export function ArrivalSheet({
               {entry.notes}
             </p>
           ) : null}
+
+          {timeEdit ? <TimeEditNotice>{timeEdit}</TimeEditNotice> : null}
 
           {/* First, because it is what he reads before he opens his mouth. */}
           <FromDispatch entry={entry} />

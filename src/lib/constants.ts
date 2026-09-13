@@ -68,8 +68,15 @@ export const CHECKS = [
 
 export type CheckField = (typeof CHECKS)[number]["field"];
 
-/** Roles a session can be signed in under. */
-export const ROLES = ["dispatcher", "closer", "onetime"] as const;
+/**
+ * Roles a session can be signed in under.
+ *
+ * `hr` is the narrowest of them by a long way. It reads tonight's roster and
+ * writes one map on the session and nothing else — see the rules. That is the
+ * whole portal: the person who reconciles hours is not in the yard and is not
+ * on the phone, and nothing about the close is theirs to change.
+ */
+export const ROLES = ["dispatcher", "closer", "hr", "onetime"] as const;
 export type Role = (typeof ROLES)[number];
 
 /** Today's date in the station timezone, as the `YYYY-MM-DD` session id. */

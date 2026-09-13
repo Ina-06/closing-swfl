@@ -9,6 +9,13 @@ import type { Role } from "@/lib/constants";
 
 const LAST_ROLE_KEY = "closing:lastRole";
 
+/** How each permanent role names itself on this screen. */
+const ROLE_LABEL: Record<string, string> = {
+  dispatcher: "Dispatcher",
+  closer: "Closer",
+  hr: "HR",
+};
+
 /**
  * The role this device signed in with last time, read straight from
  * localStorage. useSyncExternalStore rather than an effect so the server
@@ -21,15 +28,22 @@ function useLastRole(): Role | null {
     () => window.localStorage.getItem(LAST_ROLE_KEY),
     () => null,
   );
-  return stored === "dispatcher" || stored === "closer" ? stored : null;
+  return stored === "dispatcher" || stored === "closer" || stored === "hr"
+    ? stored
+    : null;
 }
 
 /**
- * One key, three doors.
+ * One key, four doors.
  *
  * The key is never checked here — it is posted to /api/login, which compares
  * it server-side and hands back a Firebase custom token carrying the role.
  * Nothing in this file knows what the real key is.
+ *
+ * The role is what decides everything afterwards, not the key: HR types the
+ * same station key the dispatcher does and gets a token that firestore.rules
+ * will let write one map on one document. Which door you came through is the
+ * whole of your permission.
  */
 export default function LoginPage() {
   const auth = useAuth();
@@ -157,7 +171,7 @@ export default function LoginPage() {
               </p>
             ) : lastRole ? (
               <p className="mt-2.5 text-[12px] text-ink-faint">
-                Enter signs in as {lastRole === "closer" ? "Closer" : "Dispatcher"}.
+                Enter signs in as {ROLE_LABEL[lastRole]}.
               </p>
             ) : null}
 
@@ -189,6 +203,25 @@ export default function LoginPage() {
                   <>
                     <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
                     <path d="M10.5 18.5h3" />
+                  </>
+                }
+              />
+              {/* Third and last, because it is the door used least and the one
+                  nobody is standing in a car park to find. Purple for the same
+                  reason the BUD flag is: on this app purple is the clock —
+                  who leaves early, and whose hours were changed. */}
+              <RoleButton
+                accent="bud"
+                label="HR"
+                hint="Time edits on tonight's roster"
+                device="Laptop"
+                pending={pending === "hr"}
+                disabled={pending !== null}
+                onClick={() => submit("hr")}
+                icon={
+                  <>
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3.5 2" />
                   </>
                 }
               />
@@ -321,16 +354,19 @@ function RoleButton({
   label: string;
   hint: string;
   device: string;
-  accent: "brand" | "arrived";
+  accent: "brand" | "arrived" | "bud";
   icon: React.ReactNode;
   pending: boolean;
   disabled: boolean;
   onClick: () => void;
 }) {
-  const tone =
-    accent === "brand"
-      ? "text-brand before:bg-brand hover:border-brand-line hover:bg-brand-soft/50"
-      : "text-arrived before:bg-arrived hover:border-arrived-line hover:bg-arrived-soft/50";
+  const TONES = {
+    brand: "text-brand before:bg-brand hover:border-brand-line hover:bg-brand-soft/50",
+    arrived:
+      "text-arrived before:bg-arrived hover:border-arrived-line hover:bg-arrived-soft/50",
+    bud: "text-bud before:bg-bud hover:border-bud-line hover:bg-bud-soft/50",
+  } as const;
+  const tone = TONES[accent];
 
   return (
     <button

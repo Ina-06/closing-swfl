@@ -52,6 +52,7 @@ service cloud.firestore {
     function signedIn() {
       return role() == 'dispatcher'
              || role() == 'closer'
+             || role() == 'hr'
              || (role() == 'onetime' && onetimeLive());
     }
 
@@ -61,6 +62,14 @@ service cloud.firestore {
 
     function isCloser() {
       return role() == 'closer' || (role() == 'onetime' && onetimeLive());
+    }
+
+    // HR reads tonight and writes one map on it. Every other rule in this file
+    // is silent about them, which means no — the catch-all at the bottom and
+    // the hasOnly lists above it do the work, and nothing has to remember to
+    // exclude a role that was never included.
+    function isHr() {
+      return role() == 'hr';
     }
 
     function changedKeys() {
@@ -79,7 +88,11 @@ service cloud.firestore {
       // ever having been announced, and the closer has to be able to put a name
       // to him there and then. Renaming and removing stay with the dispatcher —
       // that is roster upkeep, not something to do one-handed in the dark.
-      allow create: if signedIn();
+      //
+      // Named rather than `signedIn()`, so adding a fourth role later cannot
+      // hand it the power to invent a driver by accident. HR is that role: they
+      // search the names already on tonight and write against one of them.
+      allow create: if isDispatcher() || isCloser();
       allow update, delete: if isDispatcher();
     }
 
@@ -97,9 +110,23 @@ service cloud.firestore {
         ]);
       }
 
+      // HR's one write in the whole database.
+      //
+      // `timeEdits` and nothing else — not `roster`, not `status`, not
+      // `closedAt`. HR is reconciling hours against a night somebody else is
+      // running, and there is no field on this document they should be able to
+      // reach except the one they own. They cannot create a session either: a
+      // night starts when dispatch posts the roster, and an HR paste landing on
+      // an empty date would invent a night that nobody worked.
+      function hrSessionFields() {
+        return changedKeys().hasOnly(['timeEdits', 'updatedAt', 'updatedBy']);
+      }
+
       allow read: if signedIn();
       allow create: if isDispatcher();
-      allow update: if isDispatcher() || (isCloser() && closerSessionFields());
+      allow update: if isDispatcher()
+                    || (isCloser() && closerSessionFields())
+                    || (isHr() && hrSessionFields());
       allow delete: if false;
 
       match /entries/{entryId} {
@@ -145,8 +172,9 @@ service cloud.firestore {
         allow read: if signedIn();
 
         // Both roles create: the dispatcher as drivers text in, the closer
-        // when someone arrives unannounced.
-        allow create: if signedIn();
+        // when someone arrives unannounced. Named for the same reason as the
+        // drivers collection — HR reads this sheet and writes nothing on it.
+        allow create: if isDispatcher() || isCloser();
 
         allow update: if (isDispatcher() && dispatcherFields())
                       || (isCloser() && closerFields());

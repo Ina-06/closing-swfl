@@ -6,6 +6,7 @@ import { ErrorNote } from "@/components/ui/Field";
 import { AllReturning } from "@/components/dispatch/AllReturning";
 import { EntriesTable } from "@/components/dispatch/EntriesTable";
 import { EntryForm } from "@/components/dispatch/EntryForm";
+import { TimeEdits } from "@/components/dispatch/TimeEdits";
 import { useEntries } from "@/lib/db/entries";
 import { reopenSession } from "@/lib/db/sessions";
 import { stationDateLabel, stationTimeLabel } from "@/lib/constants";
@@ -118,7 +119,16 @@ export function TonightBoard({
         </p>
       ) : null}
 
-      <EntriesTable nightKey={nightKey} entries={entries} uid={uid} />
+      {/* Directly above the sheet it annotates, and below the still-to-call-in
+          list — an edit can land against a name in either of them. */}
+      <TimeEdits session={session} entries={entries} />
+
+      <EntriesTable
+        nightKey={nightKey}
+        session={session}
+        entries={entries}
+        uid={uid}
+      />
 
       <AllReturning
         nightKey={nightKey}

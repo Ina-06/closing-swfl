@@ -27,11 +27,14 @@ export function flagsOn(entry: Entry) {
 export function WaitingCard({
   entry,
   late,
+  timeEdit,
   onOpen,
 }: {
   entry: Entry;
   /** Minutes past the ETA, or null if he is not late. */
   late: number | null;
+  /** What HR changed about his hours tonight, or "". */
+  timeEdit: string;
   onOpen: () => void;
 }) {
   const overdue = late !== null;
@@ -94,6 +97,7 @@ export function WaitingCard({
       </span>
 
       {entry.notes ? <NoteStrip>{entry.notes}</NoteStrip> : null}
+      {timeEdit ? <TimeEditStrip>{timeEdit}</TimeEditStrip> : null}
     </button>
   );
 }
@@ -119,11 +123,17 @@ export function WaitingCard({
 export function RosterCard({
   row,
   note,
+  timeEdit,
   onOpen,
 }: {
   row: RosterEntry;
   /** Written before he had a row. Stored on the session — see lib/notes. */
   note: string;
+  /**
+   * HR's edit to his hours. Reaches a dashed card for free, because it was
+   * never kept on the row in the first place — see lib/timeEdits.
+   */
+  timeEdit: string;
   onOpen: () => void;
 }) {
   return (
@@ -157,6 +167,7 @@ export function RosterCard({
       </span>
 
       {note ? <NoteStrip>{note}</NoteStrip> : null}
+      {timeEdit ? <TimeEditStrip>{timeEdit}</TimeEditStrip> : null}
     </button>
   );
 }
@@ -172,9 +183,11 @@ export function RosterCard({
  */
 export function YardCard({
   entry,
+  timeEdit,
   onOpen,
 }: {
   entry: Entry;
+  timeEdit: string;
   onOpen: () => void;
 }) {
   return (
@@ -217,15 +230,22 @@ export function YardCard({
           van with the driver in front of him. It used to disappear the moment
           the van pulled in, which is exactly when it was needed. */}
       {entry.notes ? <NoteStrip>{entry.notes}</NoteStrip> : null}
+      {/* The ninety seconds this card describes is the whole reason a time edit
+          is on his phone at all: the driver is stood at the van, and if his
+          hours have been changed this is the moment he is going to ask about
+          it. */}
+      {timeEdit ? <TimeEditStrip>{timeEdit}</TimeEditStrip> : null}
     </button>
   );
 }
 
 export function DoneCard({
   entry,
+  timeEdit,
   onOpen,
 }: {
   entry: Entry;
+  timeEdit: string;
   onOpen: () => void;
 }) {
   // Stamped when Karim clocked him out, or relayed to the dispatcher over the
@@ -314,6 +334,13 @@ export function DoneCard({
           <InfractionTag raw={entry.infractions} />
         </span>
       ) : null}
+
+      {/* Deliberately still here after he has gone home. A time edit is a
+          record rather than a reminder, and this list is what Karim reads back
+          before End Day — an edit that vanished the moment the man was clocked
+          out would disappear at exactly the point somebody checks the night
+          against the hours. */}
+      {timeEdit ? <TimeEditStrip>{timeEdit}</TimeEditStrip> : null}
     </button>
   );
 }
@@ -434,6 +461,37 @@ function NoteStrip({ children }: { children: React.ReactNode }) {
         Note
       </span>
       <span className="text-[13px] leading-snug text-warn">{children}</span>
+    </span>
+  );
+}
+
+/**
+ * What HR changed about this driver's hours tonight.
+ *
+ * Under the note rather than folded into it, and in a different colour,
+ * because they are different kinds of fact and only one of them is Karim's to
+ * act on. The amber strip is a job — take his badge, ask him about Tuesday.
+ * This one is not: it is the answer to a question the driver is about to ask
+ * him, and the worst outcome is Karim saying he does not know.
+ *
+ * Purple, the same family as the BUD flag, which is the app's existing word
+ * for a fact about somebody's hours. Amber is attention and green is done, and
+ * a time edit is neither.
+ *
+ * whitespace-pre-line because it was pasted. Two lines out of a payroll system
+ * run together into one is a different set of hours. Mono for the same reason
+ * every other time in this app is: half of what is in here is clock times, and
+ * they have to line up.
+ */
+function TimeEditStrip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="mt-2 flex gap-2 rounded-lg border border-bud-line bg-bud-soft px-2.5 py-2">
+      <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-bud">
+        Time
+      </span>
+      <span className="whitespace-pre-line font-mono text-[12px] leading-snug text-bud">
+        {children}
+      </span>
     </span>
   );
 }

@@ -11,7 +11,8 @@ import {
 import { removeEntry, returnsFields, updateEntry } from "@/lib/db/entries";
 import { CHECKS, stationTimeLabel } from "@/lib/constants";
 import { describeReturns, parseReturns } from "@/lib/returns";
-import type { Entry } from "@/lib/types";
+import { timeEditFor } from "@/lib/timeEdits";
+import type { Entry, Session } from "@/lib/types";
 
 /**
  * Everything entered so far, editable in place.
@@ -23,10 +24,13 @@ import type { Entry } from "@/lib/types";
  */
 export function EntriesTable({
   nightKey,
+  session,
   entries,
   uid,
 }: {
   nightKey: string;
+  /** Read only for HR's time edits, which live on the session, not the row. */
+  session: Session;
   entries: Entry[];
   uid: string;
 }) {
@@ -83,6 +87,7 @@ export function EntriesTable({
                 key={entry.id}
                 nightKey={nightKey}
                 entry={entry}
+                timeEdit={timeEditFor(session, entry.driverId)}
                 /* Position in the list, not the stored seq. Removing a row and
                    re-adding the driver must not leave a hole in the numbering —
                    this column is the row number on the sheet. */
@@ -120,12 +125,15 @@ function Th({
 function EntryRow({
   nightKey,
   entry,
+  timeEdit,
   row,
   uid,
   onError,
 }: {
   nightKey: string;
   entry: Entry;
+  /** HR's edit to his hours, or "". The text itself is in the panel above. */
+  timeEdit: string;
   /** 1-based position on the sheet. Always contiguous. */
   row: number;
   uid: string;
@@ -170,6 +178,18 @@ function EntryRow({
           {entry.addedByCloser ? (
             <span className="rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
               Unannounced
+            </span>
+          ) : null}
+          {/* The marker, not the text. What HR wrote is in the panel above the
+              table, in full and with its line breaks; this is what tells the
+              dispatcher that the row in front of them is one of the names up
+              there. The tooltip saves the scroll when it is short. */}
+          {timeEdit ? (
+            <span
+              title={timeEdit}
+              className="rounded-full border border-bud-line bg-bud-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-bud"
+            >
+              Time edit
             </span>
           ) : null}
         </div>

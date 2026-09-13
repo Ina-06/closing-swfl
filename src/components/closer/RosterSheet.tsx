@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { TimeEditNotice } from "@/components/TimeEditNotice";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/Field";
 import { FlagTag } from "@/components/ui/FlagToggle";
@@ -25,6 +26,7 @@ import type { RosterEntry } from "@/lib/types";
 export function RosterSheet({
   row,
   note,
+  timeEdit,
   busy,
   error,
   onArrived,
@@ -33,6 +35,8 @@ export function RosterSheet({
   row: RosterEntry;
   /** Anything Karim wrote against this name while it was still dashed. */
   note: string;
+  /** What HR changed about his hours tonight, or "". */
+  timeEdit: string;
   busy: boolean;
   error: string | null;
   onArrived: () => void;
@@ -120,6 +124,8 @@ export function RosterSheet({
               {note}
             </p>
           ) : null}
+
+          {timeEdit ? <TimeEditNotice>{timeEdit}</TimeEditNotice> : null}
 
           <section className="mt-5">
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">

@@ -3,10 +3,12 @@
 Driver closing sheet for an Amazon delivery station. Replaces two things: the
 dispatcher's WhatsApp posts, and the closer's handwritten paper grid.
 
-Two roles, one codebase:
+Three roles, one codebase:
 
 - **`/dispatch`** — laptop. Roster, per-driver ETA/returns entry, All Returning.
 - **`/closer`** — phone. Live arrivals, van checks, End Day → PDF.
+- **`/hr`** — laptop. Tonight's roster, and one pasted time edit per driver.
+  Reads everything, writes one map on the session and nothing else.
 
 ## Stack
 
@@ -42,7 +44,7 @@ To check the closer screen from your phone on the same Wi-Fi, run
 src/
   app/
     layout.tsx            fonts, design tokens, AuthProvider
-    page.tsx              login — one key, three role buttons
+    page.tsx              login — one key, four role buttons
     api/login/route.ts    server-side key check → Firebase custom token
     (dispatch)/           desktop chrome
       layout.tsx
@@ -50,18 +52,22 @@ src/
     (closer)/             phone chrome, safe-area aware
       layout.tsx
       closer/page.tsx
+    (hr)/                 desk chrome, narrow, no nav
+      layout.tsx
+      hr/page.tsx
   components/
     RoleGate.tsx          keeps the wrong role off the wrong screen
   lib/
-    constants.ts          station timezone, metrics, date helpers
+    constants.ts          station timezone, metrics, roles, date helpers
+    timeEdits.ts          HR's edits, keyed by driver — read by both screens
     auth/AuthProvider.tsx session state + role claim
     firebase/client.ts    browser SDK (public config)
     firebase/admin.ts     Admin SDK — server only, never imported by a client
 firestore.rules           the actual security boundary
 ```
 
-`(dispatch)` and `(closer)` are route groups: they give each role its own
-persistent chrome without adding a segment to the URL.
+`(dispatch)`, `(closer)` and `(hr)` are route groups: they give each role its
+own persistent chrome without adding a segment to the URL.
 
 ## Conventions
 

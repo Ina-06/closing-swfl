@@ -201,6 +201,29 @@ export type Session = {
    * what he is: on the roster, still out, not yet entered.
    */
   rosterNotes: Record<string, string>;
+  /**
+   * What HR has changed about a driver's hours, by driverId, pasted verbatim.
+   *
+   * Keyed by driver rather than by entry, and deliberately never copied onto
+   * one. Three reasons, and they are the same three every time:
+   *
+   *   - HR writes hours before the wave is back and often before the driver has
+   *     phoned in at all, so there is frequently no row to write on;
+   *   - a driver's second trip is a second row under one name, and his hours
+   *     were edited once, for the man, not twice, once per van;
+   *   - a row removed in error must not take the edit with it. Nothing in this
+   *     app can delete a session, so a note on one is the safest place it can be.
+   *
+   * Separate from `notes`, which is the amber strip and is shared between the
+   * desk and the yard. That one is about the handover — take his badge, the ramp
+   * is jammed. This one is a payroll correction, it arrives already written in
+   * HR's own words, and letting either overwrite the other would be losing
+   * something somebody typed on purpose.
+   *
+   * Multi-line, because it is pasted. Every place that renders it keeps the
+   * breaks.
+   */
+  timeEdits: Record<string, string>;
   allReturningAt: Timestamp | null;
   closedAt: Timestamp | null;
 };

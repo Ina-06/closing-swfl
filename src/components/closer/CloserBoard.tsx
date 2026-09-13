@@ -20,6 +20,7 @@ import { addCloserEntry } from "@/lib/db/closer";
 import { useEntries } from "@/lib/db/entries";
 import { etaMinutes, minutesLate, stationNowMinutes } from "@/lib/eta";
 import { pendingNote } from "@/lib/notes";
+import { timeEditFor } from "@/lib/timeEdits";
 import { nightTotals } from "@/lib/totals";
 import type { Entry, RosterEntry, Session } from "@/lib/types";
 
@@ -437,6 +438,7 @@ export function CloserBoard({
                   <WaitingCard
                     entry={entry}
                     late={minutesLate(entry.eta, now)}
+                    timeEdit={timeEditFor(session, entry.driverId)}
                     onOpen={() => setOpenId(entry.id)}
                   />
                 </li>
@@ -490,6 +492,7 @@ export function CloserBoard({
                           <WaitingCard
                             entry={row.entry}
                             late={null}
+                            timeEdit={timeEditFor(session, row.entry.driverId)}
                             onOpen={() => setOpenId(row.entry.id)}
                           />
                         </li>
@@ -498,6 +501,7 @@ export function CloserBoard({
                           <RosterCard
                             row={row.roster}
                             note={pendingNote(session, row.roster.driverId)}
+                            timeEdit={timeEditFor(session, row.roster.driverId)}
                             onOpen={() => {
                               setAddError(null);
                               setOpenRoster(row.roster);
@@ -529,7 +533,11 @@ export function CloserBoard({
               <ul className="space-y-2">
                 {inYard.map((entry) => (
                   <li key={entry.id}>
-                    <YardCard entry={entry} onOpen={() => setOpenId(entry.id)} />
+                    <YardCard
+                      entry={entry}
+                      timeEdit={timeEditFor(session, entry.driverId)}
+                      onOpen={() => setOpenId(entry.id)}
+                    />
                   </li>
                 ))}
               </ul>
@@ -544,7 +552,11 @@ export function CloserBoard({
               <ul className="space-y-1.5">
                 {done.map((entry) => (
                   <li key={entry.id}>
-                    <DoneCard entry={entry} onOpen={() => setOpenId(entry.id)} />
+                    <DoneCard
+                      entry={entry}
+                      timeEdit={timeEditFor(session, entry.driverId)}
+                      onOpen={() => setOpenId(entry.id)}
+                    />
                   </li>
                 ))}
               </ul>
@@ -608,6 +620,7 @@ export function CloserBoard({
         <RosterSheet
           row={openRoster}
           note={pendingNote(session, openRoster.driverId)}
+          timeEdit={timeEditFor(session, openRoster.driverId)}
           busy={arriving}
           error={addError}
           onArrived={() => void addFromRoster(openRoster)}
@@ -622,6 +635,7 @@ export function CloserBoard({
           key={open.id}
           nightKey={nightKey}
           entry={open}
+          timeEdit={timeEditFor(session, open.driverId)}
           /* The clock itself, not a lateness worked out from it. The sheet
              needs to compare the ETA against a different moment in each state —
              now while he is on the road or stood at the van, the stamp once he

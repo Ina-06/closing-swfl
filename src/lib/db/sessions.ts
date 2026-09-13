@@ -49,6 +49,16 @@ function toSession(data: DocumentData, id: string): Session {
     }
   }
 
+  /** The same shape and the same defensiveness, for HR's map. */
+  const timeEdits: Record<string, string> = {};
+  if (data.timeEdits && typeof data.timeEdits === "object") {
+    for (const [driverId, edit] of Object.entries(data.timeEdits)) {
+      if (typeof edit === "string" && edit.trim() !== "") {
+        timeEdits[driverId] = edit;
+      }
+    }
+  }
+
   return {
     date: typeof data.date === "string" ? data.date : id,
     managedBy: typeof data.managedBy === "string" ? data.managedBy : "",
@@ -60,6 +70,7 @@ function toSession(data: DocumentData, id: string): Session {
       typeof data.totalExpected === "number" ? data.totalExpected : roster.length,
     roster,
     rosterNotes,
+    timeEdits,
     allReturningAt: data.allReturningAt ?? null,
     closedAt: data.closedAt ?? null,
   };
@@ -292,6 +303,32 @@ export async function saveRosterNote(
 ) {
   await updateDoc(doc(getDb(), COLLECTION, nightKey), {
     [`rosterNotes.${driverId}`]: notes.trim() === "" ? deleteField() : notes,
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  });
+}
+
+/**
+ * HR's change to a driver's hours, pasted as they wrote it.
+ *
+ * One field path for the same reason the note above uses one: two edits typed a
+ * second apart, on two drivers, must not overwrite each other. Clearing the box
+ * deletes the key rather than storing a blank — an edit taken back has to
+ * actually come off both screens, and a map of empty strings would leave a
+ * "Time edit" tag on drivers who no longer have one.
+ *
+ * The text is stored verbatim, newlines and all. It is a paste out of whatever
+ * HR keeps the hours in, and reformatting somebody's record on the way past is
+ * not this app's business.
+ */
+export async function saveTimeEdit(
+  nightKey: string,
+  driverId: string,
+  edit: string,
+  updatedBy: string,
+) {
+  await updateDoc(doc(getDb(), COLLECTION, nightKey), {
+    [`timeEdits.${driverId}`]: edit.trim() === "" ? deleteField() : edit,
     updatedAt: serverTimestamp(),
     updatedBy,
   });
