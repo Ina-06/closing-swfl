@@ -48,10 +48,26 @@ export function useViewport(): Viewport {
        * sheet into the middle of the screen.
        */
       const inset = window.innerHeight - (view.height + view.offsetTop);
-      setViewport({
+      const next = {
         inset: Math.max(0, Math.round(inset)),
         height: Math.round(view.height),
-      });
+      };
+
+      /**
+       * Only when something actually moved.
+       *
+       * These two events fire in bursts, and a fresh object every time is a
+       * re-render every time even when both numbers are identical. That is
+       * wasteful on its own; inside a sheet whose size is computed from these
+       * numbers it is a loop, because re-rendering can change the layout that
+       * fires the next event. Comparing the values costs nothing and means the
+       * hook can only wake the tree when the glass really did change shape.
+       */
+      setViewport((current) =>
+        current.inset === next.inset && current.height === next.height
+          ? current
+          : next,
+      );
     };
 
     read();

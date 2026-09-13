@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/Field";
 import { FlagTag } from "@/components/ui/FlagToggle";
@@ -47,6 +54,23 @@ export function NoteSheet({
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * Whether we are in the browser yet, so the portal below has a body to go to.
+   *
+   * The same useSyncExternalStore shape the login screen reads localStorage
+   * with: the server snapshot is false and the client's is true, so there is
+   * no correct value to render before we are in the browser and no effect
+   * setting state after the fact.
+   *
+   * This sheet only ever mounts on a click, so in practice it is true by the
+   * time anything renders. It is here so a caller that renders it during SSR
+   * gets nothing rather than a crash.
+   */
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -137,7 +161,26 @@ export function NoteSheet({
     }
   }
 
-  return (
+  if (!mounted) return null;
+
+  /**
+   * Rendered into the body, not where it was called from.
+   *
+   * `fixed inset-0` means "the viewport" only while no ancestor has made
+   * itself a containing block, and `backdrop-filter` does exactly that. The
+   * dispatcher's Note button lives in the top bar, which is
+   * `backdrop-blur-md`, so the sheet was being trapped inside a 56px-tall
+   * header and there was nothing to see. Karim's copy was fine purely because
+   * CloserBoard renders it from `<main>`, well away from the blur.
+   *
+   * Fixed here rather than by moving the button or dropping the blur, because
+   * both of those are decisions somebody made on purpose — the button is in
+   * the bar so it can be reached from the drivers list and the archive, and
+   * the blur is the chrome. A sheet that claims the whole viewport should get
+   * the whole viewport wherever it is opened from, and this is the only way to
+   * promise that.
+   */
+  return createPortal(
     <div className="fixed inset-0 z-40">
       <button
         type="button"
@@ -287,7 +330,8 @@ export function NoteSheet({
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
