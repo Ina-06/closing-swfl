@@ -5,22 +5,20 @@ import { timeEditTargets } from "@/lib/timeEdits";
 import type { Entry, Session } from "@/lib/types";
 
 /**
- * Everything HR has changed about tonight's hours, in one place.
+ * Time edits against drivers who are not on the sheet yet.
  *
- * A panel rather than a column. The dispatcher's table is eleven columns wide
- * already, and a time edit is two or three pasted lines out of a payroll
- * system — put in a cell it would either be clipped to the first few words,
- * which is worse than not showing it, or it would set the height of every row
- * on the sheet.
+ * Every driver who has a row carries his own edit in the Time edit column of
+ * the table below, beside his note, which is where the dispatcher reads it.
+ * This panel is the remainder: HR writes hours before the wave is back, and a
+ * driver nobody has heard from has no row for the column to sit on.
  *
- * It is also not per-row information in the way everything else on that table
- * is. A driver can have an edit before he has phoned in, and a driver who went
- * back out has two rows and one set of hours. Reading it as a list of people
- * is reading it the way it was written.
+ * So it is deliberately not a summary of all of them. It used to be, and that
+ * meant the same paste appeared twice on one screen — once here and once on
+ * his row — which is how a dispatcher learns to stop reading the panel.
  *
- * Nothing at all when there are none, which is most nights. A panel that says
- * "no time edits" every evening is a panel nobody looks at on the night there
- * is one; the marker in the table is what says which rows to look for.
+ * Nothing at all when there are none, which is most of the time. A panel that
+ * says "no time edits" every evening is a panel nobody looks at on the night
+ * there is one.
  */
 export function TimeEdits({
   session,
@@ -29,44 +27,35 @@ export function TimeEdits({
   session: Session;
   entries: Entry[];
 }) {
-  const edited = useMemo(
+  const waiting = useMemo(
     () =>
       timeEditTargets(session, entries).filter(
-        (row) => row.edit.trim() !== "",
+        (row) => row.edit.trim() !== "" && !row.entered,
       ),
     [session, entries],
   );
 
-  if (edited.length === 0) return null;
+  if (waiting.length === 0) return null;
 
   return (
     <section className="rounded-xl border border-bud-line bg-bud-soft/40 px-5 py-4">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-bud">
-          Time edits from HR · {edited.length}
+          Time edits · {waiting.length} not on the sheet yet
         </h2>
         <p className="text-[12px] text-ink-muted">
-          Karim has these on his phone too.
+          These move onto the row when you enter him.
         </p>
       </div>
 
       <dl className="mt-3 space-y-2.5">
-        {edited.map((row) => (
+        {waiting.map((row) => (
           <div
             key={row.driverId}
             className="grid gap-x-4 gap-y-1 sm:grid-cols-[13rem_1fr]"
           >
             <dt className="text-[14px] font-semibold text-ink">
               {row.fullName}
-              {/* He is on the roster and nobody has entered him. Worth a word
-                  here, because an edit against a name with no row is the one
-                  case where the dispatcher cannot find him on the table
-                  below. */}
-              {row.entered ? null : (
-                <span className="ml-2 align-middle text-[11px] font-medium text-ink-faint">
-                  not entered yet
-                </span>
-              )}
             </dt>
             {/* Verbatim, breaks and all. Two lines of a timecard run together
                 into one is a different set of hours. */}

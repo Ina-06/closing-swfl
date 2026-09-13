@@ -61,7 +61,7 @@ export function EntriesTable({
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
         {/* Sized to fit a laptop without sideways scrolling. The overflow is a
             fallback for genuinely narrow windows, not the normal case. */}
-        <table className="w-full min-w-[1348px] table-fixed border-collapse text-left">
+        <table className="w-full min-w-[1524px] table-fixed border-collapse text-left">
           <thead>
             <tr className="border-b border-line text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
               <Th className="w-9 text-right">#</Th>
@@ -73,6 +73,12 @@ export function EntriesTable({
               <Th className="w-32">Rescues</Th>
               <Th className="w-36">Infractions</Th>
               <Th className="w-40">Note</Th>
+              {/* Beside the note rather than anywhere else, because the two are
+                  read together and are the only things on this table that are
+                  prose. Read-only: it is HR's field, it lives on the session
+                  rather than on this row, and the rules reject a dispatcher
+                  write to it. */}
+              <Th className="w-44">Time edit</Th>
               {/* Everything Karim owns, in one column. Read-only here — the
                   rules reject a dispatcher write to any of it. Wide enough for
                   all six checks on one line; wrapping them would break the
@@ -180,18 +186,6 @@ function EntryRow({
               Unannounced
             </span>
           ) : null}
-          {/* The marker, not the text. What HR wrote is in the panel above the
-              table, in full and with its line breaks; this is what tells the
-              dispatcher that the row in front of them is one of the names up
-              there. The tooltip saves the scroll when it is short. */}
-          {timeEdit ? (
-            <span
-              title={timeEdit}
-              className="rounded-full border border-bud-line bg-bud-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-bud"
-            >
-              Time edit
-            </span>
-          ) : null}
         </div>
       </td>
 
@@ -275,6 +269,10 @@ function EntryRow({
           placeholder="—"
           ariaLabel={`Note for ${entry.fullName}, shown to the closer`}
         />
+      </td>
+
+      <td className="px-3 py-2 align-top">
+        <TimeEditCell>{timeEdit}</TimeEditCell>
       </td>
 
       <td className="px-3 py-2">
@@ -427,6 +425,35 @@ function VanReadout({ entry }: { entry: Entry }) {
           {entry.vanIssues}
         </span>
       ) : null}
+    </span>
+  );
+}
+
+/**
+ * HR's edit to this driver's hours, as it was pasted.
+ *
+ * Read-only, and not because it is awkward to make it editable — because it is
+ * not the dispatcher's. It lives on the session rather than on this row, and
+ * firestore.rules rejects a dispatcher write to it. A box that looked typeable
+ * and silently refused would be worse than a line of text.
+ *
+ * Wrapped rather than clipped, with its line breaks kept. It is two or three
+ * lines of somebody's timecard, and the half of it that does not fit is as
+ * likely to be the half that matters; a row that grows is the price of that,
+ * and only the rows that have an edit pay it.
+ *
+ * Nothing at all when there is none, like the van block underneath. A dash in
+ * every cell of this column would be forty pieces of punctuation saying
+ * nothing.
+ */
+function TimeEditCell({ children }: { children: string }) {
+  if (!children.trim()) return null;
+
+  return (
+    <span className="block rounded-md border border-bud-line bg-bud-soft px-2 py-1.5">
+      <span className="block whitespace-pre-line font-mono text-[11.5px] leading-relaxed text-bud">
+        {children}
+      </span>
     </span>
   );
 }
