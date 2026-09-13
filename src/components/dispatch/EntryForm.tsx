@@ -15,6 +15,7 @@ import { addEntry, returnsFields } from "@/lib/db/entries";
 import { describeReturns, parseReturns } from "@/lib/returns";
 import { nameKey } from "@/lib/names";
 import { joinNotes, pendingNote } from "@/lib/notes";
+import { timeEditFor } from "@/lib/timeEdits";
 import type { Metric } from "@/lib/constants";
 import type { Driver, Entry, Session } from "@/lib/types";
 
@@ -99,6 +100,16 @@ export function EntryForm({
 
   /** Karim's note about this driver, still waiting for a row to land on. */
   const waitingNote = resolved ? pendingNote(session, resolved.driverId) : "";
+
+  /**
+   * What HR changed about this driver's hours tonight.
+   *
+   * Unlike the note above, this one does not go away once he has a row — it
+   * never lived on the row in the first place, it is keyed by driver on the
+   * session. So it shows here whether he is new to the sheet or already on it,
+   * which is right: the question it answers is being asked on this call.
+   */
+  const waitingTimeEdit = resolved ? timeEditFor(session, resolved.driverId) : "";
 
   function reset() {
     setName("");
@@ -267,6 +278,24 @@ export function EntryForm({
             Karim&rsquo;s note
           </span>
           <span>{waitingNote}</span>
+        </p>
+      ) : null}
+
+      {/* The same idea one step further on. The dispatcher has this driver on
+          the phone right now, and if HR has moved his hours he is going to ask
+          about it on this call — not tomorrow, off the sheet. It was only
+          readable once the row existed, which is one keystroke too late.
+
+          Mono and with its breaks kept, like everywhere else it appears: it is
+          a paste out of a payroll system and half of it is clock times. */}
+      {waitingTimeEdit ? (
+        <p className="mt-2 flex gap-2 rounded-md border border-bud-line bg-bud-soft px-2.5 py-2 text-[12px] leading-snug text-bud">
+          <span className="shrink-0 font-bold uppercase tracking-wider">
+            HR&rsquo;s time edit
+          </span>
+          <span className="whitespace-pre-line font-mono text-[11.5px] leading-relaxed">
+            {waitingTimeEdit}
+          </span>
         </p>
       ) : null}
 
