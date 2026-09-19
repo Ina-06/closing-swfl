@@ -232,6 +232,8 @@ export async function addCloserEntry(
     snack: null,
     lights: null,
     bungees: null,
+    doors: null,
+    tires: null,
     /**
      * Nobody told anyone he was coming.
      *

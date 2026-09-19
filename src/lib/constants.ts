@@ -41,7 +41,9 @@ export type MetricTone = (typeof METRICS)[number]["tone"];
  *
  * Defined once, here, because three different things render this list — his
  * phone, the dispatcher's table and the PDF — and an order that drifts between
- * them is an order nobody can trust.
+ * them is an order nobody can trust. Adding one is this line, a field on Entry,
+ * a default where entries are created, and the name in firestore.rules — miss
+ * the last of those and every tap on the new tile bounces.
  *
  * Three names each, for three widths, and the difference between them is the
  * job each one is doing. `label` is what Karim reads standing at the van, so it
@@ -58,11 +60,13 @@ export const CHECKS = [
   { field: "mobile", label: "Mobile + Off", short: "Mobile", letter: "M" },
   { field: "snack", label: "Snack", short: "Snack", letter: "S" },
   { field: "bungees", label: "2 Bungees", short: "Bungees", letter: "B" },
-  /* Last, so it is the tile that takes the whole width — see the grid in
-     ArrivalSheet, which works the odd one out from the length of this list
-     rather than from a name. It is the check Karim walks round the van for,
-     and the widest target is the right one for the one that is not in his
-     hands. */
+  /* The last three are the walk round the van rather than the armful he is
+     handed back, which is why they are together and at the end: the first six
+     are done standing at the door, these three are done on the way past.
+     Doors and tyres before the lights because that is the direction he walks
+     it — down the side, then round to the front. */
+  { field: "doors", label: "Doors", short: "Doors", letter: "D" },
+  { field: "tires", label: "Tires", short: "Tires", letter: "T" },
   { field: "lights", label: "Lights", short: "Lights", letter: "L" },
 ] as const;
 

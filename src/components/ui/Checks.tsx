@@ -2,7 +2,7 @@ import { CHECKS } from "@/lib/constants";
 import type { EntryChecks } from "@/lib/types";
 
 /**
- * The six things that have to come back with the van.
+ * The things that have to come back with the van, and the walk round it.
  *
  * Three states, not two. "Not looked at yet" is real information at 11pm with
  * six vans still out, and it must not read the same as "checked, and it is
@@ -131,7 +131,10 @@ export function CheckBar({
  */
 export function CheckChips({ values }: { values: EntryChecks }) {
   return (
-    <span className="flex gap-1">
+    /* gap-0.5 rather than gap-1: nine boxes and eight gaps have to clear the
+       column on a laptop, and a pixel of air between them is enough — they
+       already carry their own borders. */
+    <span className="flex gap-0.5">
       {CHECKS.map((check) => {
         const value = values[check.field];
         const state = String(value);
@@ -140,7 +143,7 @@ export function CheckChips({ values }: { values: EntryChecks }) {
           <span
             key={check.field}
             title={`${check.label} — ${WORD[state]}`}
-            className={`grid size-5 place-items-center rounded-md border text-[10px] font-bold ${TONE[state]}`}
+            className={`grid size-5 shrink-0 place-items-center rounded-md border text-[10px] font-bold ${TONE[state]}`}
           >
             {value === null ? check.letter : GLYPH[state]}
           </span>

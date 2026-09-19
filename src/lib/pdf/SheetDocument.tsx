@@ -23,15 +23,22 @@ import type { Mark, SheetRow } from "@/lib/sheet";
  * tick means is a sheet that gets read wrong at midnight.
  */
 
-/** Column widths, in percent of the printable width. They sum to 100. */
+/**
+ * Column widths, in percent of the printable width. They sum to 100.
+ *
+ * Re-cut when the checks went from seven to nine. Everything else gave up a
+ * little rather than the checks giving up a lot: nine columns at the old 5.5%
+ * would have been 49.5% of the page, and a tick column is the one thing here
+ * that cannot be read wrong for being narrow — it holds a single glyph.
+ */
 const COLUMNS = {
-  number: 4,
-  name: 17.5,
-  time: 7,
-  van: 7,
-  /** Seven of these. 5.5% of the printable width is ~41pt, which fits "CHARGER". */
-  check: 5.5,
-  vanIssues: 26,
+  number: 3.5,
+  name: 16,
+  time: 6.5,
+  van: 6,
+  /** Nine of these. 5% of the printable width is ~40pt, which fits "CHARGER". */
+  check: 5,
+  vanIssues: 23,
 } as const;
 
 const INK = "#101820";
@@ -204,7 +211,7 @@ export function SheetDocument({
             <Head label="NAME" width={COLUMNS.name} />
             <Head label="TIME" width={COLUMNS.time} centre />
             <Head label="VAN" width={COLUMNS.van} centre />
-            {/* Next to the van it is about, not seven tick columns away at the
+            {/* Next to the van it is about, not nine tick columns away at the
                 far edge of a landscape page. Whoever picks this up in the
                 morning is looking for which van needs dealing with, and the
                 number and the fault are one fact — reading them apart meant

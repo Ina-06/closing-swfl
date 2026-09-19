@@ -149,7 +149,13 @@ service cloud.firestore {
 
         // What happened when the van pulled in. `cell` is the old name for
         // `mobile`, kept in the list so a night written before the checks grew
-        // to six can still be corrected.
+        // past three can still be corrected.
+        //
+        // Every check in CHECKS has to be named here. This file is the one part
+        // of the app that does not ship with the deploy, so a phone that knows
+        // nine checks against a rule file that knows seven has two tiles that
+        // bounce every tap — see describeWriteError in ArrivalSheet, which
+        // exists for exactly that mistake.
         //
         // `notes` is on both lists, and it is the only field that is. It is one
         // note per driver — the amber strip on his card and at the top of his
@@ -165,7 +171,8 @@ service cloud.firestore {
           return changedKeys().hasOnly([
             'status', 'clockOut', 'van', 'vanOk', 'vanIssues', 'grounded',
             'fuel', 'key', 'charger', 'mobile', 'snack', 'lights', 'cell',
-            'bungees', 'addedByCloser', 'notes', 'updatedAt', 'updatedBy'
+            'bungees', 'doors', 'tires', 'addedByCloser', 'notes',
+            'updatedAt', 'updatedBy'
           ]);
         }
 

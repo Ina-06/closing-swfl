@@ -121,6 +121,8 @@ export type Entry = {
   snack: boolean | null;
   lights: boolean | null;
   bungees: boolean | null;
+  doors: boolean | null;
+  tires: boolean | null;
   /**
    * Turned up without being announced, and is not on tonight's roster either.
    *
@@ -148,7 +150,7 @@ export type Entry = {
 };
 
 /**
- * The six handover checks as stored.
+ * The handover checks as stored.
  *
  * Keyed off CHECKS, so adding a seventh thing to look at is one line in
  * constants and a type error everywhere that has to render it.

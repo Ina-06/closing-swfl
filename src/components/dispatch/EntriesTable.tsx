@@ -61,7 +61,7 @@ export function EntriesTable({
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
         {/* Sized to fit a laptop without sideways scrolling. The overflow is a
             fallback for genuinely narrow windows, not the normal case. */}
-        <table className="w-full min-w-[1524px] table-fixed border-collapse text-left">
+        <table className="w-full min-w-[1588px] table-fixed border-collapse text-left">
           <thead>
             <tr className="border-b border-line text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
               <Th className="w-9 text-right">#</Th>
@@ -81,9 +81,9 @@ export function EntriesTable({
               <Th className="w-44">Time edit</Th>
               {/* Everything Karim owns, in one column. Read-only here — the
                   rules reject a dispatcher write to any of it. Wide enough for
-                  all six checks on one line; wrapping them would break the
-                  order they are read in. */}
-              <Th className="w-44">Yard</Th>
+                  every check on one line; wrapping them would break the order
+                  they are read in, which is the order he walks the van. */}
+              <Th className="w-60">Yard</Th>
               <Th className="w-20" />
             </tr>
           </thead>
@@ -411,7 +411,7 @@ function VanReadout({ entry }: { entry: Entry }) {
         <span className="text-[11px] font-medium text-ink-faint">No van</span>
       )}
 
-      {/* All six, always, in the order they are on his phone. One he has not
+      {/* All of them, always, in the order they are on his phone. One he has not
           looked at yet shows its letter rather than a tick or a cross — the
           gap is the thing worth seeing from this side, and it disappears if
           the boxes only turn up once they have been filled in. */}

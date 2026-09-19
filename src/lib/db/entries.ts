@@ -94,6 +94,8 @@ function toEntry(data: DocumentData, id: string): Entry {
     snack: check(data.snack),
     lights: check(data.lights),
     bungees: check(data.bungees),
+    doors: check(data.doors),
+    tires: check(data.tires),
     addedByCloser: data.addedByCloser === true,
     secondTrip: data.secondTrip === true,
 
@@ -223,6 +225,8 @@ export async function addEntry(
     snack: null,
     lights: null,
     bungees: null,
+    doors: null,
+    tires: null,
     addedByCloser: false,
     secondTrip: false,
 
