@@ -12,6 +12,7 @@ import {
   YardCard,
 } from "@/components/closer/DriverCard";
 import { EndDay } from "@/components/closer/EndDay";
+import { InfractionBreakdown } from "@/components/closer/InfractionBreakdown";
 import { RosterSheet } from "@/components/closer/RosterSheet";
 import { Summary } from "@/components/closer/Summary";
 import { NoteSheet } from "@/components/NoteSheet";
@@ -21,7 +22,7 @@ import { useEntries } from "@/lib/db/entries";
 import { etaMinutes, minutesLate, stationNowMinutes } from "@/lib/eta";
 import { pendingNote } from "@/lib/notes";
 import { timeEditFor } from "@/lib/timeEdits";
-import { nightTotals } from "@/lib/totals";
+import { infractionsByDriver, nightTotals } from "@/lib/totals";
 import type { Entry, RosterEntry, Session } from "@/lib/types";
 
 /**
@@ -137,6 +138,14 @@ export function CloserBoard({
    * folded.
    */
   const [deliveringOpen, setDeliveringOpen] = useState(false);
+  /**
+   * The infractions figure has been tapped, and is showing who they belong to.
+   *
+   * Closed by default and closed again on the way out of anything else: it is
+   * an answer to a question, not a panel, and it sits over the top of the list
+   * Karim works down.
+   */
+  const [infractionsOpen, setInfractionsOpen] = useState(false);
   const now = useStationClock();
 
   const { returning, deliveringEntries, inYard, done } = useMemo(() => {
@@ -235,6 +244,11 @@ export function CloserBoard({
 
   /** Tonight's two figures. Counted in one place — see lib/totals. */
   const totals = useMemo(() => nightTotals(entries), [entries]);
+  /** The same infractions figure, broken down by who picked them up. */
+  const infractionLines = useMemo(
+    () => infractionsByDriver(entries),
+    [entries],
+  );
 
   /**
    * A sheet is over the list, so the list is not his screen at the moment.
@@ -344,9 +358,33 @@ export function CloserBoard({
               and not on a card: at End Day somebody always asks how many
               returns and how many infractions, and until now the only way to
               answer was to add up the sheet by eye. */}
-          <div className="flex flex-1 justify-center gap-2">
+          <div className="flex flex-1 items-start justify-center gap-2">
             <Total label="Returns" value={totals.returns} />
-            <Total label="Infractions" value={totals.infractions} warn />
+
+            {/* The figure and the answer to the question it provokes, in one
+                control. "Four infractions" is what gets asked for at End Day;
+                "whose" is what gets asked half a second later, and reading it
+                off the sheet meant opening forty of them. */}
+            <div className="relative">
+              <Total
+                label="Infractions"
+                value={totals.infractions}
+                warn
+                open={infractionsOpen}
+                onClick={
+                  infractionLines.length > 0
+                    ? () => setInfractionsOpen((was) => !was)
+                    : undefined
+                }
+              />
+
+              {infractionsOpen && infractionLines.length > 0 ? (
+                <InfractionBreakdown
+                  lines={infractionLines}
+                  onClose={() => setInfractionsOpen(false)}
+                />
+              ) : null}
+            </div>
           </div>
 
           {/* Both live in the sticky header rather than under the list. A van
@@ -661,31 +699,40 @@ export function CloserBoard({
  * middle of a phone. Amber only once an infraction actually exists: a warning
  * colour on a nought is a warning about nothing, and it stops meaning anything
  * by the third night.
+ *
+ * A span until it is given something to do, and a real button the moment it is.
+ * A figure that opens something has to look like it does — the caret is the
+ * only thing on this row saying there is more behind it — and a figure with
+ * nothing behind it must not be pressable at all, or Karim taps a nought and
+ * learns the control does nothing.
  */
 function Total({
   label,
   value,
   warn = false,
+  onClick,
+  open = false,
 }: {
   label: string;
   value: number;
   warn?: boolean;
+  /** Omitted when there is nothing to break down. */
+  onClick?: () => void;
+  open?: boolean;
 }) {
   const loud = warn && value > 0;
+  const tone = loud
+    ? "border-warn-line bg-warn-soft text-warn"
+    : "border-line bg-surface text-ink-muted";
 
-  return (
-    <span
-      className={`flex flex-col items-center rounded-lg border px-2.5 py-1 leading-none ${
-        loud
-          ? "border-warn-line bg-warn-soft text-warn"
-          : "border-line bg-surface text-ink-muted"
-      }`}
-    >
+  const inside = (
+    <>
       {/* Stacked, not side by side. "Infractions" beside its figure made a pill
           114px wide, and two of those plus the two buttons ran off the right of
           a 390px phone. Over the top it costs the width of the word alone. */}
-      <span className="text-[10px] font-bold uppercase tracking-[0.06em]">
+      <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.06em]">
         {label}
+        {onClick ? <Caret open={open} /> : null}
       </span>
       <span
         className={`tnum mt-1 font-mono text-[17px] font-bold ${
@@ -694,7 +741,31 @@ function Total({
       >
         {value}
       </span>
-    </span>
+    </>
+  );
+
+  if (!onClick) {
+    return (
+      <span
+        className={`flex flex-col items-center rounded-lg border px-2.5 py-1 leading-none ${tone}`}
+      >
+        {inside}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={open}
+      aria-label={`${value} ${label.toLowerCase()} — ${open ? "hide" : "show"} who`}
+      className={`flex flex-col items-center rounded-lg border px-2.5 py-1 leading-none transition-colors active:brightness-[0.97] ${tone} ${
+        open ? "ring-2 ring-warn/25" : ""
+      }`}
+    >
+      {inside}
+    </button>
   );
 }
 
