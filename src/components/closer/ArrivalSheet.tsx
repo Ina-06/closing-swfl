@@ -710,11 +710,12 @@ function VanPanel({
   }
 
   /**
-   * A check, and — for fuel alone — the sentence it writes underneath.
+   * A check, and — for the fuel and the key — the sentence it writes underneath.
    *
-   * Crossing the fuel is the one tile that is also a van issue. A van handed
-   * back empty is something the morning has to deal with, so it writes "No
-   * fuel" into the box, and it opens the box to say so: the sentence is no use
+   * Those two are the tiles that are also van issues. A van handed back empty,
+   * or handed back without its key, is something the morning has to deal with
+   * rather than a handover detail, so crossing one writes "No fuel" or "No key"
+   * into the box, and it opens the box to say so: the sentence is no use
    * sitting in a field that is folded away, and a van with a written issue
    * against it that still shows a grey van-issues tick is the sheet
    * contradicting itself. So the gate is crossed too, and Karim can see both.
@@ -722,12 +723,21 @@ function VanPanel({
    * Un-crossing takes the sentence back out but leaves the gate where it is.
    * Whether there is still something else wrong with the van is his answer to
    * give, not ours to assume.
+   *
+   * Both flags go into every one of these writes, not just the one that moved.
+   * The sentences are rebuilt from scratch each time — see withNotes — so
+   * sending only the tile he touched would take the other one's line straight
+   * back out of the box.
    */
   function setCheck(field: CheckField, value: Check) {
     const patch = checkPatch(field, value);
 
-    if (field === "fuel") {
-      writeNotes(patch, { fuel: value, grounded: entry.grounded });
+    if (field === "fuel" || field === "key") {
+      writeNotes(patch, {
+        fuel: field === "fuel" ? value : entry.fuel,
+        key: field === "key" ? value : entry.key,
+        grounded: entry.grounded,
+      });
 
       if (value === false) {
         patch.vanOk = false;
@@ -741,7 +751,7 @@ function VanPanel({
   /** The van is off the road. One write: the flag and the sentence together. */
   function setGrounded(grounded: boolean) {
     const patch: YardFields = { grounded };
-    writeNotes(patch, { fuel: entry.fuel, grounded });
+    writeNotes(patch, { fuel: entry.fuel, key: entry.key, grounded });
     onSave(patch);
   }
 
