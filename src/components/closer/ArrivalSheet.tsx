@@ -8,6 +8,14 @@ import {
   useState,
 } from "react";
 import { TimeEditNotice } from "@/components/TimeEditNotice";
+import {
+  ClockPickerDialog,
+  ClockWheels,
+  clockFrom24,
+  clockTo24,
+  clockToInputValue,
+  type ClockValue,
+} from "@/components/closer/ClockPicker";
 import { Button } from "@/components/ui/Button";
 import { CheckBar, CheckCycle, type Check } from "@/components/ui/Checks";
 import { ErrorNote } from "@/components/ui/Field";
@@ -80,6 +88,16 @@ export function ArrivalSheet({
   const [error, setError] = useState<string | null>(null);
   const [editingTime, setEditingTime] = useState(false);
   const [draft, setDraft] = useState("");
+  /**
+   * The custom clock-out wheel is open over this sheet.
+   *
+   * Separate from `editingTime`, which is the correction made afterwards on a
+   * driver who is already clocked out. This one happens instead of the stamp,
+   * with the driver still stood at the van — Karim wants him out at ten past
+   * eleven when it is ten past midnight, because that is when the handover
+   * actually finished and he only got to the phone now.
+   */
+  const [pickingClockOut, setPickingClockOut] = useState(false);
   /**
    * That Arrived was pressed on this tap, before the write has come back.
    *
@@ -242,7 +260,35 @@ export function ArrivalSheet({
     onClose();
   }
 
+  /**
+   * Clocked out at a time Karim chose rather than at this moment.
+   *
+   * Goes through correctClockOut rather than clockOut, because that is exactly
+   * what this is: a real instant on tonight's clock, built by stationInstant so
+   * a time picked after midnight lands on the night that started the evening
+   * before. The ordinary button's serverTimestamp is the honest thing when the
+   * handover is finishing now, and the wrong thing when it finished an hour ago.
+   *
+   * Same ending as the blue button either way — the record is closed and he is
+   * back on the list, because he is finished with this driver.
+   */
+  function finishAt(value: ClockValue) {
+    const { hours, minutes } = clockTo24(value);
+    write(
+      correctClockOut(
+        nightKey,
+        entry.id,
+        stationInstant(nightKey, hours, minutes),
+        uid,
+      ),
+      "That clock-out did not save.",
+    );
+    setPickingClockOut(false);
+    onClose();
+  }
+
   return (
+    <>
     <div className="fixed inset-0 z-40">
       <button
         type="button"
@@ -417,17 +463,44 @@ export function ArrivalSheet({
 
             {inYard && !entry.secondTrip ? (
               <>
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={finish}
-                  className="min-h-14 w-full text-[16px]"
-                >
-                  Clock out
-                  <ArrowRight />
-                </Button>
-                <p className="text-center text-[12px] text-ink-faint">
-                  Stamps the time and takes you back to the list.
+                {/* Two ways to finish, and they are not equals. The blue one is
+                    every handover — the driver is stood here, the time is now,
+                    and it is one press with a thumb. It keeps the weight and
+                    most of the width it always had.
+
+                    The green one is the exception: the handover finished a
+                    while ago and Karim is only getting to his phone about it
+                    now, or the driver is owed a time he did not sit and wait
+                    for. Narrow and quiet, so it is there when it is wanted and
+                    never in the way of the press that happens forty times a
+                    night. */}
+                <div className="flex gap-2">
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    onClick={finish}
+                    className="min-h-16 flex-1 text-[17px]"
+                  >
+                    Clock out
+                    <ArrowRight />
+                  </Button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPickingClockOut(true)}
+                    aria-label={`Clock ${entry.fullName} out at a time you pick`}
+                    className="flex min-h-16 w-[94px] shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-arrived-line bg-arrived-soft text-arrived transition-colors active:brightness-[0.97]"
+                  >
+                    <ClockFace />
+                    <span className="text-[12px] font-bold leading-none">
+                      Custom
+                    </span>
+                  </button>
+                </div>
+                <p className="text-center text-[12px] leading-snug text-ink-faint">
+                  Blue stamps the time now.{" "}
+                  <span className="font-semibold text-arrived">Custom</span>{" "}
+                  clocks him out at a time you pick.
                 </p>
               </>
             ) : (
@@ -456,6 +529,24 @@ export function ArrivalSheet({
         </div>
       </div>
     </div>
+
+    {/* Over the sheet rather than inside it. Opening it must not move the
+        record underneath, because the blue button Karim might press instead is
+        part of that record's layout. */}
+    {pickingClockOut ? (
+      <ClockPickerDialog
+        title={`Clock out ${entry.fullName}`}
+        blurb="Set the time the handover actually finished."
+        /* Starts at now, which is the answer on the nights he only wants to
+           nudge it. Spinning back an hour from the right minute is quicker
+           than spinning up from midnight. */
+        initial={clockFrom24(stationTimeInputValue(new Date()))}
+        confirmLabel="Clock out"
+        onConfirm={finishAt}
+        onClose={() => setPickingClockOut(false)}
+      />
+    ) : null}
+    </>
   );
 }
 
@@ -531,6 +622,25 @@ function EtaPanel({ eta, offset }: { eta: string; offset: number | null }) {
         </span>
       ) : null}
     </div>
+  );
+}
+
+/** The face on the Custom button. A clock, because that is what it opens. */
+function ClockFace() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-5"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" />
+    </svg>
   );
 }
 
@@ -1131,12 +1241,20 @@ function useSavedField(initial: string, save: (next: string) => void) {
 }
 
 /**
- * A time, typed.
+ * A time, picked.
  *
- * The phone's own wheel rather than a text box, because there is exactly one
- * way to get a time wrong on a keyboard in the dark and this removes it. Used
- * for the two times on this sheet that are typed rather than stamped: a
- * clock-out being corrected, and a second trip being recorded after the fact.
+ * A wheel rather than a text box, because there is exactly one way to get a
+ * time wrong on a keyboard in the dark and this removes it. Used for the two
+ * times on this sheet that are chosen rather than stamped: a clock-out being
+ * corrected, and a second trip being recorded after the fact.
+ *
+ * The same wheel the Custom clock-out button opens — see ClockPicker. It used
+ * to be an `<input type="time">`, which is a proper wheel on Karim's phone and
+ * a pair of spinner arrows on the laptop somebody checks the night from, and
+ * two controls for one job is one of them being learned twice.
+ *
+ * The draft stays a 24-hour `HH:mm` string on the way through, so the save
+ * path below is unchanged and knows nothing about AM or PM.
  */
 function TimeEditor({
   label,
@@ -1153,19 +1271,15 @@ function TimeEditor({
 }) {
   return (
     <div className="rounded-xl border border-arrived-line bg-arrived-soft p-3.5">
-      <label
-        htmlFor="clock-out"
-        className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-arrived"
-      >
+      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-arrived">
         {label}
-      </label>
-      <input
-        id="clock-out"
-        type="time"
-        value={draft}
-        onChange={(event) => onDraft(event.target.value)}
-        className="tnum mt-2 w-full rounded-lg border border-arrived-line bg-surface px-3 py-3 text-center font-mono text-[24px] font-bold text-ink outline-none focus:border-arrived"
-      />
+      </p>
+      <div className="mt-2 rounded-lg border border-arrived-line bg-surface px-2 py-1">
+        <ClockWheels
+          value={clockFrom24(draft)}
+          onChange={(value) => onDraft(clockToInputValue(value))}
+        />
+      </div>
       <div className="mt-3 flex gap-2">
         <Button
           variant="arrived"
