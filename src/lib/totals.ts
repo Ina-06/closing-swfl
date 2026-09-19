@@ -19,6 +19,11 @@ export type NightTotals = {
 /**
  * Returns for one driver.
  *
+ * Exported as well as summed, because the cards carry the figure now and the
+ * one on the card has to be the same arithmetic as the one in the total. A
+ * driver's row saying 3 while the night says 7 across three drivers is the
+ * kind of disagreement nobody can resolve standing in a yard.
+ *
  * `returnsCount` is the leading `2R` the dispatcher types and is what this is
  * normally reading. When there is no total in front — "1 RNI 1 Can't find
  * address", typed fast mid-wave — the reasons are added up instead, which is
@@ -27,7 +32,7 @@ export type NightTotals = {
  * A line with words and no figures at all counts as nothing. Returns are a
  * quantity of parcels, and there is no honest number to take from prose.
  */
-function returnsOn(entry: Entry): number {
+export function returnsOn(entry: Entry): number {
   if (entry.returnsCount !== null) return entry.returnsCount;
   return entry.returnsReasons.reduce(
     (running, reason) => running + reason.count,
@@ -49,10 +54,60 @@ function returnsOn(entry: Entry): number {
  * and a night counter saying zero while a driver has an infraction against him
  * is the count being wrong rather than cautious.
  */
-function infractionsOn(entry: Entry): number {
+export function infractionsOn(entry: Entry): number {
   const counted = countInfractions(entry.infractions);
   if (counted !== null) return counted;
   return entry.infractions.trim() === "" ? 0 : 1;
+}
+
+/** One driver on the infractions list, and how many he picked up. */
+export type InfractionLine = {
+  driverId: string;
+  fullName: string;
+  count: number;
+};
+
+/**
+ * Who the night's infractions actually belong to.
+ *
+ * The figure at the top of Karim's phone answers "how many" and is the number
+ * somebody asks for at End Day. This answers the question straight after it,
+ * which is the one he cannot get off a total: which of them, and who has more
+ * than one. Until now the only way was to read forty rows.
+ *
+ * Summed by driver rather than by row. A second trip is a second row under one
+ * name, and a man does not have two separate infractions because he went back
+ * out — the list has to read the way Karim would say it out loud.
+ *
+ * Worst first, because that is the order the conversation happens in. Ties go
+ * alphabetically so the list does not reshuffle itself under his thumb every
+ * time a snapshot lands.
+ */
+export function infractionsByDriver(entries: Entry[]): InfractionLine[] {
+  const lines = new Map<string, InfractionLine>();
+
+  for (const entry of entries) {
+    const count = infractionsOn(entry);
+    if (count === 0) continue;
+
+    // Keyed by driver where there is one, and by row otherwise — an entry with
+    // no driverId behind it is still somebody, and dropping it would make the
+    // list disagree with the total above it.
+    const key = entry.driverId || `entry:${entry.id}`;
+    const line = lines.get(key);
+
+    if (line) line.count += count;
+    else
+      lines.set(key, {
+        driverId: entry.driverId,
+        fullName: entry.fullName,
+        count,
+      });
+  }
+
+  return [...lines.values()].sort(
+    (a, b) => b.count - a.count || a.fullName.localeCompare(b.fullName),
+  );
 }
 
 export function nightTotals(entries: Entry[]): NightTotals {

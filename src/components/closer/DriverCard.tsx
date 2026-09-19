@@ -4,6 +4,7 @@ import { FLAGS, FlagTag } from "@/components/ui/FlagToggle";
 import { stationTimeLabel } from "@/lib/constants";
 import { lateLabel } from "@/lib/eta";
 import { countInfractions } from "@/lib/infractions";
+import { returnsOn } from "@/lib/totals";
 import type { Entry, RosterEntry } from "@/lib/types";
 
 /**
@@ -21,6 +22,64 @@ export function flagsOn(entry: Entry) {
       : flag === "trn"
         ? entry.isTrainer
         : entry.isRescuer,
+  );
+}
+
+/** Whether this driver has anything on him worth a second look. */
+function hasSignals(entry: Entry) {
+  return (
+    entry.secondTrip ||
+    entry.addedByCloser ||
+    flagsOn(entry).length > 0 ||
+    returnsOn(entry) > 0 ||
+    entry.performance !== null ||
+    entry.rescues !== 0 ||
+    entry.infractions.trim() !== ""
+  );
+}
+
+/**
+ * Everything about a driver that can be read without opening his sheet.
+ *
+ * One component for every card, in one order, and that is the whole point of
+ * it. It used to be three near-copies of the same handful of pills and they had
+ * already drifted apart: the clocked-out row carried no flags at all, no
+ * returns, and no Unannounced badge, so a driver stopped being a trainee and
+ * stopped having eleven returns against him the moment Karim finished with him.
+ * He is the same man on all four lists, and after End Day this row is the only
+ * place the night is still readable without tapping forty sheets.
+ *
+ * The order is the order the conversation goes: who he is tonight — second
+ * trip, roster flags, whether anybody knew he was coming — then what he brought
+ * back with him, which is the returns, the trend, the rescues and anything he
+ * picked up. Nothing renders when it has nothing to say, so the ordinary
+ * driver's row stays one line and the whole list still fits a phone.
+ */
+function Signals({
+  entry,
+  className = "",
+}: {
+  entry: Entry;
+  /** Where the row sits on this particular card. */
+  className?: string;
+}) {
+  if (!hasSignals(entry)) return null;
+
+  return (
+    <span className={`flex flex-wrap items-center gap-1.5 ${className}`}>
+      {/* First, and not a flag: two rows carrying one name is the one thing on
+          these lists that could be read as a mistake, and this is what says it
+          is not. */}
+      {entry.secondTrip ? <SecondTrip /> : null}
+      {flagsOn(entry).map((flag) => (
+        <FlagTag key={flag} flag={flag} />
+      ))}
+      {entry.addedByCloser ? <Unannounced /> : null}
+      <ReturnsCount count={returnsOn(entry)} />
+      <Trend direction={entry.performance} />
+      <RescueCount count={entry.rescues} />
+      <InfractionTag raw={entry.infractions} />
+    </span>
   );
 }
 
@@ -70,28 +129,13 @@ export function WaitingCard({
           <span className="block truncate text-[16px] font-semibold leading-tight">
             {entry.fullName}
           </span>
-          <span className="mt-1.5 flex flex-wrap items-center gap-1">
-            {flagsOn(entry).map((flag) => (
-              <FlagTag key={flag} flag={flag} />
-            ))}
-            {entry.addedByCloser ? (
-              <span className="rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
-                Unannounced
-              </span>
-            ) : null}
-            {/* Worth knowing before he walks over, not after he opens the
-                sheet. The infraction itself is in there. */}
-            <InfractionTag raw={entry.infractions} />
-          </span>
+          {/* Everything that changes how the conversation opens, before he
+              walks over rather than after. Karim gets one look at this row
+              while the van is still rolling in; finding out from the sheet
+              that he is meeting a man who lost eleven packages is finding out
+              too late. */}
+          <Signals entry={entry} className="mt-1.5" />
         </span>
-
-        {/* The two things that change how the conversation opens, on the
-            outside of the card where the clocked-out rows already carry theirs.
-            Karim gets one look at this row while the van is still rolling in;
-            having to open the sheet to find out he is meeting a man who lost
-            eleven packages is finding out too late. */}
-        <Trend direction={entry.performance} />
-        <RescueCount count={entry.rescues} />
 
         <Chevron />
       </span>
@@ -207,13 +251,7 @@ export function YardCard({
           <span className="block truncate text-[16px] font-semibold leading-tight">
             {entry.fullName}
           </span>
-          <span className="mt-1 flex flex-wrap items-center gap-1">
-            {entry.secondTrip ? <SecondTrip /> : null}
-            {flagsOn(entry).map((flag) => (
-              <FlagTag key={flag} flag={flag} />
-            ))}
-            <InfractionTag raw={entry.infractions} />
-          </span>
+          <Signals entry={entry} className="mt-1" />
         </span>
 
         {entry.van ? (
@@ -252,19 +290,6 @@ export function DoneCard({
   // phone. Different sources, so they read differently on the card.
   const stamped = entry.clockOut;
 
-  /**
-   * Whether there is anything about this driver worth a second look.
-   *
-   * Most nights, for most rows, there is not: he went out, he came back, the
-   * van is fine. Those stay the single line this list has always been, and it
-   * is the reason the whole clocked-out list fits on a screen. The row only
-   * grows for the drivers it has something to say about.
-   */
-  const signals =
-    entry.performance !== null ||
-    entry.rescues !== 0 ||
-    entry.infractions.trim() !== "";
-
   return (
     <button
       type="button"
@@ -283,13 +308,8 @@ export function DoneCard({
           )}
         </span>
 
-        <span className="flex min-w-0 flex-1 items-center gap-1.5">
-          <span className="min-w-0 truncate text-[15px] font-medium text-ink-muted">
-            {entry.fullName}
-          </span>
-          {/* Two rows carrying one name is the one thing on this list that could
-              be read as a mistake. It is not, and this is what says so. */}
-          {entry.secondTrip ? <SecondTrip /> : null}
+        <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-ink-muted">
+          {entry.fullName}
         </span>
 
         {/* The van is what tells him this record is finished. Missing is worth
@@ -313,27 +333,22 @@ export function DoneCard({
         <Chevron />
       </span>
 
-      {/* The same signals the returning card carries, in the same order,
-          because a driver does not stop being the man who lost eleven packages
-          the moment he is clocked out. Karim reads this list back at the end of
-          the night and after End Day, and having to open every sheet to find
-          out who the conversation is with is the reason they are here.
+      {/* The same signals the returning card carries, in the same order and
+          from the same component, because a driver does not stop being a
+          trainee, or the man who lost eleven packages, the moment he is clocked
+          out. Karim reads this list back at the end of the night and after End
+          Day, and having to open every sheet to find out who the conversation
+          is with is the reason they are here.
 
-          Under the name rather than beside it. Alongside, three more things
-          fighting the van chip for the right-hand side of a 390px phone left
-          "Marcus Webb" reading "Marcus …", and a list of drivers whose names
-          are cut off is not a list of drivers.
+          Under the name rather than beside it. Alongside, half a dozen more
+          things fighting the van chip for the right-hand side of a 390px phone
+          left "Marcus Webb" reading "Marcus …", and a list of drivers whose
+          names are cut off is not a list of drivers.
 
           The metric that sits beside the arrow inside the sheet still does not
           come out: it needs its own scale of five colours to mean anything, and
           this row has room for a signal, not a legend. */}
-      {signals ? (
-        <span className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-[80px]">
-          <Trend direction={entry.performance} />
-          <RescueCount count={entry.rescues} />
-          <InfractionTag raw={entry.infractions} />
-        </span>
-      ) : null}
+      <Signals entry={entry} className="mt-1.5 pl-[80px]" />
 
       {/* Deliberately still here after he has gone home. A time edit is a
           record rather than a reminder, and this list is what Karim reads back
@@ -350,6 +365,48 @@ function SecondTrip() {
   return (
     <span className="shrink-0 rounded-full border border-brand-line bg-brand-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand">
       2nd
+    </span>
+  );
+}
+
+/**
+ * A van in the yard belonging to somebody who is not on tonight's list.
+ *
+ * Worth a badge because somebody has to work out why, and it stays on the row
+ * after he has gone home for the same reason: the working-out happens in the
+ * morning, off the clocked-out list, long after the van has left.
+ */
+function Unannounced() {
+  return (
+    <span className="shrink-0 rounded-full border border-warn-line bg-warn-soft px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warn">
+      Unannounced
+    </span>
+  );
+}
+
+/**
+ * Packages that came back with him.
+ *
+ * `3R`, in the station's own shorthand — that is how the dispatcher types it
+ * into the field and how it gets said out loud, so it needs no legend. Counted
+ * by the same function as the night's total (see lib/totals) rather than by
+ * reading the raw text again here, because a card saying 3 while the header
+ * says 7 across three drivers is a disagreement nobody can settle in a yard.
+ *
+ * Grey rather than a warning colour. Returns are a quantity, not a fault —
+ * most of them are addresses nobody was in at — and an amber pill on half the
+ * list would drain the colour out of the infraction next to it.
+ *
+ * Nothing at all at zero, which is most rows.
+ */
+function ReturnsCount({ count }: { count: number }) {
+  if (count <= 0) return null;
+
+  return (
+    <span className="tnum shrink-0 rounded-md border border-line-strong bg-sunken px-1.5 py-0.5 font-mono text-[11px] font-bold text-ink-muted">
+      {count}
+      <span aria-hidden="true">R</span>
+      <span className="sr-only"> returns</span>
     </span>
   );
 }
