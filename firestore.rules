@@ -72,6 +72,19 @@ service cloud.firestore {
       return role() == 'hr';
     }
 
+    // The repairs board, and nothing else in the database.
+    //
+    // Deliberately absent from signedIn(). Every other role is a way of
+    // looking at a night; this one cannot read a night at all — not the
+    // roster, not an ETA, not a clock-out, not an infraction. The repairs
+    // collection carries its own copy of the van, the driver's name and the
+    // date it came off, so there is nothing about the close left for this role
+    // to need. Adding it to signedIn() would hand it the whole sheet in
+    // exchange for nothing.
+    function isRepairs() {
+      return role() == 'repairs';
+    }
+
     function changedKeys() {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
@@ -190,6 +203,66 @@ service cloud.firestore {
         // table. The closer has no delete path anywhere.
         allow delete: if isDispatcher();
       }
+    }
+
+    // The repairs board. A to-do list that outlives the night it came off.
+    //
+    // Top-level rather than under a session, because a repair is not part of
+    // one. It is opened on a night in August and ticked off in September, and
+    // hanging it off the night it came from would mean the board could only be
+    // assembled by reading every session there has ever been.
+    //
+    // Two roles reach it and they reach it very differently:
+    //
+    //   - repairs owns it. Read the board, add to it, tick a job off, correct
+    //     a line, remove one typed by mistake.
+    //   - closer only ever posts to it. End Day reads what is already open so
+    //     it does not file the same broken mirror seven nights running, then
+    //     writes one job per van issue. It cannot tick anything off and cannot
+    //     change or remove a job, because a van being fixed is not something
+    //     that happens in the yard at midnight.
+    //
+    // Note which role is *not* here. The dispatcher runs the night and has the
+    // widest hand in this file everywhere else; the board is no part of the
+    // night, so they have nothing on it. HR the same. Neither had to be
+    // excluded — they were simply never included, which is what the catch-all
+    // at the bottom is for.
+    match /repairs/{repairId} {
+      // Every field a job is allowed to have. Unlike an entry, this is not a
+      // record two roles own half of each — it is one job, written by whoever
+      // is holding it, so there is no split to enforce and the list is here to
+      // keep a field nobody has thought about from being invented on it.
+      function repairFields() {
+        return [
+          'title', 'van', 'detail', 'grounded', 'source', 'nightKey',
+          'driverName', 'matchKey', 'done', 'doneAt',
+          'createdAt', 'updatedAt', 'updatedBy'
+        ];
+      }
+
+      allow read: if isRepairs() || isCloser();
+
+      // A new job has to be the whole shape and nothing more.
+      allow create: if (isRepairs() || isCloser())
+                    && request.resource.data.keys().hasOnly(repairFields());
+
+      // Ticking a job off, and correcting what one says. The closer is not on
+      // this line on purpose — see above.
+      //
+      // What *changed*, not what the document contains — the same test every
+      // other update in this file makes, and the difference is not academic.
+      // Checking the whole document means one stray field, on one job, written
+      // by hand in the console or left behind by a future version, makes that
+      // job impossible to tick off for ever: the box bounces, the row snaps
+      // back, and nothing on the board explains why. A rule that can strand a
+      // real repair is worse than one that lets an unknown field sit there
+      // being ignored.
+      allow update: if isRepairs() && changedKeys().hasOnly(repairFields());
+
+      // Only for a job typed by mistake. The board asks twice before it calls
+      // this, and a job that was genuinely done is ticked off instead, which
+      // keeps it in the archive.
+      allow delete: if isRepairs();
     }
 
     // One-time closer codes. Written and verified only by the Admin SDK, which

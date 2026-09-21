@@ -10,7 +10,9 @@ import {
 import { Button, buttonClass } from "@/components/ui/Button";
 import { ErrorNote, SoftWarning } from "@/components/ui/Field";
 import { postAuthed, shareOrSave } from "@/lib/api";
+import { pushRepairs } from "@/lib/db/repairs";
 import { closeSession } from "@/lib/db/sessions";
+import { repairsFromEntries } from "@/lib/repairs";
 import { stationDateLabel } from "@/lib/constants";
 import type { Entry, Session } from "@/lib/types";
 
@@ -51,6 +53,15 @@ export function EndDay({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  /**
+   * What went to the repairs board when the night closed, in a line of its own.
+   *
+   * Separate from `note`, which is about the sheet and is rewritten by every
+   * press of Share. This one is written once, by End Day, and has to survive
+   * everything he does afterwards — it is the only confirmation anybody gets
+   * that tonight's van issues reached the people who fix vans.
+   */
+  const [filed, setFiled] = useState<string | null>(null);
   /**
    * Tonight's PDF, rendered and kept before he ever reaches for Share.
    *
@@ -122,10 +133,30 @@ export function EndDay({
       .finally(() => setBuilding(false));
   }, [closed, prepare]);
 
+  /**
+   * End Day, which is now two things rather than one.
+   *
+   * Closing the night is the first and it is the only one allowed to fail out
+   * loud. Everything about tonight is already recorded — every van, every
+   * check, every clock-out — and the close is what says so.
+   *
+   * Posting the van issues to the repairs board is the second, and it is
+   * deliberately not awaited by anything that can hold a button.
+   *
+   * A Firestore write does not settle until the server has acknowledged it,
+   * and the yard is a metal building with vans in it. Offline, the write is
+   * put in IndexedDB and goes up when the phone next has signal — which is
+   * exactly the behaviour wanted — but the promise sits there unresolved until
+   * then, and anything waiting on it waits all night. The last thing Karim does
+   * must not be able to leave Share spinning, so the push runs behind the panel
+   * and reports itself when it lands.
+   */
   async function end() {
     setBusy(true);
     setError(null);
     setNote(null);
+    setFiled(null);
+
     try {
       // Closed first, so the dispatcher's screen says so immediately. The
       // listener flips `closed`, which is what starts the sheet building.
@@ -133,9 +164,33 @@ export function EndDay({
       setConfirming(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That did not go through.");
+      return;
     } finally {
       setBusy(false);
     }
+
+    /**
+     * Only what the board has not already got.
+     *
+     * A van that has been broken all week was posted on Monday and is still
+     * sitting there unticked, so tonight it is not news — pushRepairs reads the
+     * board and drops it. The number below is therefore honest about what was
+     * filed rather than about what was on the sheet, and on most nights it is
+     * smaller than the summary Karim has just read.
+     */
+    pushRepairs(repairsFromEntries(nightKey, entries), uid)
+      .then((count) => {
+        if (count > 0) {
+          setFiled(
+            `${count} van ${count === 1 ? "issue" : "issues"} sent to Repairs.`,
+          );
+        }
+      })
+      .catch(() => {
+        setFiled(
+          "The repairs board turned that away. The van issues are still on tonight's sheet — they can be added in Repairs by hand.",
+        );
+      });
   }
 
   /**
@@ -279,6 +334,17 @@ export function EndDay({
         {building && !sheet ? (
           <p className="mt-2 text-center text-[12px] text-arrived/80">
             Getting the sheet ready&hellip;
+          </p>
+        ) : null}
+
+        {/* Above the share notes rather than below them, because it is about
+            something that has already finished and they are about something he
+            is in the middle of. It is deliberately quiet: he does not have to
+            do anything about it, and the two buttons under this panel are
+            still the job. */}
+        {filed ? (
+          <p className="mt-3 border-t border-arrived-line pt-2.5 text-center text-[12px] leading-relaxed text-arrived/80">
+            {filed}
           </p>
         ) : null}
 

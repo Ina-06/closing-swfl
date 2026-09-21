@@ -79,8 +79,15 @@ export type CheckField = (typeof CHECKS)[number]["field"];
  * writes one map on the session and nothing else — see the rules. That is the
  * whole portal: the person who reconciles hours is not in the yard and is not
  * on the phone, and nothing about the close is theirs to change.
+ *
+ * `repairs` is narrower still, and in a different direction: it is the only
+ * role that cannot read a night at all. The repairs board carries its own copy
+ * of everything it needs — van, driver, date — so the person fixing the vans
+ * never sees a roster, an ETA, a clock-out or an infraction. That is not a
+ * restriction that had to be argued for; it is simply everything they need and
+ * nothing they do not.
  */
-export const ROLES = ["dispatcher", "closer", "hr", "onetime"] as const;
+export const ROLES = ["dispatcher", "closer", "hr", "repairs", "onetime"] as const;
 export type Role = (typeof ROLES)[number];
 
 /** Today's date in the station timezone, as the `YYYY-MM-DD` session id. */

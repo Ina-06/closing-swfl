@@ -14,6 +14,7 @@ const ROLE_LABEL: Record<string, string> = {
   dispatcher: "Dispatcher",
   closer: "Closer",
   hr: "HR",
+  repairs: "Repairs",
 };
 
 /**
@@ -28,7 +29,10 @@ function useLastRole(): Role | null {
     () => window.localStorage.getItem(LAST_ROLE_KEY),
     () => null,
   );
-  return stored === "dispatcher" || stored === "closer" || stored === "hr"
+  return stored === "dispatcher" ||
+    stored === "closer" ||
+    stored === "hr" ||
+    stored === "repairs"
     ? stored
     : null;
 }
@@ -225,6 +229,30 @@ export default function LoginPage() {
                   </>
                 }
               />
+              {/* Last, and the only door that opens onto no night at all. The
+                  board behind it is a list of vans to fix that outlives every
+                  session — so unlike the three above it, nobody opening this
+                  one is working tonight, and it reads the same at nine in the
+                  morning as it does at midnight.
+
+                  Orange because that is the one accent on the app that is not
+                  already spoken for, and because it is the colour of the work:
+                  everything else here is a sheet, this is a workshop. */}
+              <RoleButton
+                accent="caution"
+                label="Repairs"
+                hint="Van faults to fix, from every night"
+                device="Either"
+                pending={pending === "repairs"}
+                disabled={pending !== null}
+                onClick={() => submit("repairs")}
+                icon={
+                  <>
+                    <path d="M14.5 5.5a4 4 0 015.2 5.2l-8 8a4 4 0 01-5.2-5.2z" />
+                    <path d="M5.5 15.5l3 3" />
+                  </>
+                }
+              />
             </div>
 
             <div className="mt-6 border-t border-line pt-5">
@@ -354,7 +382,7 @@ function RoleButton({
   label: string;
   hint: string;
   device: string;
-  accent: "brand" | "arrived" | "bud";
+  accent: "brand" | "arrived" | "bud" | "caution";
   icon: React.ReactNode;
   pending: boolean;
   disabled: boolean;
@@ -365,6 +393,8 @@ function RoleButton({
     arrived:
       "text-arrived before:bg-arrived hover:border-arrived-line hover:bg-arrived-soft/50",
     bud: "text-bud before:bg-bud hover:border-bud-line hover:bg-bud-soft/50",
+    caution:
+      "text-caution before:bg-caution hover:border-caution-line hover:bg-caution-soft/50",
   } as const;
   const tone = TONES[accent];
 

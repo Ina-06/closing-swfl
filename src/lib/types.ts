@@ -174,6 +174,66 @@ export type EntryDispatchFields = Pick<
   | "status"
 >;
 
+/**
+ * One thing wrong with a van, on a list that outlives the night it came off.
+ *
+ * Everything on it is a copy, and that is the whole point. A repair is opened
+ * on one night and closed on another, often weeks later, and by then the entry
+ * it came from is buried in a closed session and the driver may not work here
+ * any more. So the van number, the driver's name and the night are written
+ * onto the task as text — the same reason `fullName` is copied onto an entry.
+ * Nothing on this board ever has to go and look a night up, and no correction
+ * made to a past sheet can change what a mechanic was asked to do.
+ *
+ * There is no reference back to the entry for the same reason. The task is the
+ * record now.
+ */
+export type RepairTask = {
+  id: string;
+  /**
+   * What is wrong, verbatim.
+   *
+   * For a task End Day posted this is the van issues column exactly as it
+   * reads on the PDF, GROUNDED and all. The board and the sheet saying two
+   * different things about one van is the failure worth designing against, so
+   * nothing is reworded on the way across.
+   */
+  title: string;
+  /** Van number as it was typed, or "" when nobody wrote one down. */
+  van: string;
+  /** Anything added on the board afterwards — a part number, who was called. */
+  detail: string;
+  /**
+   * The van is off the road.
+   *
+   * Copied off the entry rather than read out of the title. It is the one flag
+   * that changes what the board is for — every other task is work to schedule,
+   * this one is a van that cannot go out in the morning — so it sorts to the
+   * top and is the only thing on the screen allowed to be red.
+   */
+  grounded: boolean;
+  /** Posted by End Day, or typed on the board by hand. */
+  source: "endDay" | "manual";
+  /** The night it came off, `YYYY-MM-DD`, or "" for one typed here. */
+  nightKey: string;
+  /** Who brought the van in. "" for a task typed on the board. */
+  driverName: string;
+  /**
+   * Van and title, normalised — what stops the same fault landing twice.
+   *
+   * End Day compares this against every task already on the board and drops
+   * the ones that match something still open. A van that is broken for a week
+   * is one line to tick off, not seven identical ones. See lib/repairs.
+   */
+  matchKey: string;
+  done: boolean;
+  /** When it was ticked off. The archive clock runs from here. */
+  doneAt: Timestamp | null;
+  createdAt: Timestamp | null;
+  updatedAt: Timestamp | null;
+  updatedBy: string;
+};
+
 export type Session = {
   /** Document id and date, both `YYYY-MM-DD` — see stationNightKey. */
   date: string;
