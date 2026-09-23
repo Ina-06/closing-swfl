@@ -9,6 +9,11 @@ import type { Entry, RepairTask } from "@/lib/types";
  * components means End Day and the board itself cannot come to different
  * answers — which matters most for the second one, since End Day decides what
  * to write and the board is what has to still make sense afterwards.
+ *
+ * A job is one line of text and nothing else. There is no van column, no notes
+ * field and no off-the-road flag: the van number is the front of the line —
+ * "63 - Pass side out" — because that is how the yard says it out loud, and a
+ * board with one box on it is a board nobody has to be taught.
  */
 
 /**
@@ -28,8 +33,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  *
  * The field it comes from is free text with a full keyboard on it — van
  * numbers carry letters as often as digits — so "VAN 150", "Van 150" and
- * "#150" all turn up, and all of them mean 150. Left alone, the board renders
- * its own label in front of whatever was typed and says "Van VAN 150".
+ * "#150" all turn up, and all of them mean 150. Left alone, the job would read
+ * "VAN 150 - Pass side out", which is the same word twice as far as anybody
+ * reading the board is concerned.
  *
  * The separator is required, which is the whole point of the rule. A van
  * genuinely called VANGUARD1 must come through untouched, and a prefix test
@@ -43,28 +49,20 @@ export function cleanVan(van: string): string {
 }
 
 /**
- * Two ways of writing the same van.
- *
- * Letters inside the number are kept, so "214B" still tells itself apart from
- * "214". So are leading zeros: "087" and "87" are left as two vans, because
- * the cost of being wrong runs one way. Getting it wrong here suppresses a
- * repair somebody reported — the board would decide it already knew — and a
- * duplicate line that anybody can tick off is a much cheaper mistake than a
- * cracked windscreen nobody hears about again.
- */
-function vanKey(van: string): string {
-  return cleanVan(van).toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-/**
- * Two ways of writing the same fault.
+ * Two ways of writing the same job.
  *
  * Deliberately shallow. Case, accents, spacing and trailing punctuation are
- * noise; every actual word is signal. "Mirror cracked" and "cracked mirror"
- * are left as two different faults, because deciding they are the same means
- * deciding which one the mechanic reads, and this file is not entitled to that.
+ * noise; every actual word is signal. "63 - Mirror cracked" and "63 - Cracked
+ * mirror" are left as two different jobs, because deciding they are the same
+ * means deciding which one the mechanic reads, and this file is not entitled
+ * to that.
+ *
+ * The van number rides inside the key for free, because it is the front of the
+ * line rather than a field of its own: 63 and 214 with the same fault are two
+ * jobs, as they should be, and a line typed by hand on the board matches the
+ * one End Day posts for the same van tomorrow.
  */
-function faultKey(title: string): string {
+export function matchKeyFor(title: string): string {
   return title
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
@@ -74,56 +72,52 @@ function faultKey(title: string): string {
     .trim();
 }
 
-/** The key two tasks share when they are the same fault on the same van. */
-export function matchKeyFor(van: string, title: string): string {
-  return `${vanKey(van)}|${faultKey(title)}`;
+/**
+ * Van number and fault, as the one line a job is.
+ *
+ * "63 - Pass side out". A space, a dash and a space, because that is what
+ * somebody writing it on a whiteboard does, and because a bare "63 Pass side
+ * out" reads as a sentence that happens to start with a number.
+ *
+ * A van with no number written against it is still a job. It loses the prefix
+ * rather than gaining a dash with nothing in front of it.
+ */
+export function repairTitle(van: string, fault: string): string {
+  const number = cleanVan(van);
+  const said = fault.trim();
+  return number === "" ? said : `${number} - ${said}`;
 }
 
 /** A task before it has a document — what End Day and the composer both build. */
 export type NewRepair = {
   title: string;
-  van: string;
-  grounded: boolean;
   source: RepairTask["source"];
   nightKey: string;
   driverName: string;
   matchKey: string;
 };
 
-/**
- * Hand-typed on the board. No night, no driver, no van unless one was given.
- *
- * `grounded` is an argument rather than a constant, and it was a constant
- * once: the composer has an off-the-road switch on it, and a job added by hand
- * for a van nobody dares send out is exactly the job that most needs to be red
- * and at the top. Hard-coding it false threw that switch away silently.
- */
-export function manualRepair(
-  title: string,
-  van: string,
-  grounded: boolean,
-): NewRepair {
-  const cleaned = cleanVan(van);
+/** Hand-typed on the board. No night, no driver — just the line. */
+export function manualRepair(title: string): NewRepair {
   return {
     title,
-    van: cleaned,
-    grounded,
     source: "manual",
     nightKey: "",
     driverName: "",
-    matchKey: matchKeyFor(cleaned, title),
+    matchKey: matchKeyFor(title),
   };
 }
 
 /**
  * What tonight's sheet puts on the board.
  *
- * One task per van that came back with something wrong with it, and the task
- * is the whole van issues column rather than a sentence out of it. The column
- * is written by three controls and a free-text box joined with full stops —
- * "GROUNDED. No fuel. Nearside mirror is hanging off" — and splitting on those
- * stops would cut the sentence Karim typed in half the moment he used one
- * himself. What the mechanic gets is what is on the sheet.
+ * One task per van that came back with something wrong with it, written as the
+ * van number and then the whole van issues column rather than a sentence out
+ * of it. The column is written by three controls and a free-text box joined
+ * with full stops — "GROUNDED. No fuel. Nearside mirror is hanging off" — and
+ * splitting on those stops would cut the sentence Karim typed in half the
+ * moment he used one himself. What the mechanic gets is what is on the sheet,
+ * with the van in front of it.
  *
  * A van with nothing written against it produces nothing. `vanOk` being ticked
  * and `vanOk` never having been looked at are different facts about the night,
@@ -137,11 +131,11 @@ export function repairsFromEntries(
   const tasks: NewRepair[] = [];
 
   for (const entry of entries) {
-    const title = entry.vanIssues.trim();
-    if (title === "") continue;
+    const fault = entry.vanIssues.trim();
+    if (fault === "") continue;
 
-    const van = cleanVan(entry.van);
-    const matchKey = matchKeyFor(van, title);
+    const title = repairTitle(entry.van, fault);
+    const matchKey = matchKeyFor(title);
     // The same van twice on one night is a second trip, and a fault reported
     // on both trips is still one fault.
     if (seen.has(matchKey)) continue;
@@ -149,8 +143,6 @@ export function repairsFromEntries(
 
     tasks.push({
       title,
-      van,
-      grounded: entry.grounded,
       source: "endDay",
       nightKey,
       driverName: entry.fullName,
@@ -248,20 +240,19 @@ export function daysUntilArchive(task: RepairTask, now: number): number | null {
 }
 
 /**
- * The order the board reads in.
+ * The order the board reads in: newest first.
  *
- * Grounded first and always. Every other task is work to be scheduled; a
- * grounded van is a van that does not go out in the morning, and it should be
- * at the top of the screen whoever opens it and however long it has been
- * there. After that, newest first — the board is read from the top by someone
- * catching up on last night.
+ * Nothing on the board outranks anything else on it. A job is a line of text
+ * somebody has to see to, and which van is worse off is a judgement the
+ * mechanic makes by reading the line — the sheet already says GROUNDED in it
+ * when that is the case — not one this file can make from a flag. So the board
+ * is read from the top by whoever is catching up on last night.
  *
  * The timestamps are read with an estimate behind them, so a task added
  * seconds ago sorts where it was put rather than jumping when the server
  * acknowledges it.
  */
-export function byUrgency(a: RepairTask, b: RepairTask): number {
-  if (a.grounded !== b.grounded) return a.grounded ? -1 : 1;
+export function byNewest(a: RepairTask, b: RepairTask): number {
   return (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0);
 }
 

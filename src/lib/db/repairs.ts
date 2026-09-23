@@ -17,12 +17,7 @@ import {
 } from "firebase/firestore";
 import type { DocumentData } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
-import {
-  cleanVan,
-  matchKeyFor,
-  unseenRepairs,
-  type NewRepair,
-} from "@/lib/repairs";
+import { matchKeyFor, unseenRepairs, type NewRepair } from "@/lib/repairs";
 import type { RepairTask } from "@/lib/types";
 
 /**
@@ -61,25 +56,24 @@ function repairsCollection() {
  * half-written document is something every screen can see. Every field gets a
  * default rather than being trusted.
  *
- * `matchKey` is recomputed when it is missing so a task written by hand
- * straight into the console still takes part in de-duplication rather than
- * silently being the one fault that gets posted every night.
+ * `matchKey` is always computed from the title rather than read off the
+ * document, even though it is written alongside it. It is derived data with
+ * nothing querying it, and deriving it on the way in means a job written by
+ * hand straight into the console, or one written by an older version of this
+ * app that keyed on a separate van field, still takes part in de-duplication
+ * rather than silently being the one fault that gets posted every night.
  */
 function toTask(data: DocumentData, id: string): RepairTask {
   const string = (value: unknown) => (typeof value === "string" ? value : "");
   const title = string(data.title);
-  const van = string(data.van);
 
   return {
     id,
     title,
-    van,
-    detail: string(data.detail),
-    grounded: data.grounded === true,
     source: data.source === "endDay" ? "endDay" : "manual",
     nightKey: string(data.nightKey),
     driverName: string(data.driverName),
-    matchKey: string(data.matchKey) || matchKeyFor(van, title),
+    matchKey: matchKeyFor(title),
     done: data.done === true,
     doneAt: data.doneAt ?? null,
     createdAt: data.createdAt ?? null,
@@ -95,7 +89,7 @@ function toTask(data: DocumentData, id: string): RepairTask {
  * down; the board sorts what it gets for itself, because a task whose
  * `createdAt` has not reached the server yet has no place in a server-side
  * sort and would sit at the bottom of the list for the second it takes to
- * settle. See byUrgency.
+ * settle. See byNewest.
  */
 export function useRepairs() {
   const [tasks, setTasks] = useState<RepairTask[] | null>(null);
@@ -139,9 +133,6 @@ export function useRepairs() {
 function taskFields(input: NewRepair, updatedBy: string) {
   return {
     title: input.title,
-    van: input.van,
-    detail: "",
-    grounded: input.grounded,
     source: input.source,
     nightKey: input.nightKey,
     driverName: input.driverName,
@@ -225,25 +216,19 @@ export async function setRepairDone(
 /**
  * Correct what a task says.
  *
- * `matchKey` is rewritten alongside the text, never left behind. It is derived
- * from the van and the title, and a task whose key still describes what it
- * used to say is a task that will quietly block the wrong fault from being
- * posted a month later.
+ * `matchKey` is rewritten alongside the line, never left behind. It is derived
+ * from what the job says, and a task whose key still describes what it used to
+ * say is a task that will quietly block the wrong fault from being posted a
+ * month later.
  */
 export async function editRepair(
   taskId: string,
-  fields: { title: string; van: string; detail: string; grounded: boolean },
+  title: string,
   updatedBy: string,
 ) {
-  // The same cleaning a new job gets. A van corrected to "VAN 150" here would
-  // otherwise render as "Van VAN 150" on the row, and would stop matching the
-  // job End Day posts for the same van tomorrow.
-  const van = cleanVan(fields.van);
-
   await updateDoc(doc(repairsCollection(), taskId), {
-    ...fields,
-    van,
-    matchKey: matchKeyFor(van, fields.title),
+    title,
+    matchKey: matchKeyFor(title),
     updatedAt: serverTimestamp(),
     updatedBy,
   });

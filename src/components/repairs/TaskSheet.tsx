@@ -7,22 +7,19 @@ import { useViewport } from "@/lib/viewport";
 import { stationDateLabel } from "@/lib/constants";
 import type { RepairTask } from "@/lib/types";
 
-/** What the board writes, whether the job is new or being corrected. */
-export type TaskFields = {
-  title: string;
-  van: string;
-  detail: string;
-  grounded: boolean;
-};
-
 /**
  * Adding a job, and correcting one — the same sheet.
  *
- * They are the same four fields and the same keyboard problem, and splitting
- * them in two would mean two places for the van number box to drift. What
- * actually differs is what is already in it, what the button says, and whether
- * there is anything to delete, and all three of those fall out of one argument
- * being null.
+ * One box, and the box is the whole job: the van number and what is wrong with
+ * it, on one line, the way it gets said out loud. "63 - Pass side out". A
+ * separate van field, a notes field and an off-the-road switch were all here
+ * and all came off, because three of the four things on the sheet were
+ * optional and the one that mattered was the one anybody could have typed the
+ * rest into.
+ *
+ * Adding and correcting differ only in what is already in the box, what the
+ * button says, and whether there is anything to delete — all three of which
+ * fall out of one argument being null.
  *
  * A bottom sheet on the laptop as well as the phone. It looks like a phone
  * pattern and it is, but this board is opened on both by the same people, and
@@ -37,15 +34,12 @@ export function TaskSheet({
 }: {
   /** Null when this is a new job. */
   task: RepairTask | null;
-  onSave: (fields: TaskFields) => void;
+  onSave: (title: string) => void;
   /** Absent for a new job — there is nothing yet to remove. */
   onDelete?: () => void;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState(task?.title ?? "");
-  const [van, setVan] = useState(task?.van ?? "");
-  const [detail, setDetail] = useState(task?.detail ?? "");
-  const [grounded, setGrounded] = useState(task?.grounded ?? false);
   /** Delete has been pressed once. It is never the first press that removes. */
   const [confirming, setConfirming] = useState(false);
   const box = useRef<HTMLTextAreaElement>(null);
@@ -89,8 +83,8 @@ export function TaskSheet({
    * Lifted clear of the keyboard, the same way the note sheet is.
    *
    * A sheet anchored to the bottom of the screen is anchored to the strip of
-   * glass the keyboard is now drawn over, so the Save button and the van
-   * number box were both underneath it — see lib/viewport for the whole of it.
+   * glass the keyboard is now drawn over, so the Save button and the box were
+   * both underneath it — see lib/viewport for the whole of it.
    */
   const viewport = useViewport();
   const panelStyle =
@@ -170,106 +164,31 @@ export function TaskSheet({
             </button>
           </div>
 
+          {/* No placeholder. The label says what goes in it, and a grey line of
+              text inside an empty box is one more thing to read past at the end
+              of a shift — worse here than anywhere, because this box is also
+              where an existing job is corrected and it is empty for exactly as
+              long as it takes to start typing. */}
           <Label htmlFor="repair-title">What is wrong</Label>
           <textarea
             id="repair-title"
             ref={box}
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            rows={2}
-            placeholder="Nearside mirror hanging off"
-            className={FIELD}
-          />
-
-          <Label htmlFor="repair-van">Van number</Label>
-          <input
-            id="repair-van"
-            value={van}
-            onChange={(event) => setVan(event.target.value)}
-            placeholder="214"
+            rows={3}
             autoComplete="off"
-            autoCorrect="off"
-            spellCheck={false}
-            /* Not `inputMode="numeric"`: some of these carry a letter, and a
-               keypad with no letters on it is a box that cannot be filled in. */
-            className={`${FIELD} tnum font-mono`}
-          />
-
-          <Label htmlFor="repair-detail">
-            Notes <Hint>optional</Hint>
-          </Label>
-          <textarea
-            id="repair-detail"
-            value={detail}
-            onChange={(event) => setDetail(event.target.value)}
-            rows={2}
-            placeholder="Part on order, garage called Tuesday"
             className={FIELD}
           />
-
-          {/* A switch rather than a checkbox, because it is not a field about
-              the job — it is a statement about where the van is right now, and
-              it moves the row to the top of the board and turns it red. */}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={grounded}
-            onClick={() => setGrounded(!grounded)}
-            className={`mt-4 flex min-h-14 w-full items-center gap-3 rounded-xl border px-4 text-left transition-colors ${
-              grounded
-                ? "border-overdue-line bg-overdue-soft"
-                : "border-line-strong bg-surface active:brightness-[0.97]"
-            }`}
-          >
-            <span
-              className={`grid size-6 shrink-0 place-items-center rounded-md border-2 transition-colors ${
-                grounded
-                  ? "border-overdue bg-overdue text-ink-inverse"
-                  : "border-line-strong bg-surface"
-              }`}
-            >
-              {grounded ? (
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="size-4"
-                  aria-hidden="true"
-                >
-                  <path d="M5 12.5l5 5 9-10.5" />
-                </svg>
-              ) : null}
-            </span>
-            <span className="min-w-0">
-              <span
-                className={`block text-[15px] font-bold ${
-                  grounded ? "text-overdue" : "text-ink"
-                }`}
-              >
-                Van is off the road
-              </span>
-              <span className="mt-0.5 block text-[12px] leading-snug text-ink-muted">
-                Pins it to the top of the list until it is ticked off.
-              </span>
-            </span>
-          </button>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-ink-faint">
+            Van number first, then what is wrong with it — 63 - Pass side out.
+          </p>
 
           <div className="mt-4 flex gap-2">
             <Button
               variant="primary"
               size="lg"
               disabled={!ready}
-              onClick={() =>
-                onSave({
-                  title: title.trim(),
-                  van: van.trim(),
-                  detail: detail.trim(),
-                  grounded,
-                })
-              }
+              onClick={() => onSave(title.trim())}
               className="min-h-14 flex-1 text-[16px]"
             >
               {task ? "Save changes" : "Add it"}
@@ -342,7 +261,7 @@ export function TaskSheet({
 
 /* 16px on the control itself, or iOS Safari zooms the page on focus. */
 const FIELD =
-  "mt-1.5 w-full resize-y rounded-xl border border-line-strong bg-surface px-3.5 py-3 text-[16px] leading-snug text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-brand";
+  "mt-1.5 w-full resize-y rounded-xl border border-line-strong bg-surface px-3.5 py-3 text-[16px] leading-snug text-ink outline-none transition-colors focus:border-brand";
 
 function Label({
   htmlFor,
@@ -358,11 +277,5 @@ function Label({
     >
       {children}
     </label>
-  );
-}
-
-function Hint({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="font-normal normal-case tracking-normal">({children})</span>
   );
 }

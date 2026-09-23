@@ -232,11 +232,16 @@ service cloud.firestore {
       // record two roles own half of each — it is one job, written by whoever
       // is holding it, so there is no split to enforce and the list is here to
       // keep a field nobody has thought about from being invented on it.
+      //
+      // `title` is the whole job — the van number and what is wrong with it on
+      // one line, "63 - Pass side out". There is no van field and no notes
+      // field, and jobs written by an earlier version that had them are not a
+      // problem: `update` tests what *changed*, and nothing changes those any
+      // more.
       function repairFields() {
         return [
-          'title', 'van', 'detail', 'grounded', 'source', 'nightKey',
-          'driverName', 'matchKey', 'done', 'doneAt',
-          'createdAt', 'updatedAt', 'updatedBy'
+          'title', 'source', 'nightKey', 'driverName', 'matchKey',
+          'done', 'doneAt', 'createdAt', 'updatedAt', 'updatedBy'
         ];
       }
 

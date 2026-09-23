@@ -13,7 +13,7 @@ import {
 import {
   ARCHIVE_AFTER_DAYS,
   byFinished,
-  byUrgency,
+  byNewest,
   daysUntilArchive,
   manualRepair,
   shelfFor,
@@ -34,6 +34,10 @@ import type { RepairTask } from "@/lib/types";
  * That is why the three lists are tabs on one screen rather than three screens.
  * They are the same rows at different ages, and a task moving between them is
  * not a task going anywhere.
+ *
+ * A job is one line — "63 - Pass side out" — and the row shows that line and
+ * where it came from. Nothing on the board is ranked above anything else on it;
+ * see byNewest.
  */
 
 const SHELVES: { key: Shelf; label: string }[] = [
@@ -126,13 +130,12 @@ export function RepairsBoard({ uid }: { uid: string }) {
     }
 
     return {
-      todo: todo.sort(byUrgency),
+      todo: todo.sort(byNewest),
       done: done.sort(byFinished),
       archived: archived.sort(byFinished),
     };
   }, [tasks, now, lingering]);
 
-  const grounded = lists.todo.filter((task) => task.grounded).length;
   const showing = lists[shelf];
 
   /**
@@ -190,14 +193,10 @@ export function RepairsBoard({ uid }: { uid: string }) {
           </h1>
           <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">
             {loading
-              ? " "
+              ? " "
               : lists.todo.length === 0
                 ? "Nothing outstanding. Every van is signed off."
-                : `${lists.todo.length} ${lists.todo.length === 1 ? "job" : "jobs"} outstanding${
-                    grounded > 0
-                      ? ` · ${grounded} ${grounded === 1 ? "van" : "vans"} off the road`
-                      : ""
-                  }`}
+                : `${lists.todo.length} ${lists.todo.length === 1 ? "job" : "jobs"} outstanding`}
           </p>
         </div>
 
@@ -309,18 +308,12 @@ export function RepairsBoard({ uid }: { uid: string }) {
           key={editing === "new" ? "new" : editing.id}
           task={editing === "new" ? null : editing}
           onClose={() => setEditing(null)}
-          onSave={(fields) => {
+          onSave={(title) => {
             setEditing(null);
             if (editing === "new") {
-              run(
-                "That job",
-                addRepair(
-                  manualRepair(fields.title, fields.van, fields.grounded),
-                  uid,
-                ),
-              );
+              run("That job", addRepair(manualRepair(title), uid));
             } else {
-              run("That change", editRepair(editing.id, fields, uid));
+              run("That change", editRepair(editing.id, title, uid));
             }
           }}
           onDelete={
@@ -366,24 +359,12 @@ function TaskRow({
   onToggle: () => void;
   onOpen: () => void;
 }) {
-  /**
-   * Grounded is the only thing on this board allowed to be red, and only while
-   * it is still outstanding. A grounded van that has been fixed is a van, and
-   * carrying the alarm into the Done list would leave the archive permanently
-   * shouting about work that is finished.
-   */
-  const loud = task.grounded && !task.done;
-
   return (
     <div
-      className={`flex items-stretch overflow-hidden rounded-xl border bg-surface transition-opacity duration-500 ${
-        loud ? "border-overdue-line" : "border-line"
-      } ${leaving ? "opacity-55" : ""}`}
+      className={`flex items-stretch overflow-hidden rounded-xl border border-line bg-surface transition-opacity duration-500 ${
+        leaving ? "opacity-55" : ""
+      }`}
     >
-      {loud ? (
-        <span aria-hidden="true" className="w-1 shrink-0 bg-overdue" />
-      ) : null}
-
       <button
         type="button"
         role="checkbox"
@@ -422,40 +403,32 @@ function TaskRow({
         aria-label={`Edit: ${task.title}`}
         className="min-w-0 flex-1 py-3 pr-3 text-left transition-colors active:bg-sunken"
       >
+        {/* The whole job, van number and all. `whitespace-pre-wrap` because the
+            van issues column arrives with the closer's own line breaks in it
+            and a fault typed on three lines should stay on three. */}
         <span
-          className={`block text-[15px] font-semibold leading-snug ${
+          className={`block whitespace-pre-wrap text-[15px] font-semibold leading-snug ${
             task.done ? "text-ink-muted line-through decoration-ink-faint" : "text-ink"
           }`}
         >
           {task.title}
         </span>
 
-        {task.detail.trim() ? (
-          <span className="mt-1 block whitespace-pre-wrap text-[13px] leading-snug text-ink-muted">
-            {task.detail}
+        {/* Where it came from, in the order it gets asked for: what night, who
+            was driving. The van is not here — it is the front of the line
+            above, which is the only place it needs to be said. */}
+        {task.nightKey || task.driverName || task.source === "manual" ? (
+          <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-none text-ink-faint">
+            {task.nightKey ? (
+              <span>
+                {stationDateLabel(new Date(`${task.nightKey}T12:00:00Z`))}
+              </span>
+            ) : null}
+            {task.nightKey && task.driverName ? <Dot /> : null}
+            {task.driverName ? <span>{task.driverName}</span> : null}
+            {task.source === "manual" ? <span>Added by hand</span> : null}
           </span>
         ) : null}
-
-        {/* Where it came from, in the order it gets asked for: which van, what
-            night, who was driving. The van is first and bold because it is the
-            only one of the three anybody searches the screen for. */}
-        <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-none text-ink-faint">
-          {task.van ? (
-            <span className="tnum font-mono font-bold text-ink-muted">
-              Van {task.van}
-            </span>
-          ) : (
-            <span className="italic">No van number</span>
-          )}
-          {task.nightKey ? <Dot /> : null}
-          {task.nightKey ? (
-            <span>{stationDateLabel(new Date(`${task.nightKey}T12:00:00Z`))}</span>
-          ) : null}
-          {task.driverName ? <Dot /> : null}
-          {task.driverName ? <span>{task.driverName}</span> : null}
-          {task.source === "manual" ? <Dot /> : null}
-          {task.source === "manual" ? <span>Added by hand</span> : null}
-        </span>
 
         {/* Only on the Done list, and only as long as it is true. Somebody
             wondering where last month's work went should find the answer on

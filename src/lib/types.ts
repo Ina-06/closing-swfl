@@ -191,27 +191,18 @@ export type EntryDispatchFields = Pick<
 export type RepairTask = {
   id: string;
   /**
-   * What is wrong, verbatim.
+   * The whole job, as one line: "63 - Pass side out".
    *
-   * For a task End Day posted this is the van issues column exactly as it
-   * reads on the PDF, GROUNDED and all. The board and the sheet saying two
-   * different things about one van is the failure worth designing against, so
-   * nothing is reworded on the way across.
+   * For a task End Day posted this is the van number and then the van issues
+   * column exactly as it reads on the PDF, GROUNDED and all. The board and the
+   * sheet saying two different things about one van is the failure worth
+   * designing against, so nothing is reworded on the way across.
+   *
+   * There is no van field beside it and no notes field under it. The van
+   * number is the front of the line because that is how the yard says it, and
+   * one box is one thing to fill in at midnight.
    */
   title: string;
-  /** Van number as it was typed, or "" when nobody wrote one down. */
-  van: string;
-  /** Anything added on the board afterwards — a part number, who was called. */
-  detail: string;
-  /**
-   * The van is off the road.
-   *
-   * Copied off the entry rather than read out of the title. It is the one flag
-   * that changes what the board is for — every other task is work to schedule,
-   * this one is a van that cannot go out in the morning — so it sorts to the
-   * top and is the only thing on the screen allowed to be red.
-   */
-  grounded: boolean;
   /** Posted by End Day, or typed on the board by hand. */
   source: "endDay" | "manual";
   /** The night it came off, `YYYY-MM-DD`, or "" for one typed here. */
@@ -219,7 +210,7 @@ export type RepairTask = {
   /** Who brought the van in. "" for a task typed on the board. */
   driverName: string;
   /**
-   * Van and title, normalised — what stops the same fault landing twice.
+   * The line, normalised — what stops the same fault landing twice.
    *
    * End Day compares this against every task already on the board and drops
    * the ones that match something still open. A van that is broken for a week
