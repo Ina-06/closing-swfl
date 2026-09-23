@@ -77,10 +77,10 @@ service cloud.firestore {
     // Deliberately absent from signedIn(). Every other role is a way of
     // looking at a night; this one cannot read a night at all — not the
     // roster, not an ETA, not a clock-out, not an infraction. The repairs
-    // collection carries its own copy of the van, the driver's name and the
-    // date it came off, so there is nothing about the close left for this role
-    // to need. Adding it to signedIn() would hand it the whole sheet in
-    // exchange for nothing.
+    // collection carries the van and the fault in the line itself, plus the
+    // driver's name and the date it came off, so there is nothing about the
+    // close left for this role to need. Adding it to signedIn() would hand it
+    // the whole sheet in exchange for nothing.
     function isRepairs() {
       return role() == 'repairs';
     }
