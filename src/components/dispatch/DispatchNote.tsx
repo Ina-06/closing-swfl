@@ -31,7 +31,8 @@ export function DispatchNote() {
   const auth = useAuth();
   const { nightKey, session } = useTonightSession();
   const { entries } = useEntries(nightKey);
-  const [open, setOpen] = useState(false);
+  /** Which note is being written, or null. One value — see CloserBoard. */
+  const [open, setOpen] = useState<"driver" | "everyone" | null>(null);
 
   /**
    * Nothing at all until there is a night to write on.
@@ -48,7 +49,7 @@ export function DispatchNote() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => setOpen("driver")}
         className="flex items-center gap-1 rounded-full border border-line-strong bg-surface px-2.5 py-1 text-[12px] font-semibold text-ink transition-colors hover:bg-sunken"
       >
         <span aria-hidden="true" className="text-[14px] leading-none">
@@ -57,13 +58,31 @@ export function DispatchNote() {
         Note
       </button>
 
+      {/* Beside it rather than inside the note sheet, because it is a different
+          decision made at a different moment: one is about a driver they have
+          just thought of, the other is something the whole yard needs told and
+          usually gets typed once, early. Blue, like the strip it writes. */}
+      <button
+        type="button"
+        onClick={() => setOpen("everyone")}
+        aria-label="Add a note for everyone tonight"
+        className="flex items-center gap-1 rounded-full border border-brand-line bg-surface px-2.5 py-1 text-[12px] font-semibold text-brand transition-colors hover:bg-brand-soft"
+      >
+        <span aria-hidden="true" className="text-[14px] leading-none">
+          +
+        </span>
+        Note all
+      </button>
+
       {open ? (
         <NoteSheet
+          key={open}
           nightKey={nightKey}
           session={session}
           entries={entries}
           uid={auth.uid}
-          onClose={() => setOpen(false)}
+          broadcast={open === "everyone"}
+          onClose={() => setOpen(null)}
         />
       ) : null}
     </>

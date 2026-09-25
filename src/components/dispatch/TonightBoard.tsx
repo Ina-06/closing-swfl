@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { BroadcastNote } from "@/components/BroadcastNote";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/Field";
 import { AllReturning } from "@/components/dispatch/AllReturning";
@@ -87,6 +88,15 @@ export function TonightBoard({
 
       {error ? (
         <ErrorNote>Could not reach tonight&rsquo;s sheet: {error}</ErrorNote>
+      ) : null}
+
+      {/* The same strip Karim has at the top of his phone, in the same blue,
+          reading the same words. It is here rather than only on his screen so
+          that whoever typed it can see it went out — a broadcast you cannot
+          confirm is a broadcast you type twice. Written from Note all in the
+          bar above; clearing that box takes this away. */}
+      {session.broadcastNote ? (
+        <BroadcastNote>{session.broadcastNote}</BroadcastNote>
       ) : null}
 
       <EntryForm

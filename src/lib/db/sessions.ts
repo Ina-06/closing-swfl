@@ -71,6 +71,10 @@ function toSession(data: DocumentData, id: string): Session {
     roster,
     rosterNotes,
     timeEdits,
+    // One string, not a map. Anything else in the field is not a note, and a
+    // blank one is the same as none at all — see saveBroadcastNote.
+    broadcastNote:
+      typeof data.broadcastNote === "string" ? data.broadcastNote.trim() : "",
     allReturningAt: data.allReturningAt ?? null,
     closedAt: data.closedAt ?? null,
   };
@@ -329,6 +333,36 @@ export async function saveTimeEdit(
 ) {
   await updateDoc(doc(getDb(), COLLECTION, nightKey), {
     [`timeEdits.${driverId}`]: edit.trim() === "" ? deleteField() : edit,
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  });
+}
+
+/**
+ * The one thing everybody needs to hear tonight.
+ *
+ * One field on the night rather than a note copied onto every row. Written from
+ * either side, because whoever knows the thing is the one who should be able to
+ * say it — the dispatcher hours before the wave goes out, or Karim at the gate
+ * when he finds it is locked.
+ *
+ * Cleared by emptying the box, and cleared means an empty string rather than a
+ * deleted field. Unlike the two maps above it this is a single value that every
+ * screen reads on every render, and a field that is sometimes absent and
+ * sometimes blank is two ways of saying nothing for every reader to handle.
+ *
+ * It overwrites rather than joining. A broadcast is one sentence the station is
+ * saying right now; the second one replaces the first, which is the whole
+ * difference between this and the note on a driver — that one is a growing
+ * record of a man's night and opens with whatever is already there.
+ */
+export async function saveBroadcastNote(
+  nightKey: string,
+  note: string,
+  updatedBy: string,
+) {
+  await updateDoc(doc(getDb(), COLLECTION, nightKey), {
+    broadcastNote: note.trim(),
     updatedAt: serverTimestamp(),
     updatedBy,
   });

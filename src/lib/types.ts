@@ -277,6 +277,21 @@ export type Session = {
    * breaks.
    */
   timeEdits: Record<string, string>;
+  /**
+   * One thing everybody needs to hear tonight, written once.
+   *
+   * Not forty copies of the same note. The gate code changed, the fuel card is
+   * in the office, nobody parks on the north side — that is a fact about the
+   * night, not about any one driver, and writing it onto every row would mean
+   * forty writes to say it and forty more to take it back, with no way to tell
+   * it apart afterwards from something somebody wrote about one man.
+   *
+   * So it lives here, beside the roster it applies to, and both screens render
+   * it in blue: amber is what this driver did, blue is what the station is
+   * saying. Either side may write it — whoever knows the thing says it — and
+   * clearing the box takes it off both screens at once.
+   */
+  broadcastNote: string;
   allReturningAt: Timestamp | null;
   closedAt: Timestamp | null;
 };

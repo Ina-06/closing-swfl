@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { BroadcastNote } from "@/components/BroadcastNote";
 import { TimeEditNotice } from "@/components/TimeEditNotice";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/Field";
@@ -27,6 +28,7 @@ export function RosterSheet({
   row,
   note,
   timeEdit,
+  broadcast,
   busy,
   error,
   onArrived,
@@ -37,6 +39,14 @@ export function RosterSheet({
   note: string;
   /** What HR changed about his hours tonight, or "". */
   timeEdit: string;
+  /**
+   * The one line the whole yard is being told tonight, or "".
+   *
+   * Here as well as on the sheet behind a real row, because this is the same
+   * moment — a van in front of him and a driver to say it to. That the man has
+   * no row yet is a fact about dispatch, not about whether he needs telling.
+   */
+  broadcast: string;
   busy: boolean;
   error: string | null;
   onArrived: () => void;
@@ -126,6 +136,10 @@ export function RosterSheet({
           ) : null}
 
           {timeEdit ? <TimeEditNotice>{timeEdit}</TimeEditNotice> : null}
+
+          {broadcast ? (
+            <BroadcastNote className="mt-3">{broadcast}</BroadcastNote>
+          ) : null}
 
           <section className="mt-5">
             <h3 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">

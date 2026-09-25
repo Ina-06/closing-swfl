@@ -11,10 +11,11 @@ import {
   WaitingCard,
   YardCard,
 } from "@/components/closer/DriverCard";
+import { Breakdown } from "@/components/closer/Breakdown";
 import { EndDay } from "@/components/closer/EndDay";
-import { InfractionBreakdown } from "@/components/closer/InfractionBreakdown";
 import { RosterSheet } from "@/components/closer/RosterSheet";
 import { Summary } from "@/components/closer/Summary";
+import { BroadcastNote } from "@/components/BroadcastNote";
 import { NoteSheet } from "@/components/NoteSheet";
 import { ErrorNote } from "@/components/ui/Field";
 import { addCloserEntry } from "@/lib/db/closer";
@@ -22,7 +23,7 @@ import { useEntries } from "@/lib/db/entries";
 import { etaMinutes, minutesLate, stationNowMinutes } from "@/lib/eta";
 import { pendingNote } from "@/lib/notes";
 import { timeEditFor } from "@/lib/timeEdits";
-import { infractionsByDriver, nightTotals } from "@/lib/totals";
+import { infractionsByDriver, nightTotals, returnsByDriver } from "@/lib/totals";
 import type { Entry, RosterEntry, Session } from "@/lib/types";
 
 /**
@@ -116,7 +117,13 @@ export function CloserBoard({
   const [sort, setSort] = useState<SortKey>("eta");
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [noting, setNoting] = useState(false);
+  /**
+   * The note sheet is open, and whether it is about one driver or everybody.
+   *
+   * One piece of state rather than two booleans, because the sheet is one sheet
+   * and two flags could both be true — which is a state that has no rendering.
+   */
+  const [noting, setNoting] = useState<"driver" | "everyone" | null>(null);
   /** The dashed name whose sheet is open. Opening it writes nothing. */
   const [openRoster, setOpenRoster] = useState<RosterEntry | null>(null);
   const [arriving, setArriving] = useState(false);
@@ -139,13 +146,20 @@ export function CloserBoard({
    */
   const [deliveringOpen, setDeliveringOpen] = useState(false);
   /**
-   * The infractions figure has been tapped, and is showing who they belong to.
+   * Which of the two figures has been tapped and is showing who it belongs to.
    *
    * Closed by default and closed again on the way out of anything else: it is
    * an answer to a question, not a panel, and it sits over the top of the list
    * Karim works down.
+   *
+   * One value rather than a flag each, because the two pills sit side by side
+   * and two panels open at once would overlap. Tapping one closes the other,
+   * which is also how it reads: he is asking about returns *instead of* asking
+   * about infractions.
    */
-  const [infractionsOpen, setInfractionsOpen] = useState(false);
+  const [breakdown, setBreakdown] = useState<"returns" | "infractions" | null>(
+    null,
+  );
   const now = useStationClock();
 
   const { returning, deliveringEntries, inYard, done } = useMemo(() => {
@@ -244,11 +258,12 @@ export function CloserBoard({
 
   /** Tonight's two figures. Counted in one place — see lib/totals. */
   const totals = useMemo(() => nightTotals(entries), [entries]);
-  /** The same infractions figure, broken down by who picked them up. */
+  /** The same two figures, broken down by who they belong to. */
   const infractionLines = useMemo(
     () => infractionsByDriver(entries),
     [entries],
   );
+  const returnsLines = useMemo(() => returnsByDriver(entries), [entries]);
 
   /**
    * A sheet is over the list, so the list is not his screen at the moment.
@@ -257,7 +272,7 @@ export function CloserBoard({
    * still be pointing at an entry the dispatcher has since removed.
    */
   const busyWithADriver =
-    adding || noting || openRoster !== null || open !== null;
+    adding || noting !== null || openRoster !== null || open !== null;
 
   /**
    * A roster name becomes a real driver — but only once Karim has said so.
@@ -352,55 +367,101 @@ export function CloserBoard({
           ) : null}
         </div>
 
-        <div className="mt-2 flex items-center gap-2">
-          {/* The night's two figures, in the middle of the top of his screen.
-              They are not about any one driver, which is why they are up here
-              and not on a card: at End Day somebody always asks how many
-              returns and how many infractions, and until now the only way to
-              answer was to add up the sheet by eye. */}
-          <div className="flex flex-1 items-start justify-center gap-2">
-            <Total label="Returns" value={totals.returns} />
+        {/* Wraps rather than squeezing. Three buttons and two figures do not
+            fit across a 390px phone, and the two halves are different kinds of
+            thing anyway — what the night has added up to, and what he can do
+            about it — so a narrow screen puts them on a line each. */}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {/* The night's two figures. They are not about any one driver, which
+              is why they are up here and not on a card: at End Day somebody
+              always asks how many returns and how many infractions, and until
+              now the only way to answer was to add up the sheet by eye.
 
-            {/* The figure and the answer to the question it provokes, in one
-                control. "Four infractions" is what gets asked for at End Day;
-                "whose" is what gets asked half a second later, and reading it
-                off the sheet meant opening forty of them. */}
+              Both of them open. The figure and the answer to the question it
+              provokes are one control: "seven returns" is what gets asked for
+              at End Day, "whose" is what gets asked half a second later, and
+              reading it off the sheet meant opening forty of them. */}
+          <div className="flex items-start gap-2">
+            <div className="relative">
+              <Total
+                label="Returns"
+                value={totals.returns}
+                open={breakdown === "returns"}
+                onClick={
+                  returnsLines.length > 0
+                    ? () =>
+                        setBreakdown((was) =>
+                          was === "returns" ? null : "returns",
+                        )
+                    : undefined
+                }
+              />
+
+              {breakdown === "returns" && returnsLines.length > 0 ? (
+                /* Plain rather than amber. Returns are a quantity, not a
+                   fault, and a second warning-coloured panel would take the
+                   colour out of the one beside it that is a warning. */
+                <Breakdown
+                  lines={returnsLines}
+                  tone="plain"
+                  onClose={() => setBreakdown(null)}
+                />
+              ) : null}
+            </div>
+
             <div className="relative">
               <Total
                 label="Infractions"
                 value={totals.infractions}
                 warn
-                open={infractionsOpen}
+                open={breakdown === "infractions"}
                 onClick={
                   infractionLines.length > 0
-                    ? () => setInfractionsOpen((was) => !was)
+                    ? () =>
+                        setBreakdown((was) =>
+                          was === "infractions" ? null : "infractions",
+                        )
                     : undefined
                 }
               />
 
-              {infractionsOpen && infractionLines.length > 0 ? (
-                <InfractionBreakdown
+              {breakdown === "infractions" && infractionLines.length > 0 ? (
+                <Breakdown
                   lines={infractionLines}
-                  onClose={() => setInfractionsOpen(false)}
+                  onClose={() => setBreakdown(null)}
                 />
               ) : null}
             </div>
           </div>
 
-          {/* Both live in the sticky header rather than under the list. A van
-              turns up unannounced, and something worth writing down about a
-              driver occurs to him, at moments when there are still twenty
-              names between Karim and the bottom of the screen. */}
-          <div className="flex shrink-0 items-center gap-1.5">
+          {/* All three live in the sticky header rather than under the list. A
+              van turns up unannounced, something worth writing down about a
+              driver occurs to him, the gate code turns out to have changed —
+              all at moments when there are still twenty names between Karim and
+              the bottom of the screen. */}
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <button
               type="button"
-              onClick={() => setNoting(true)}
+              onClick={() => setNoting("driver")}
               className="flex min-h-11 items-center gap-1 rounded-full border border-line-strong bg-surface px-3 text-[13px] font-bold text-ink active:brightness-[0.97]"
             >
               <span aria-hidden="true" className="text-[16px] leading-none">
                 +
               </span>
               Note
+            </button>
+            {/* Blue, like the strip it writes, so the two are obviously the
+                same thing seen from either end. */}
+            <button
+              type="button"
+              onClick={() => setNoting("everyone")}
+              aria-label="Add a note for everyone tonight"
+              className="flex min-h-11 items-center gap-1 rounded-full border border-brand-line bg-surface px-3 text-[13px] font-bold text-brand active:brightness-[0.97]"
+            >
+              <span aria-hidden="true" className="text-[16px] leading-none">
+                +
+              </span>
+              Note all
             </button>
             <button
               type="button"
@@ -432,6 +493,14 @@ export function CloserBoard({
 
       {error ? <ErrorNote>Lost the live feed: {error}</ErrorNote> : null}
       {addError ? <ErrorNote>{addError}</ErrorNote> : null}
+
+      {/* Above the lists because it is not about anybody on them. It is the
+          first thing on the screen under the counts, and it is on every
+          driver's sheet as well — this is where he reads it once, that is
+          where it is in front of him while he is stood at a van. */}
+      {session.broadcastNote ? (
+        <BroadcastNote>{session.broadcastNote}</BroadcastNote>
+      ) : null}
 
       {entries.length === 0 && notEntered.length === 0 ? (
         <Empty
@@ -646,11 +715,15 @@ export function CloserBoard({
 
       {noting ? (
         <NoteSheet
+          /* Keyed by which kind it is, so switching between them starts the box
+             from the right text rather than from the last one's. */
+          key={noting}
           nightKey={nightKey}
           session={session}
           entries={entries}
           uid={uid}
-          onClose={() => setNoting(false)}
+          broadcast={noting === "everyone"}
+          onClose={() => setNoting(null)}
         />
       ) : null}
 
@@ -659,6 +732,7 @@ export function CloserBoard({
           row={openRoster}
           note={pendingNote(session, openRoster.driverId)}
           timeEdit={timeEditFor(session, openRoster.driverId)}
+          broadcast={session.broadcastNote}
           busy={arriving}
           error={addError}
           onArrived={() => void addFromRoster(openRoster)}
@@ -674,6 +748,7 @@ export function CloserBoard({
           nightKey={nightKey}
           entry={open}
           timeEdit={timeEditFor(session, open.driverId)}
+          broadcast={session.broadcastNote}
           /* The clock itself, not a lateness worked out from it. The sheet
              needs to compare the ETA against a different moment in each state —
              now while he is on the road or stood at the van, the stamp once he
@@ -761,7 +836,7 @@ function Total({
       aria-expanded={open}
       aria-label={`${value} ${label.toLowerCase()} — ${open ? "hide" : "show"} who`}
       className={`flex flex-col items-center rounded-lg border px-2.5 py-1 leading-none transition-colors active:brightness-[0.97] ${tone} ${
-        open ? "ring-2 ring-warn/25" : ""
+        open ? (loud ? "ring-2 ring-warn/25" : "ring-2 ring-ink/10") : ""
       }`}
     >
       {inside}

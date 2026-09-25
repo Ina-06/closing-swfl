@@ -117,9 +117,17 @@ service cloud.firestore {
       // `rosterNotes` is his own map and nothing else's. `roster` and
       // `totalExpected` are not on this list, so writing a note can never
       // reshape the night: who is on tonight stays the dispatcher's to say.
+      //
+      // `broadcastNote` is the one line the whole station is being told — the
+      // gate code changed, the fuel card is in the office. It is on both sides'
+      // lists for the same reason `notes` is on both lists down in the entry
+      // rules: whoever finds the thing out is the one who should be able to say
+      // it, and half of what everybody needs to hear is only discovered once
+      // somebody is stood in the yard.
       function closerSessionFields() {
         return changedKeys().hasOnly([
-          'status', 'closedAt', 'pdfUrl', 'rosterNotes', 'updatedAt', 'updatedBy'
+          'status', 'closedAt', 'pdfUrl', 'rosterNotes', 'broadcastNote',
+          'updatedAt', 'updatedBy'
         ]);
       }
 

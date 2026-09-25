@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/Field";
 import { FlagTag } from "@/components/ui/FlagToggle";
 import { saveNote } from "@/lib/db/closer";
-import { saveRosterNote } from "@/lib/db/sessions";
+import { saveBroadcastNote, saveRosterNote } from "@/lib/db/sessions";
 import { nameKey } from "@/lib/names";
 import { pendingNote } from "@/lib/notes";
 import { useViewport } from "@/lib/viewport";
@@ -35,18 +35,29 @@ import type { Entry, RosterEntry, Session } from "@/lib/types";
  *
  * Two screens in one sheet, because that is the shape of the job: find the name,
  * then say the thing.
+ *
+ * Unless it is not about a driver at all, which is what `broadcast` is. Then
+ * there is no name to find — the thing is true of everybody tonight — so the
+ * picker is skipped and the sheet opens on the box. Same sheet, same editor,
+ * same two buttons, because it is the same act: somebody has something to say
+ * and wants it in front of the yard. Only who it lands on differs, and the
+ * strip it turns into is blue rather than amber so nobody goes looking for
+ * whose it was. See lib/db/sessions.
  */
 export function NoteSheet({
   nightKey,
   session,
   entries,
   uid,
+  broadcast = false,
   onClose,
 }: {
   nightKey: string;
   session: Session;
   entries: Entry[];
   uid: string;
+  /** Writing the one note that covers everyone, rather than one driver's. */
+  broadcast?: boolean;
   onClose: () => void;
 }) {
   /** The row he is writing about, or null while he is still looking for it. */
@@ -105,6 +116,13 @@ export function NoteSheet({
    */
   const viewport = useViewport();
   const lifted = viewport.height !== null && viewport.inset > 0;
+  /**
+   * The box is on screen rather than the list of names.
+   *
+   * A broadcast is never anything else — there is nobody to pick — so it is in
+   * this state from the moment the sheet opens.
+   */
+  const writing = broadcast || picked !== null;
   const panelStyle =
     viewport.height === null
       ? undefined
@@ -118,7 +136,7 @@ export function NoteSheet({
             : Math.round(viewport.height * 0.88),
           // The editor is a textarea and two buttons and should stay the size
           // it is; only the list he searches is held open.
-          height: picked || !lifted ? undefined : Math.round(viewport.height * 0.86),
+          height: writing || !lifted ? undefined : Math.round(viewport.height * 0.86),
         };
 
   const key = nameKey(query);
@@ -142,16 +160,19 @@ export function NoteSheet({
    * one — see lib/notes.
    */
   async function save(text: string) {
-    if (busy || !picked) return;
+    if (busy) return;
+    if (!broadcast && !picked) return;
     setBusy(true);
     setError(null);
 
     try {
-      // Which of the two places it goes is decided by whether he has a row,
-      // and by nothing else.
-      if (picked.entry) {
+      // Which of the three places it goes is decided by who it is about and
+      // whether he has a row, and by nothing else.
+      if (broadcast) {
+        await saveBroadcastNote(nightKey, text, uid);
+      } else if (picked?.entry) {
         await saveNote(nightKey, picked.entry.id, text, uid);
-      } else {
+      } else if (picked) {
         await saveRosterNote(nightKey, picked.driverId, text, uid);
       }
       onClose();
@@ -192,7 +213,13 @@ export function NoteSheet({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={picked ? `Note for ${picked.fullName}` : "Add a note"}
+        aria-label={
+          broadcast
+            ? "Broadcast note for everyone tonight"
+            : picked
+              ? `Note for ${picked.fullName}`
+              : "Add a note"
+        }
         style={panelStyle}
         className="animate-sheet absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col rounded-t-2xl border-t border-line bg-surface pb-safe"
       >
@@ -205,14 +232,20 @@ export function NoteSheet({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-[20px] font-bold leading-tight tracking-tight">
-                {picked ? picked.fullName : "Add a note"}
+                {broadcast
+                  ? "Note for everyone"
+                  : picked
+                    ? picked.fullName
+                    : "Add a note"}
               </h2>
               <p className="mt-1 text-[13px] leading-snug text-ink-muted">
-                {!picked
-                  ? "Pick a driver. The note pops up on his card the moment he is back."
-                  : picked.entry
-                    ? "It shows on his card and at the top of his sheet when he comes in."
-                    : "Nobody has entered him yet. The note sits on his card and stays with him when dispatch does."}
+                {broadcast
+                  ? "One line the whole yard sees tonight — dispatch and the closer both. It is not about any one driver."
+                  : !picked
+                    ? "Pick a driver. The note pops up on his card the moment he is back."
+                    : picked.entry
+                      ? "It shows on his card and at the top of his sheet when he comes in."
+                      : "Nobody has entered him yet. The note sits on his card and stays with him when dispatch does."}
               </p>
             </div>
 
@@ -243,12 +276,27 @@ export function NoteSheet({
           ) : null}
         </div>
 
-        {picked ? (
+        {broadcast ? (
           <NoteEditor
-            key={picked.key}
-            target={picked}
+            who="everyone tonight"
+            existing={session.broadcastNote}
+            placeholder="What the whole yard needs to know tonight"
             busy={busy}
             onSave={(text) => void save(text)}
+            /* Nothing behind it to go back to, so the second button is the way
+               out rather than a step backwards. */
+            backLabel="Cancel"
+            onBack={onClose}
+          />
+        ) : picked ? (
+          <NoteEditor
+            key={picked.key}
+            who={picked.fullName}
+            existing={picked.note}
+            placeholder="What you need to remember when he pulls in"
+            busy={busy}
+            onSave={(text) => void save(text)}
+            backLabel="Back"
             onBack={() => {
               setError(null);
               setPicked(null);
@@ -409,19 +457,29 @@ function whereHeIs(row: Target): string {
  * Opens with whatever is already on the record, caret at the end. That is what
  * makes one shared field safe: the dispatcher's line is in front of him, so
  * adding to it is the natural thing to do and wiping it has to be deliberate.
+ *
+ * Takes the text rather than the driver, so the broadcast uses the same box.
+ * Whose note it is is the caller's business; from in here it is one string that
+ * came from somewhere and goes back to it.
  */
 function NoteEditor({
-  target,
+  who,
+  existing,
+  placeholder,
   busy,
+  backLabel,
   onSave,
   onBack,
 }: {
-  target: Target;
+  /** Who it is about, for the label a screen reader reads out. */
+  who: string;
+  existing: string;
+  placeholder: string;
   busy: boolean;
+  backLabel: string;
   onSave: (text: string) => void;
   onBack: () => void;
 }) {
-  const existing = target.note;
   const [text, setText] = useState(existing);
   const box = useRef<HTMLTextAreaElement>(null);
 
@@ -435,7 +493,7 @@ function NoteEditor({
   return (
     <div className="mx-auto w-full max-w-lg overflow-y-auto px-4 pb-6">
       <label htmlFor="driver-note" className="sr-only">
-        Note for {target.fullName}
+        Note for {who}
       </label>
       <textarea
         id="driver-note"
@@ -443,14 +501,13 @@ function NoteEditor({
         value={text}
         onChange={(event) => setText(event.target.value)}
         rows={3}
-        placeholder="What you need to remember when he pulls in"
+        placeholder={placeholder}
         className="mt-4 w-full resize-y rounded-xl border border-line-strong bg-surface px-3.5 py-3 text-[16px] leading-snug text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-brand"
       />
 
       {existing.trim() ? (
         <p className="mt-2 text-[12px] leading-relaxed text-ink-faint">
-          There was already a note on him. Add to it — clearing the box takes it
-          off.
+          There is one already. Add to it — clearing the box takes it off.
         </p>
       ) : null}
 
@@ -471,7 +528,7 @@ function NoteEditor({
           onClick={onBack}
           className="min-h-14"
         >
-          Back
+          {backLabel}
         </Button>
       </div>
     </div>

@@ -60,34 +60,43 @@ export function infractionsOn(entry: Entry): number {
   return entry.infractions.trim() === "" ? 0 : 1;
 }
 
-/** One driver on the infractions list, and how many he picked up. */
-export type InfractionLine = {
+/** One driver under one of the night's figures, and his share of it. */
+export type BreakdownLine = {
   driverId: string;
   fullName: string;
   count: number;
 };
 
 /**
- * Who the night's infractions actually belong to.
+ * Who a night total actually belongs to.
  *
- * The figure at the top of Karim's phone answers "how many" and is the number
+ * The figures at the top of Karim's phone answer "how many" and are the numbers
  * somebody asks for at End Day. This answers the question straight after it,
  * which is the one he cannot get off a total: which of them, and who has more
  * than one. Until now the only way was to read forty rows.
  *
  * Summed by driver rather than by row. A second trip is a second row under one
- * name, and a man does not have two separate infractions because he went back
- * out — the list has to read the way Karim would say it out loud.
+ * name, and a man does not have two separate infractions — or two separate
+ * piles of returns — because he went back out. The list has to read the way
+ * Karim would say it out loud.
  *
  * Worst first, because that is the order the conversation happens in. Ties go
  * alphabetically so the list does not reshuffle itself under his thumb every
  * time a snapshot lands.
+ *
+ * One function for both figures, taking the per-driver count as an argument,
+ * because the only thing that differs between them is which number is being
+ * added up. Two copies would have drifted the first time one of them learned
+ * something about second trips.
  */
-export function infractionsByDriver(entries: Entry[]): InfractionLine[] {
-  const lines = new Map<string, InfractionLine>();
+function byDriver(
+  entries: Entry[],
+  countOn: (entry: Entry) => number,
+): BreakdownLine[] {
+  const lines = new Map<string, BreakdownLine>();
 
   for (const entry of entries) {
-    const count = infractionsOn(entry);
+    const count = countOn(entry);
     if (count === 0) continue;
 
     // Keyed by driver where there is one, and by row otherwise — an entry with
@@ -108,6 +117,22 @@ export function infractionsByDriver(entries: Entry[]): InfractionLine[] {
   return [...lines.values()].sort(
     (a, b) => b.count - a.count || a.fullName.localeCompare(b.fullName),
   );
+}
+
+export function infractionsByDriver(entries: Entry[]): BreakdownLine[] {
+  return byDriver(entries, infractionsOn);
+}
+
+/**
+ * Who is bringing packages back, and how many each.
+ *
+ * The same question as the infractions list and worth asking for the same
+ * reason: "seven returns" is the figure that gets read out at End Day, and
+ * "whose" is what gets asked half a second later. Seven off one driver and one
+ * each off seven are the same total and two completely different nights.
+ */
+export function returnsByDriver(entries: Entry[]): BreakdownLine[] {
+  return byDriver(entries, returnsOn);
 }
 
 export function nightTotals(entries: Entry[]): NightTotals {
