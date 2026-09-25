@@ -220,15 +220,19 @@ service cloud.firestore {
     // hanging it off the night it came from would mean the board could only be
     // assembled by reading every session there has ever been.
     //
-    // Two roles reach it and they reach it very differently:
+    // Two roles reach it, and they now reach it the same way.
     //
-    //   - repairs owns it. Read the board, add to it, tick a job off, correct
-    //     a line, remove one typed by mistake.
-    //   - closer only ever posts to it. End Day reads what is already open so
-    //     it does not file the same broken mirror seven nights running, then
-    //     writes one job per van issue. It cannot tick anything off and cannot
-    //     change or remove a job, because a van being fixed is not something
-    //     that happens in the yard at midnight.
+    // It did not start there. The closer used to post to the board and nothing
+    // else — End Day wrote the van issues and could not tick anything off,
+    // because a van being fixed is not something that happens in the yard at
+    // midnight. That was true about End Day, which is an automatic write at the
+    // end of a shift, and it stopped being true the moment the closer got a way
+    // to walk onto the board on purpose. A person standing at a van who can see
+    // the job and knows it is done should be able to say so; a board he can
+    // read and not touch is a board that sends him to find somebody else.
+    //
+    // So the split here is by collection, not by field. The repairs board is
+    // one job written by whoever is holding it, and both roles hold it.
     //
     // Note which role is *not* here. The dispatcher runs the night and has the
     // widest hand in this file everywhere else; the board is no part of the
@@ -259,8 +263,8 @@ service cloud.firestore {
       allow create: if (isRepairs() || isCloser())
                     && request.resource.data.keys().hasOnly(repairFields());
 
-      // Ticking a job off, and correcting what one says. The closer is not on
-      // this line on purpose — see above.
+      // Ticking a job off, and correcting what one says. The closer is on this
+      // line now — see above.
       //
       // What *changed*, not what the document contains — the same test every
       // other update in this file makes, and the difference is not academic.
@@ -270,12 +274,21 @@ service cloud.firestore {
       // back, and nothing on the board explains why. A rule that can strand a
       // real repair is worse than one that lets an unknown field sit there
       // being ignored.
-      allow update: if isRepairs() && changedKeys().hasOnly(repairFields());
+      allow update: if (isRepairs() || isCloser())
+                    && changedKeys().hasOnly(repairFields());
 
       // Only for a job typed by mistake. The board asks twice before it calls
       // this, and a job that was genuinely done is ticked off instead, which
       // keeps it in the archive.
-      allow delete: if isRepairs();
+      //
+      // isCloser() rather than the closer role by name, which means a one-time
+      // stand-in can delete a job too. That is the same reach a borrowed code
+      // already has over the whole night — every entry, every clock-out, End
+      // Day itself — so withholding this one would not be protecting anything
+      // it could not already reach. What it would do is put a Delete button on
+      // the stand-in's board that bounces every time, which is the failure this
+      // file works hardest to avoid.
+      allow delete: if isRepairs() || isCloser();
     }
 
     // One-time closer codes. Written and verified only by the Admin SDK, which

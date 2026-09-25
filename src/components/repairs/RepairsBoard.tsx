@@ -14,6 +14,8 @@ import {
   ARCHIVE_AFTER_DAYS,
   byFinished,
   byNewest,
+  byTitle,
+  daysOpen,
   daysUntilArchive,
   manualRepair,
   shelfFor,
@@ -44,6 +46,28 @@ const SHELVES: { key: Shelf; label: string }[] = [
   { key: "todo", label: "To do" },
   { key: "done", label: "Done" },
   { key: "archived", label: "Archive" },
+];
+
+/**
+ * The two orders the board can be read in.
+ *
+ * `recent` is what the board has always done and is still the default: newest
+ * first on To do, most recently finished on the other two. It is the order for
+ * catching up — what happened last night, what got signed off this week.
+ *
+ * `name` is the other question entirely, and it is the one the list could not
+ * answer. A job is "63 - Pass side out", so by name means by van, and somebody
+ * walking out to 214 wants everything on 214 together rather than scattered
+ * down a month of reports. See byTitle.
+ *
+ * Two, not five. This is a to-do list, and the moment a board like this grows
+ * a sort menu it grows a wrong setting somebody left it on.
+ */
+type SortKey = "recent" | "name";
+
+const SORTS: { key: SortKey; label: string; hint: string }[] = [
+  { key: "recent", label: "Newest", hint: "Sort by when it was reported" },
+  { key: "name", label: "A–Z", hint: "Sort by van and fault" },
 ];
 
 /**
@@ -81,6 +105,15 @@ function useNow(): number | null {
 export function RepairsBoard({ uid }: { uid: string }) {
   const { tasks, loading, capped, error } = useRepairs();
   const [shelf, setShelf] = useState<Shelf>("todo");
+  /**
+   * Which order the three lists are in.
+   *
+   * One setting across all three rather than one each. They are the same jobs
+   * at different ages — that is the whole argument for the tabs being tabs —
+   * and a board that silently reordered itself when you changed tab would be
+   * three boards wearing one hat.
+   */
+  const [sort, setSort] = useState<SortKey>("recent");
   /** The task being edited, "new" while one is being typed, null otherwise. */
   const [editing, setEditing] = useState<RepairTask | "new" | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -129,12 +162,18 @@ export function RepairsBoard({ uid }: { uid: string }) {
       else archived.push(task);
     }
 
+    /* By name it is one comparator for all three, because a van is a van
+       wherever it has got to. By date each list keeps the clock it is actually
+       about: To do is when the fault was reported, Done and Archive are when
+       somebody saw to it, which is the question being asked of a finished job. */
+    const order = sort === "name" ? byTitle : null;
+
     return {
-      todo: todo.sort(byNewest),
-      done: done.sort(byFinished),
-      archived: archived.sort(byFinished),
+      todo: todo.sort(order ?? byNewest),
+      done: done.sort(order ?? byFinished),
+      archived: archived.sort(order ?? byFinished),
     };
-  }, [tasks, now, lingering]);
+  }, [tasks, now, lingering, sort]);
 
   const showing = lists[shelf];
 
@@ -233,41 +272,77 @@ export function RepairsBoard({ uid }: { uid: string }) {
         </SoftWarning>
       ) : null}
 
-      {/* Scrolls rather than wraps on a narrow phone. Three tabs and their
-          counts fit a 390px screen, but "Archive · 128" late in the year does
-          not, and a tab row that reflows to two lines moves the list under the
-          thumb that was reaching for it. */}
-      <div
-        role="tablist"
-        aria-label="Which jobs to show"
-        className="-mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:px-0"
-      >
-        {SHELVES.map((option) => {
-          const active = shelf === option.key;
-          return (
-            <button
-              key={option.key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setShelf(option.key)}
-              className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3.5 text-[13px] font-semibold transition-colors ${
-                active
-                  ? "border-caution-line bg-caution-soft text-caution"
-                  : "border-line bg-surface text-ink-muted active:brightness-[0.97]"
-              }`}
-            >
-              {option.label}
-              <span
-                className={`tnum font-mono text-[12px] font-bold ${
-                  active ? "text-caution" : "text-ink-faint"
+      {/* Which jobs on the left, what order on the right. Two questions about
+          one list, side by side, because they are asked together — "what is
+          still outstanding, and put 214 together while you are at it". */}
+      <div className="flex items-center gap-2">
+        {/* Scrolls rather than wraps on a narrow phone. Three tabs and their
+            counts fit a 390px screen, but "Archive · 128" late in the year does
+            not, and a tab row that reflows to two lines moves the list under
+            the thumb that was reaching for it. */}
+        <div
+          role="tablist"
+          aria-label="Which jobs to show"
+          className="flex min-w-0 flex-1 gap-1 overflow-x-auto"
+        >
+          {SHELVES.map((option) => {
+            const active = shelf === option.key;
+            return (
+              <button
+                key={option.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setShelf(option.key)}
+                className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3.5 text-[13px] font-semibold transition-colors ${
+                  active
+                    ? "border-caution-line bg-caution-soft text-caution"
+                    : "border-line bg-surface text-ink-muted active:brightness-[0.97]"
                 }`}
               >
-                {loading ? "" : lists[option.key].length}
-              </span>
-            </button>
-          );
-        })}
+                {option.label}
+                <span
+                  className={`tnum font-mono text-[12px] font-bold ${
+                    active ? "text-caution" : "text-ink-faint"
+                  }`}
+                >
+                  {loading ? "" : lists[option.key].length}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* A segmented pair rather than a dropdown. Two options is not a menu,
+            and a native select on a phone opens a wheel for a choice that
+            should cost one tap. Never scrolls away with the tabs — the whole
+            point of it is that it applies to whichever one is showing. */}
+        <div
+          role="group"
+          aria-label="Sort the board"
+          className="flex shrink-0 rounded-lg border border-line bg-surface p-0.5"
+        >
+          {SORTS.map((option) => {
+            const active = sort === option.key;
+            return (
+              <button
+                key={option.key}
+                type="button"
+                aria-pressed={active}
+                title={option.hint}
+                onClick={() => setSort(option.key)}
+                className={`min-h-10 rounded-md px-2.5 text-[12px] font-semibold transition-colors ${
+                  active
+                    ? "bg-caution-soft text-caution"
+                    : "text-ink-muted active:brightness-[0.97]"
+                }`}
+              >
+                {option.label}
+                <span className="sr-only"> — {option.hint}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {loading ? (
@@ -285,6 +360,7 @@ export function RepairsBoard({ uid }: { uid: string }) {
               <TaskRow
                 task={task}
                 daysLeft={now === null ? null : daysUntilArchive(task, now)}
+                age={now === null ? null : daysOpen(task, now)}
                 leaving={lingering.has(task.id)}
                 onToggle={() => toggle(task)}
                 onOpen={() => {
@@ -347,6 +423,7 @@ export function RepairsBoard({ uid }: { uid: string }) {
 function TaskRow({
   task,
   daysLeft,
+  age,
   leaving,
   onToggle,
   onOpen,
@@ -354,6 +431,8 @@ function TaskRow({
   task: RepairTask;
   /** Days before it moves to the archive, or null when that is not the question. */
   daysLeft: number | null;
+  /** Whole days since the job was written, or null before the clock resolves. */
+  age: number | null;
   /** Just ticked off, and on its way to Done. See `lingering`. */
   leaving: boolean;
   onToggle: () => void;
@@ -414,30 +493,42 @@ function TaskRow({
           {task.title}
         </span>
 
-        {/* Where it came from, in the order it gets asked for: what night, who
-            was driving. The van is not here — it is the front of the line
-            above, which is the only place it needs to be said. */}
-        {task.nightKey || task.driverName || task.source === "manual" ? (
-          <span className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-none text-ink-faint">
-            {task.nightKey ? (
-              <span>
-                {stationDateLabel(new Date(`${task.nightKey}T12:00:00Z`))}
+        {/* Where it came from on the left, how long it has been here on the
+            right. They belong on one line because they are the two halves of
+            the same question — when was this reported, and how long ago was
+            that — and the age sits in the corner so a list of them reads down
+            the right-hand edge without anybody hunting for it. */}
+        <span className="mt-1.5 flex items-end justify-between gap-3">
+          <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+            {/* In the order it gets asked for: what night, who was driving.
+                The van is not here — it is the front of the line above, which
+                is the only place it needs to be said. */}
+            {task.nightKey || task.driverName || task.source === "manual" ? (
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-none text-ink-faint">
+                {task.nightKey ? (
+                  <span>
+                    {stationDateLabel(new Date(`${task.nightKey}T12:00:00Z`))}
+                  </span>
+                ) : null}
+                {task.nightKey && task.driverName ? <Dot /> : null}
+                {task.driverName ? <span>{task.driverName}</span> : null}
+                {task.source === "manual" ? <span>Added by hand</span> : null}
               </span>
             ) : null}
-            {task.nightKey && task.driverName ? <Dot /> : null}
-            {task.driverName ? <span>{task.driverName}</span> : null}
-            {task.source === "manual" ? <span>Added by hand</span> : null}
-          </span>
-        ) : null}
 
-        {/* Only on the Done list, and only as long as it is true. Somebody
-            wondering where last month's work went should find the answer on
-            the row itself rather than in a tab they have not opened. */}
-        {daysLeft !== null ? (
-          <span className="mt-1.5 block text-[11px] font-medium text-ink-faint">
-            Moves to the archive in {daysLeft} {daysLeft === 1 ? "day" : "days"}
+            {/* Only on the Done list, and only as long as it is true. Somebody
+                wondering where last month's work went should find the answer on
+                the row itself rather than in a tab they have not opened. */}
+            {daysLeft !== null ? (
+              <span className="block text-[11px] font-medium text-ink-faint">
+                Moves to the archive in {daysLeft}{" "}
+                {daysLeft === 1 ? "day" : "days"}
+              </span>
+            ) : null}
           </span>
-        ) : null}
+
+          {age !== null ? <Age days={age} done={task.done} /> : null}
+        </span>
       </button>
     </div>
   );
@@ -447,6 +538,44 @@ function Dot() {
   return (
     <span aria-hidden="true" className="text-line-strong">
       ·
+    </span>
+  );
+}
+
+/**
+ * How long this job has been on the board.
+ *
+ * The thing the date could not say. "Wed 3 Sep" is precise and means nothing
+ * on its own — working out that it is three weeks old is arithmetic somebody
+ * has to do standing in a workshop, against a date that gets a month further
+ * away every month. A number of days is the answer to the question the date
+ * was being read for.
+ *
+ * Grey, and the same grey however old it is. There is a real temptation to
+ * turn thirty days red, and it is the wrong instinct on this board: nothing
+ * here outranks anything else, a fault is a line somebody has to see to, and
+ * the sheet already says GROUNDED inside the line when the van is off the
+ * road. An age that shouted would be this file inventing a priority out of a
+ * timestamp — see byNewest, which refuses the same thing.
+ *
+ * Past tense once it is ticked off, because the number stops running then in
+ * every sense that matters: "12 days" on a finished job reads as still
+ * waiting. Read out in full to a screen reader, since "12d" is not a word.
+ */
+function Age({ days, done }: { days: number; done: boolean }) {
+  const label = days === 0 ? "Today" : `${days} ${days === 1 ? "day" : "days"}`;
+
+  return (
+    <span
+      className="tnum shrink-0 self-end font-mono text-[11px] font-medium leading-none text-ink-faint"
+      title={done ? `Sat on the board ${label}` : `Open ${label}`}
+    >
+      <span aria-hidden="true">{label}</span>
+      <span className="sr-only">
+        {days === 0
+          ? "Opened today"
+          : `${done ? "Sat on the board for" : "Open for"} ${label}`}
+      </span>
     </span>
   );
 }

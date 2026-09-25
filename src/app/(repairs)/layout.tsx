@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BuildTag } from "@/components/BuildTag";
+import { PortalSwitch } from "@/components/PortalSwitch";
 import { RoleGate } from "@/components/RoleGate";
 import { SignOutButton } from "@/components/SignOutButton";
 import { StationDate } from "@/components/StationDate";
@@ -22,6 +23,11 @@ export const metadata = { title: "Repairs — Closing SWFL" };
  * role cannot go, and a row of links to them would be four ways of being told
  * no. The three lists it does have are inside the board, where they belong,
  * because they are one list filtered three ways rather than three screens.
+ *
+ * The one exception is the way back to the close, and it is an exception that
+ * proves the rule: it only appears for somebody who came from there. A repairs
+ * session still sees no navigation at all, because there is still nowhere it
+ * can go. See PortalSwitch.
  */
 export default function RepairsLayout({
   children,
@@ -36,6 +42,7 @@ export default function RepairsLayout({
 
           <div className="flex items-center gap-2 sm:gap-3">
             <StationDate className="tnum hidden font-mono text-xs text-ink-muted sm:inline" />
+            <PortalSwitch to="closing" />
             <SignOutButton />
             <span className="rounded-full border border-caution-line bg-caution-soft px-2.5 py-1 text-[11px] font-semibold text-caution">
               Repairs
@@ -45,7 +52,12 @@ export default function RepairsLayout({
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-6 pb-safe sm:px-8 sm:py-10">
-        <RoleGate allow={["repairs"]}>{children}</RoleGate>
+        {/* The closer is on this list now. He works both sides of the same van
+            — he writes the fault at the handover and it lands here at End Day
+            — and until now seeing what was outstanding meant signing out and
+            back in. A one-time stand-in comes with him, because a one-time
+            code is the closer screen with a clock on it. */}
+        <RoleGate allow={["repairs", "closer", "onetime"]}>{children}</RoleGate>
         <BuildTag />
       </main>
     </div>

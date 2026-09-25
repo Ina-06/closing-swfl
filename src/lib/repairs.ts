@@ -260,3 +260,61 @@ export function byNewest(a: RepairTask, b: RepairTask): number {
 export function byFinished(a: RepairTask, b: RepairTask): number {
   return (b.doneAt?.toMillis() ?? 0) - (a.doneAt?.toMillis() ?? 0);
 }
+
+/**
+ * The board by name, which on this board means by van.
+ *
+ * A job is "63 - Pass side out", so the front of the line is nearly always the
+ * van number and sorting by name is sorting by van. That is the whole reason
+ * anybody wants it: three jobs on 214 are scattered down a list ordered by
+ * when they were reported, and somebody about to work on 214 wants them
+ * together.
+ *
+ * `numeric` is what makes that true rather than nearly true. Plain string
+ * order puts 214 before 63 before 7, because it compares the first character
+ * and stops — which on a list of van numbers is not alphabetical order, it is
+ * nonsense. With it, 7, 63 and 214 come out in the order a person would read
+ * them out, and a van called VANGUARD1 still sorts under V.
+ *
+ * `sensitivity: "base"` so a line typed in capitals at midnight does not sort
+ * into its own group away from the same van written in lower case.
+ *
+ * Ties fall back to newest first, so two jobs on one van stay in a stable,
+ * meaningful order rather than shuffling when a snapshot lands.
+ */
+export function byTitle(a: RepairTask, b: RepairTask): number {
+  return (
+    a.title.localeCompare(b.title, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    }) || byNewest(a, b)
+  );
+}
+
+/**
+ * How long a job has been on the board, in whole days.
+ *
+ * Measured from when it was written, never from the night it came off. Those
+ * are usually the same evening and occasionally are not — a fault typed onto
+ * the board by hand has no night at all — and the question this answers is how
+ * long the job has been sitting there, which is a fact about the board.
+ *
+ * Floored, so it reads as days completed: a job opened this evening is 0 and
+ * says "Today", and it does not become "1 day" until a day has actually passed.
+ * The opposite of the archive countdown above, which rounds up because nobody
+ * wants to watch a deadline reach nought while the thing is still on screen.
+ *
+ * Clamped at zero. `now` is floored to the hour and `createdAt` is read with a
+ * local estimate behind it, so a job added two minutes ago can briefly carry a
+ * stamp in front of the clock, and "-0 days" on a fresh row would be the first
+ * thing anybody noticed about this board.
+ *
+ * Null when there is no stamp yet at all, which is the moment between a job
+ * being typed and the write landing.
+ */
+export function daysOpen(task: RepairTask, now: number): number | null {
+  const at = task.createdAt?.toMillis();
+  if (at === undefined) return null;
+
+  return Math.max(0, Math.floor((now - at) / DAY_MS));
+}

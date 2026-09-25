@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BuildTag } from "@/components/BuildTag";
+import { PortalSwitch } from "@/components/PortalSwitch";
 import { RoleGate } from "@/components/RoleGate";
 import { SignOutButton } from "@/components/SignOutButton";
 import { StationDate } from "@/components/StationDate";
@@ -32,6 +33,13 @@ export default function CloserLayout({
 
           <div className="flex items-center gap-1.5">
             <SyncDot />
+            {/* The way to the repairs board, in the chrome rather than at the
+                foot of the list. What is outstanding on the vans gets asked at
+                the gate, mid-wave, with twenty names still between him and the
+                bottom of the screen — the same reason +Note and +Driver live
+                up here. Before the role chip, because it is a place to go and
+                the chip is only who he is. */}
+            <PortalSwitch to="repairs" />
             <SignOutButton />
             <span className="rounded-full border border-arrived-line bg-arrived-soft px-2.5 py-1 text-[11px] font-semibold text-arrived">
               Closer
