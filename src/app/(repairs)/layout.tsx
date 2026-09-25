@@ -55,9 +55,16 @@ export default function RepairsLayout({
         {/* The closer is on this list now. He works both sides of the same van
             — he writes the fault at the handover and it lands here at End Day
             — and until now seeing what was outstanding meant signing out and
-            back in. A one-time stand-in comes with him, because a one-time
-            code is the closer screen with a clock on it. */}
-        <RoleGate allow={["repairs", "closer", "onetime"]}>{children}</RoleGate>
+            back in.
+
+            A one-time stand-in is deliberately not. Everywhere else in the app
+            a borrowed code is a closer, because a stand-in covering the close
+            does the close; this board is the station's rather than the
+            night's, and a code that stops working in twelve hours has no
+            business on a list that outlives every session on it. Turned away
+            here rather than shown a board of controls that bounce — the rules
+            draw the same line, with isPermanentCloser. */}
+        <RoleGate allow={["repairs", "closer"]}>{children}</RoleGate>
         <BuildTag />
       </main>
     </div>

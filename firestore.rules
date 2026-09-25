@@ -64,6 +64,23 @@ service cloud.firestore {
       return role() == 'closer' || (role() == 'onetime' && onetimeLive());
     }
 
+    // Karim's own phone, and not a borrowed one.
+    //
+    // Everywhere else in this file a stand-in is a closer, because a stand-in
+    // covering the close does the close: the entries, the vans, the
+    // clock-outs, End Day. This is the one thing that is the station's rather
+    // than the night's — the repairs board outlives every session on it — and
+    // a code that stops working in twelve hours should not be able to tick off
+    // or remove a job that will still be there next month.
+    //
+    // Kept narrow on purpose, and only used where the app matches it: the
+    // repairs portal turns a stand-in away at the door and never shows them
+    // the button, so this rule is the boundary behind that rather than a
+    // control that bounces.
+    function isPermanentCloser() {
+      return role() == 'closer';
+    }
+
     // HR reads tonight and writes one map on it. Every other rule in this file
     // is silent about them, which means no — the catch-all at the bottom and
     // the hasOnly lists above it do the work, and nothing has to remember to
@@ -234,6 +251,13 @@ service cloud.firestore {
     // So the split here is by collection, not by field. The repairs board is
     // one job written by whoever is holding it, and both roles hold it.
     //
+    // With one line drawn inside the closer, which is the only place in this
+    // file that tells a stand-in apart from Karim. Reading the board and
+    // posting to it are what End Day does, so they stay with isCloser() and a
+    // borrowed code keeps them. Ticking a job off, correcting it and removing
+    // it are the board's own work on a list that outlives the night, so they
+    // need the permanent closer — see isPermanentCloser.
+    //
     // Note which role is *not* here. The dispatcher runs the night and has the
     // widest hand in this file everywhere else; the board is no part of the
     // night, so they have nothing on it. HR the same. Neither had to be
@@ -274,21 +298,19 @@ service cloud.firestore {
       // back, and nothing on the board explains why. A rule that can strand a
       // real repair is worse than one that lets an unknown field sit there
       // being ignored.
-      allow update: if (isRepairs() || isCloser())
+      allow update: if (isRepairs() || isPermanentCloser())
                     && changedKeys().hasOnly(repairFields());
 
       // Only for a job typed by mistake. The board asks twice before it calls
       // this, and a job that was genuinely done is ticked off instead, which
       // keeps it in the archive.
       //
-      // isCloser() rather than the closer role by name, which means a one-time
-      // stand-in can delete a job too. That is the same reach a borrowed code
-      // already has over the whole night — every entry, every clock-out, End
-      // Day itself — so withholding this one would not be protecting anything
-      // it could not already reach. What it would do is put a Delete button on
-      // the stand-in's board that bounces every time, which is the failure this
-      // file works hardest to avoid.
-      allow delete: if isRepairs() || isCloser();
+      // The closer by name rather than isCloser(), so a one-time stand-in is
+      // not on this line. A borrowed code lasts twelve hours; the job it would
+      // be removing is on a list that outlives the night it came off, and
+      // there is nobody to ask about it afterwards. The portal turns a
+      // stand-in away at the door, so nothing on their screen offers this.
+      allow delete: if isRepairs() || isPermanentCloser();
     }
 
     // One-time closer codes. Written and verified only by the Admin SDK, which

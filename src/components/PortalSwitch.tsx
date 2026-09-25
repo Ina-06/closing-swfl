@@ -23,9 +23,17 @@ import { useAuth } from "@/lib/auth/AuthProvider";
  * dispatcher is not offered the board for the same reason: it is no part of
  * the night, and the rules say so.
  *
- * A one-time stand-in gets it, because a one-time code *is* the closer side —
- * it is the same screen with a clock on it, and it already carries the whole
- * night. See firestore.rules, which draws the same line with isCloser().
+ * A one-time stand-in does not get it either, and that is the one place in
+ * this app where a borrowed code is not simply a closer. Everywhere else it
+ * is: a stand-in covering the close does the close, every entry and every
+ * clock-out and End Day itself. But this board is the station's rather than
+ * the night's — a job opened in August is ticked off in September — and a code
+ * that stops working in twelve hours has nothing to do on it.
+ *
+ * Hidden rather than shown and refused. A button that leads to "wrong screen
+ * for this key" is worse than no button, and the same goes for a board full of
+ * controls that bounce. firestore.rules draws the line in the same place, with
+ * isPermanentCloser.
  */
 
 const DOORS = {
@@ -60,7 +68,7 @@ export function PortalSwitch({ to }: { to: keyof typeof DOORS }) {
   const door = DOORS[to];
 
   if (auth.status !== "signedIn") return null;
-  if (auth.role !== "closer" && auth.role !== "onetime") return null;
+  if (auth.role !== "closer") return null;
 
   return (
     <Link
