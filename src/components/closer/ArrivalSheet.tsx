@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { BroadcastNote } from "@/components/BroadcastNote";
 import { TimeEditNotice } from "@/components/TimeEditNotice";
 import {
   ClockPickerDialog,
@@ -55,6 +56,7 @@ export function ArrivalSheet({
   nightKey,
   entry,
   timeEdit,
+  broadcast,
   now,
   uid,
   openOnVan = false,
@@ -71,6 +73,16 @@ export function ArrivalSheet({
    * and a row removed in error does not take it away. See lib/timeEdits.
    */
   timeEdit: string;
+  /**
+   * The one line the whole yard is being told tonight, or "".
+   *
+   * Passed in rather than read off the entry, for the same reason as the time
+   * edit above: it was never written onto a row. It is a fact about the night,
+   * so it lives on the night — see lib/types. Here as well as at the top of the
+   * board because this sheet is the ninety seconds Karim is stood at a van with
+   * a driver in front of him, which is when he has to remember to say it.
+   */
+  broadcast: string;
   /** Where we are on tonight's timeline, or null before the client hydrates. */
   now: number | null;
   uid: string;
@@ -368,6 +380,12 @@ export function ArrivalSheet({
           ) : null}
 
           {timeEdit ? <TimeEditNotice>{timeEdit}</TimeEditNotice> : null}
+
+          {/* Last of the three strips, because the other two are about the man
+              stood in front of him and this one is about everybody. */}
+          {broadcast ? (
+            <BroadcastNote className="mt-3">{broadcast}</BroadcastNote>
+          ) : null}
 
           {/* First, because it is what he reads before he opens his mouth. */}
           <FromDispatch entry={entry} />
@@ -1131,6 +1149,17 @@ const METRIC_TONE: Record<MetricTone, string> = {
  * For Karim's eyes only — it is not a column on the paper sheet, so it will not
  * appear on the PDF. He is about to talk to this person; the arrow and the
  * colour are the part of that conversation he wants before he opens his mouth.
+ *
+ * And the scale said out loud, in grey, beside the code. The codes are the
+ * dispatcher's shorthand: they type them all night and know them cold. Karim
+ * reads one every few minutes, nine of them exist, and four begin with a J or a
+ * W — O.I. against J.A. against J.B. is three letters apart and the whole
+ * difference between a driver who is fine and one who is not. A tooltip is not
+ * an answer on a phone, so the words are simply there.
+ *
+ * Small and faint on purpose. The pill is still the thing being read; this is
+ * the gloss under it, and it must not compete with the colour that is doing the
+ * real work.
  */
 function Performance({
   direction,
@@ -1142,7 +1171,7 @@ function Performance({
   if (!direction && !metric) return <>Not set</>;
 
   return (
-    <span className="flex items-center gap-2">
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
       {direction ? (
         <span
           role="img"
@@ -1153,12 +1182,16 @@ function Performance({
         </span>
       ) : null}
       {metric ? (
-        <span
-          title={metric.title}
-          className={`rounded-md border px-2 py-0.5 font-mono text-[14px] font-bold ${METRIC_TONE[metric.tone]}`}
-        >
-          {metric.label}
-        </span>
+        <>
+          <span
+            className={`rounded-md border px-2 py-0.5 font-mono text-[14px] font-bold ${METRIC_TONE[metric.tone]}`}
+          >
+            {metric.label}
+          </span>
+          <span className="text-[12.5px] font-medium leading-none text-ink-faint">
+            {metric.title}
+          </span>
+        </>
       ) : null}
     </span>
   );
