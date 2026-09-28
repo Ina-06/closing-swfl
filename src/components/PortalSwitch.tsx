@@ -43,23 +43,11 @@ const DOORS = {
     /* Orange, the repairs portal's own colour, so the pill looks like where it
        goes rather than like the screen it is sitting on. */
     tone: "border-caution-line bg-caution-soft text-caution",
-    icon: (
-      <>
-        <path d="M14.5 5.5a4 4 0 015.2 5.2l-8 8a4 4 0 01-5.2-5.2z" />
-        <path d="M5.5 15.5l3 3" />
-      </>
-    ),
   },
   closing: {
     href: "/closer",
     label: "Closing",
     tone: "border-arrived-line bg-arrived-soft text-arrived",
-    icon: (
-      <>
-        <rect x="6.5" y="2.5" width="11" height="19" rx="2.5" />
-        <path d="M10.5 18.5h3" />
-      </>
-    ),
   },
 } as const;
 
@@ -71,23 +59,21 @@ export function PortalSwitch({ to }: { to: keyof typeof DOORS }) {
   if (auth.role !== "closer") return null;
 
   return (
+    /* "Go to" in small grey capitals over the name. On its own the pill read
+       as a label — which screen this is — rather than a way to another one,
+       and beside a logo or a role chip saying the other name it was
+       genuinely ambiguous. Stacked rather than beside, because the headers
+       are full at phone width: two lines inside the button is narrower than
+       the icon and name it replaces, and the colour already says where. */
     <Link
       href={door.href}
-      className={`flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-bold transition-[filter] active:brightness-[0.97] ${door.tone}`}
+      aria-label={`Go to ${door.label}`}
+      className={`flex min-h-9 shrink-0 flex-col items-start justify-center gap-0.5 rounded-xl border px-2.5 py-1 leading-none transition-[filter] active:brightness-[0.97] ${door.tone}`}
     >
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="size-3.5 shrink-0"
-        aria-hidden="true"
-      >
-        {door.icon}
-      </svg>
-      {door.label}
+      <span className="text-[9px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+        Go to
+      </span>
+      <span className="text-[12px] font-bold">{door.label}</span>
     </Link>
   );
 }

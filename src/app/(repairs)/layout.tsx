@@ -4,6 +4,7 @@ import { PortalSwitch } from "@/components/PortalSwitch";
 import { RoleGate } from "@/components/RoleGate";
 import { SignOutButton } from "@/components/SignOutButton";
 import { StationDate } from "@/components/StationDate";
+import { Mark } from "@/components/Wordmark";
 import { AddJobButton, AddJobProvider } from "@/components/repairs/AddJob";
 
 export const metadata = { title: "Repairs — Closing SWFL" };
@@ -29,11 +30,11 @@ export const metadata = { title: "Repairs — Closing SWFL" };
  * session still sees no navigation at all, because there is still nowhere it
  * can go. See PortalSwitch.
  *
- * The orange chip is the logo here, top left where the Closing mark is on
- * every other screen. It was a role chip on the right, and the board's own
- * heading and Add a job sat underneath the header saying "Repairs" a second
- * time; now the chip names the screen, Add job takes its old place, and the
- * list starts directly under the header.
+ * Top left is the closer's own logo — the same mark, the same type, the date
+ * underneath — with "Repairs" where it says "Closing", so the two sides of
+ * the door read as one app. The board's heading and its orange role chip
+ * both went: the logo names the screen, Add job takes the chip's place, and
+ * the list starts directly under the header.
  */
 export default function RepairsLayout({
   children,
@@ -43,28 +44,17 @@ export default function RepairsLayout({
       <div className="min-h-dvh">
         <header className="sticky top-0 z-20 border-b border-line bg-surface/90 pt-safe backdrop-blur-md">
           <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-2 px-4 sm:px-8">
-            <Link
-              href="/repairs"
-              className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-caution-line bg-caution-soft px-3 text-[14px] font-bold tracking-tight text-caution"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="size-4 shrink-0"
-                aria-hidden="true"
-              >
-                <path d="M14.5 5.5a4 4 0 015.2 5.2l-8 8a4 4 0 01-5.2-5.2z" />
-                <path d="M5.5 15.5l3 3" />
-              </svg>
-              Repairs
+            <Link href="/repairs" className="flex items-center gap-2.5 rounded-sm">
+              <Mark className="size-7" />
+              <span className="leading-none">
+                <span className="block text-[14px] font-bold tracking-tight">
+                  Repairs
+                </span>
+                <StationDate className="tnum mt-1 block max-w-[9ch] font-mono text-[10px] text-ink-faint" />
+              </span>
             </Link>
 
-            <div className="flex items-center gap-1.5 sm:gap-3">
-              <StationDate className="tnum hidden font-mono text-xs text-ink-muted sm:inline" />
+            <div className="flex items-center gap-1 sm:gap-3">
               <PortalSwitch to="closing" />
               <SignOutButton />
               <AddJobButton />

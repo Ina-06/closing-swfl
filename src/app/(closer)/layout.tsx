@@ -27,7 +27,7 @@ export default function CloserLayout({
               <span className="block text-[14px] font-bold tracking-tight">
                 Closing
               </span>
-              <StationDate className="tnum mt-1 block font-mono text-[10px] text-ink-faint" />
+              <StationDate className="tnum mt-1 block max-w-[9ch] font-mono text-[10px] text-ink-faint" />
             </span>
           </Link>
 
