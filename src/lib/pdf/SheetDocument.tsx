@@ -26,19 +26,20 @@ import type { Mark, SheetRow } from "@/lib/sheet";
 /**
  * Column widths, in percent of the printable width. They sum to 100.
  *
- * Re-cut when the checks went from seven to nine. Everything else gave up a
- * little rather than the checks giving up a lot: nine columns at the old 5.5%
- * would have been 49.5% of the page, and a tick column is the one thing here
- * that cannot be read wrong for being narrow — it holds a single glyph.
+ * Re-cut when the checks went from seven to nine, and again from nine to
+ * twelve. Everything else gave up a little rather than the checks giving up a
+ * lot, and a tick column is the one thing here that cannot be read wrong for
+ * being narrow — it holds a single glyph.
  */
 const COLUMNS = {
-  number: 3.5,
-  name: 16,
-  time: 6.5,
-  van: 6,
-  /** Nine of these. 5% of the printable width is ~40pt, which fits "CHARGER". */
-  check: 5,
-  vanIssues: 23,
+  number: 3,
+  name: 14.5,
+  time: 6,
+  van: 5.5,
+  /** Twelve of these. 4.25% of the printable width is ~33pt, which fits
+      "CHARGER" at the heading size below. */
+  check: 4.25,
+  vanIssues: 20,
 } as const;
 
 const INK = "#101820";
@@ -93,7 +94,7 @@ const styles = StyleSheet.create({
   },
   /* The check headings are the longest words in the narrowest columns, so they
      give up the letter-spacing and half a point of size to stay on one line. */
-  checkHead: { fontSize: 6.5, letterSpacing: 0, paddingHorizontal: 1 },
+  checkHead: { fontSize: 6, letterSpacing: 0, paddingHorizontal: 1 },
   cell: {
     paddingVertical: 3.5,
     paddingHorizontal: 3,

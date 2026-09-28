@@ -31,7 +31,8 @@ import {
   type YardFields,
 } from "@/lib/db/closer";
 import {
-  CHECKS,
+  GEAR_CHECKS,
+  VAN_CHECKS,
   METRICS,
   stationInstant,
   stationTimeInputValue,
@@ -932,28 +933,15 @@ function VanPanel({
 
       {/* Three across, in the order he walks them. Six across would put the
           last one past the reach of a thumb on the hand holding the phone.
-          Equal rows, so the one check whose name runs to two lines does not
-          make its row taller than the other and leave the grid looking like it
+          Equal rows, so a check whose name runs to two lines does not make its
+          row taller than the others and leave the grid looking like it
           slipped. */}
-      <div className="mt-2.5 grid auto-rows-fr grid-cols-3 gap-2">
-        {CHECKS.map((check, index) => (
-          <CheckCycle
-            key={check.field}
-            label={check.label}
-            value={entry[check.field]}
-            onChange={(value) => setCheck(check.field, value)}
-            /* A last row holding one tile reads as a grid that slipped, so it
-               takes the whole row instead. Worked out from the count rather
-               than named, so the seventh check is still one line in
-               constants. */
-            className={
-              index === CHECKS.length - 1 && CHECKS.length % 3 === 1
-                ? "col-span-3"
-                : ""
-            }
-          />
-        ))}
-      </div>
+      <CheckGrid
+        checks={VAN_CHECKS}
+        entry={entry}
+        onChange={setCheck}
+        className="mt-2.5"
+      />
 
       {/* A rule, not a heading. "Van issues" was written twice here — once in
           grey above the bar and once inside it, where it is the instruction the
@@ -1038,7 +1026,60 @@ function VanPanel({
           </button>
         </>
       ) : null}
+
+      {/* What the driver was lent, under the van's half and the one decision
+          about the van. Not van issues — a driver back without his cleats is
+          a conversation with the driver, not a job for the morning — so these
+          never write into the box above. Another dashed rule, because this is
+          a different list rather than more of the same one. */}
+      <div
+        aria-hidden="true"
+        className="mt-5 border-t border-dashed border-line-strong"
+      />
+      <CheckGrid
+        checks={GEAR_CHECKS}
+        entry={entry}
+        onChange={setCheck}
+        className="mt-3"
+      />
     </section>
+  );
+}
+
+/**
+ * A block of tiles, three across.
+ *
+ * A last row holding one tile reads as a grid that slipped, so it takes the
+ * whole row instead. Worked out from the count rather than named, so adding a
+ * check is still one line in constants.
+ */
+function CheckGrid({
+  checks,
+  entry,
+  onChange,
+  className = "",
+}: {
+  checks: readonly { field: CheckField; label: string }[];
+  entry: Entry;
+  onChange: (field: CheckField, value: Check) => void;
+  className?: string;
+}) {
+  return (
+    <div className={`grid auto-rows-fr grid-cols-3 gap-2 ${className}`}>
+      {checks.map((check, index) => (
+        <CheckCycle
+          key={check.field}
+          label={check.label}
+          value={entry[check.field]}
+          onChange={(value) => onChange(check.field, value)}
+          className={
+            index === checks.length - 1 && checks.length % 3 === 1
+              ? "col-span-3"
+              : ""
+          }
+        />
+      ))}
+    </div>
   );
 }
 

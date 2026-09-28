@@ -84,12 +84,19 @@ export function Breakdown({
         className="fixed inset-0 z-20 cursor-default"
       />
 
-      <div className="absolute left-1/2 top-full z-30 mt-2 w-[236px] max-w-[calc(100vw-2rem)] -translate-x-1/2">
+      {/* Hangs to the right from the pill's left edge rather than centred
+          under it. The Returns pill is the first thing on its row, hard
+          against the left of the phone, and centring a 236px panel under a
+          70px pill pushed half of it off the screen — the names came out as
+          "an Sanders". Growing rightwards keeps it on screen from either
+          pill, since both sit in the left half of the row. */}
+      <div className="absolute left-0 top-full z-30 mt-2 w-[248px] max-w-[calc(100vw-2rem)]">
         {/* The notch. A rotated square rather than a border trick, so it
-            carries the panel's own border on the two sides that show. */}
+            carries the panel's own border on the two sides that show. Over
+            the middle of a pill, which is roughly this far in on both. */}
         <span
           aria-hidden="true"
-          className={`absolute left-1/2 top-0 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border-l border-t ${skin.notch}`}
+          className={`absolute left-8 top-0 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border-l border-t ${skin.notch}`}
         />
 
         <div

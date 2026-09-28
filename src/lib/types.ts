@@ -117,8 +117,11 @@ export type Entry = {
   fuel: boolean | null;
   key: boolean | null;
   charger: boolean | null;
+  sharpie: boolean | null;
   mobile: boolean | null;
   snack: boolean | null;
+  ankleBoots: boolean | null;
+  iceCleats: boolean | null;
   lights: boolean | null;
   bungees: boolean | null;
   doors: boolean | null;

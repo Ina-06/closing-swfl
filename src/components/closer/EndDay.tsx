@@ -7,6 +7,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { createPortal } from "react-dom";
 import { Button, buttonClass } from "@/components/ui/Button";
 import { ErrorNote, SoftWarning } from "@/components/ui/Field";
 import { postAuthed, shareOrSave } from "@/lib/api";
@@ -80,6 +81,33 @@ export function EndDay({
   const inflight = useRef<Promise<Blob> | null>(null);
 
   const closed = session.status === "closed";
+
+  /**
+   * The card in the middle of the screen when the last driver clocks out.
+   *
+   * Raised by the drop to nobody outstanding, not by the count being nought:
+   * opening the app on a night that is already all in, or coming back to it
+   * after a reload, is not the moment it happened, and a card that jumps out
+   * every time the page loads is a card that gets closed without reading.
+   * Worked out during render from the last count rather than in an effect,
+   * so the card is on the same frame as the list that emptied.
+   */
+  const [lastOutstanding, setLastOutstanding] = useState(outstanding);
+  const [allOut, setAllOut] = useState(false);
+  if (outstanding !== lastOutstanding) {
+    setLastOutstanding(outstanding);
+    if (
+      outstanding === 0 &&
+      lastOutstanding > 0 &&
+      entries.length > 0 &&
+      !closed
+    ) {
+      setAllOut(true);
+      // The effect below starts the build; saying so here keeps the card's
+      // first frame from offering a Share that has nothing behind it.
+      setBuilding(true);
+    }
+  }
   const filename = `closing-${nightKey}.pdf`;
   const everyoneIn = outstanding === 0 && entries.length > 0;
   const dateLabel = stationDateLabel(new Date(`${nightKey}T12:00:00Z`));
@@ -134,6 +162,64 @@ export function EndDay({
   }, [closed, prepare]);
 
   /**
+   * And the moment the card comes up, before the night is closed.
+   *
+   * The sheet has everything on it by then — that is what the card is saying
+   * — and Share on the card has to have the file already in hand for the same
+   * reason Share on the panel does. Built from the open night, which reads
+   * exactly as the closed one will.
+   */
+  useEffect(() => {
+    if (!allOut || closed) return;
+    prepare()
+      .catch(() => {})
+      .finally(() => setBuilding(false));
+  }, [allOut, closed, prepare]);
+
+  /**
+   * The ×. Back to the list with the night still open, to change something.
+   *
+   * The sheet built for the card is dropped on the way out, because whatever
+   * he goes back to change will not be on it. The next Share builds a fresh
+   * one — from End Day, as it always has.
+   */
+  function dismiss() {
+    setAllOut(false);
+    setNote(null);
+    setError(null);
+    if (!closed) {
+      setSheet(null);
+      setViewUrl(null);
+    }
+  }
+
+  /**
+   * Sending from the card is End Day and Share in one tap.
+   *
+   * The card only exists because the night is finished, so sending the sheet
+   * from it closes the night as well — otherwise the sheet goes to the group
+   * and the night stays open, the van issues never reach Repairs, and the
+   * dispatcher is still looking at a night in progress.
+   *
+   * Share goes first and is not waited on, because it has to be the first
+   * thing this tap does or iOS stops counting it as his — see share(). The
+   * close follows it out of the same tap and does not hold anything up.
+   */
+  function sendFromCard() {
+    asked.current = true;
+    void share();
+    if (!closed) void end();
+  }
+
+  /** The same for View, which is a link and navigates on its own. */
+  function viewFromCard() {
+    asked.current = true;
+    setError(null);
+    setNote("Opening the sheet. Send it from the share button there.");
+    if (!closed) void end();
+  }
+
+  /**
    * End Day, which is now two things rather than one.
    *
    * Closing the night is the first and it is the only one allowed to fail out
@@ -154,7 +240,6 @@ export function EndDay({
   async function end() {
     setBusy(true);
     setError(null);
-    setNote(null);
     setFiled(null);
 
     try {
@@ -270,95 +355,115 @@ export function EndDay({
     }
   }
 
+  const card = allOut ? (
+    <AllOutCard
+      count={entries.length}
+      closed={closed}
+      ready={sheet !== null}
+      viewUrl={viewUrl}
+      busy={busy}
+      building={building && !sheet}
+      note={note}
+      error={error}
+      onView={viewFromCard}
+      onViewBuild={() => void buildFirst("View")}
+      onShare={sendFromCard}
+      onClose={dismiss}
+    />
+  ) : null;
+
   if (closed) {
     return (
-      <section className="mt-4 rounded-xl border border-arrived-line bg-arrived-soft px-4 py-4">
-        <h2 className="text-[15px] font-bold text-arrived">Night closed</h2>
-        <p className="mt-0.5 text-[13px] text-arrived/80">
-          Send the sheet to the group.
-        </p>
+      <>
+        {card}
+        <section className="mt-4 rounded-xl border border-arrived-line bg-arrived-soft px-4 py-4">
+          <h2 className="text-[15px] font-bold text-arrived">Night closed</h2>
+          <p className="mt-0.5 text-[13px] text-arrived/80">
+            Send the sheet to the group.
+          </p>
 
-        {/* Two ways out, because one of them keeps failing on his phone and a
-            closer standing in the yard at midnight needs the other one right
-            there rather than described to him over the phone.
+          {/* Two ways out, because one of them keeps failing on his phone and a
+              closer standing in the yard at midnight needs the other one right
+              there rather than described to him over the phone.
 
-            View is deliberately a link and not a button. Following a link to a
-            PDF is the one thing every phone does the same way: it opens the
-            reader, and the reader has a share button of the phone's own. Being
-            a real href also means the browser navigates on the tap itself, with
-            nothing of ours running first to spend the gesture. */}
-        <div className="mt-3 flex gap-2">
-          {viewUrl ? (
-            <a
-              href={viewUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => {
-                setError(null);
-                setNote("Opening the sheet. Send it from the share button there.");
-              }}
-              className={buttonClass(
-                "secondary",
-                "lg",
-                "min-h-14 flex-1 text-[16px]",
-              )}
-            >
-              View
-            </a>
-          ) : (
+              View is deliberately a link and not a button. Following a link to a
+              PDF is the one thing every phone does the same way: it opens the
+              reader, and the reader has a share button of the phone's own. Being
+              a real href also means the browser navigates on the tap itself, with
+              nothing of ours running first to spend the gesture. */}
+          <div className="mt-3 flex gap-2">
+            {viewUrl ? (
+              <a
+                href={viewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  setError(null);
+                  setNote("Opening the sheet. Send it from the share button there.");
+                }}
+                className={buttonClass(
+                  "secondary",
+                  "lg",
+                  "min-h-14 flex-1 text-[16px]",
+                )}
+              >
+                View
+              </a>
+            ) : (
+              <Button
+                variant="secondary"
+                size="lg"
+                loading={busy}
+                onClick={() => void buildFirst("View")}
+                className="min-h-14 flex-1 text-[16px]"
+              >
+                View
+              </Button>
+            )}
+
+            {/* Never disabled by work he cannot see. It is the last thing he does
+                all night and it has to answer a press every time — what is behind
+                it changes, what it does when pressed does not. */}
             <Button
-              variant="secondary"
+              variant="arrived"
               size="lg"
-              loading={busy}
-              onClick={() => void buildFirst("View")}
+              loading={busy && !sheet}
+              onClick={() => void share()}
               className="min-h-14 flex-1 text-[16px]"
             >
-              View
+              Share
             </Button>
-          )}
-
-          {/* Never disabled by work he cannot see. It is the last thing he does
-              all night and it has to answer a press every time — what is behind
-              it changes, what it does when pressed does not. */}
-          <Button
-            variant="arrived"
-            size="lg"
-            loading={busy && !sheet}
-            onClick={() => void share()}
-            className="min-h-14 flex-1 text-[16px]"
-          >
-            Share
-          </Button>
-        </div>
-
-        {building && !sheet ? (
-          <p className="mt-2 text-center text-[12px] text-arrived/80">
-            Getting the sheet ready&hellip;
-          </p>
-        ) : null}
-
-        {/* Above the share notes rather than below them, because it is about
-            something that has already finished and they are about something he
-            is in the middle of. It is deliberately quiet: he does not have to
-            do anything about it, and the two buttons under this panel are
-            still the job. */}
-        {filed ? (
-          <p className="mt-3 border-t border-arrived-line pt-2.5 text-center text-[12px] leading-relaxed text-arrived/80">
-            {filed}
-          </p>
-        ) : null}
-
-        {note ? (
-          <p className="mt-2 text-center text-[12px] text-arrived/80">{note}</p>
-        ) : null}
-        {error ? (
-          <div className="mt-3">
-            <ErrorNote>{error}</ErrorNote>
           </div>
-        ) : null}
 
-        <HowThisPhoneOpens trace={trace} />
-      </section>
+          {building && !sheet ? (
+            <p className="mt-2 text-center text-[12px] text-arrived/80">
+              Getting the sheet ready&hellip;
+            </p>
+          ) : null}
+
+          {/* Above the share notes rather than below them, because it is about
+              something that has already finished and they are about something he
+              is in the middle of. It is deliberately quiet: he does not have to
+              do anything about it, and the two buttons under this panel are
+              still the job. */}
+          {filed ? (
+            <p className="mt-3 border-t border-arrived-line pt-2.5 text-center text-[12px] leading-relaxed text-arrived/80">
+              {filed}
+            </p>
+          ) : null}
+
+          {note ? (
+            <p className="mt-2 text-center text-[12px] text-arrived/80">{note}</p>
+          ) : null}
+          {error ? (
+            <div className="mt-3">
+              <ErrorNote>{error}</ErrorNote>
+            </div>
+          ) : null}
+
+          <HowThisPhoneOpens trace={trace} />
+        </section>
+      </>
     );
   }
 
@@ -370,71 +475,245 @@ export function EndDay({
    * his screen is already telling him what is left, and a disabled button
    * underneath it would only be a second way of saying the same thing.
    */
-  if (!everyoneIn) return null;
+  if (!everyoneIn) return card;
 
   return (
-    <section className="mt-4 rounded-xl border border-line bg-surface px-4 py-4">
-      <h2 className="text-[15px] font-bold tracking-tight">End day</h2>
-      <p className="mt-0.5 text-[13px] text-ink-muted">
-        Everyone is in. This closes the night and builds the sheet.
-      </p>
+    <>
+      {card}
+      <section className="mt-4 rounded-xl border border-line bg-surface px-4 py-4">
+        <h2 className="text-[15px] font-bold tracking-tight">End day</h2>
+        <p className="mt-0.5 text-[13px] text-ink-muted">
+          Everyone is in. This closes the night and builds the sheet.
+        </p>
 
-      {/* On the roster but never entered by dispatch. Not a reason to stop him
-          — they were never his to clock out — but he should know before the
-          sheet goes up without them. */}
-      {pending > 0 ? (
-        <div className="mt-3">
-          <SoftWarning>
-            {pending} {pending === 1 ? "driver is" : "drivers are"} on tonight&rsquo;s
-            roster but never made it onto the sheet. They will not be on the
-            PDF.
-          </SoftWarning>
-        </div>
-      ) : null}
+        {/* On the roster but never entered by dispatch. Not a reason to stop him
+            — they were never his to clock out — but he should know before the
+            sheet goes up without them. */}
+        {pending > 0 ? (
+          <div className="mt-3">
+            <SoftWarning>
+              {pending} {pending === 1 ? "driver is" : "drivers are"} on tonight&rsquo;s
+              roster but never made it onto the sheet. They will not be on the
+              PDF.
+            </SoftWarning>
+          </div>
+        ) : null}
 
-      <div className="mt-3 flex gap-2">
-        {confirming ? (
-          <>
+        <div className="mt-3 flex gap-2">
+          {confirming ? (
+            <>
+              <Button
+                variant="arrived"
+                size="lg"
+                loading={busy}
+                onClick={() => void end()}
+                className="min-h-14 flex-1 text-[16px]"
+              >
+                Close the night
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                disabled={busy}
+                onClick={() => setConfirming(false)}
+                className="min-h-14"
+              >
+                Cancel
+              </Button>
+            </>
+          ) : (
             <Button
               variant="arrived"
               size="lg"
-              loading={busy}
-              onClick={() => void end()}
-              className="min-h-14 flex-1 text-[16px]"
+              onClick={() => setConfirming(true)}
+              className="min-h-14 w-full text-[16px]"
             >
-              Close the night
+              End day
             </Button>
+          )}
+        </div>
+
+        {note ? (
+          <p className="mt-2 text-center text-[12px] text-ink-muted">{note}</p>
+        ) : null}
+        {error ? (
+          <div className="mt-3">
+            <ErrorNote>{error}</ErrorNote>
+          </div>
+        ) : null}
+      </section>
+    </>
+  );
+}
+
+/**
+ * "All DAs clocked out!", over the middle of a blurred screen.
+ *
+ * The last clock-out of the night used to end on nothing in particular: the
+ * list emptied, and End Day appeared somewhere below the fold. This says it
+ * where he is looking, and puts the two things he does next — read the sheet,
+ * send it — on the card itself.
+ *
+ * The × is the way back, not a cancel. Something to fix on a driver is the
+ * usual reason for it, and the night is left open for exactly that.
+ *
+ * Rendered into the body: the page has blurred and sticky layers above the
+ * list, and this has to sit over all of them — including a sheet left open.
+ */
+function AllOutCard({
+  count,
+  closed,
+  ready,
+  viewUrl,
+  busy,
+  building,
+  note,
+  error,
+  onView,
+  onViewBuild,
+  onShare,
+  onClose,
+}: {
+  count: number;
+  /** The night has been closed — from this card, or from anywhere else. */
+  closed: boolean;
+  /** The sheet is built and in hand, so Share sends rather than builds. */
+  ready: boolean;
+  viewUrl: string | null;
+  busy: boolean;
+  building: boolean;
+  note: string | null;
+  error: string | null;
+  onView: () => void;
+  onViewBuild: () => void;
+  onShare: () => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div
+        aria-hidden="true"
+        className="animate-fade absolute inset-0 bg-ink/35 backdrop-blur-md"
+      />
+
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="all-out-title"
+        className="animate-pop relative w-full max-w-sm rounded-2xl border border-arrived-line bg-surface px-5 pb-5 pt-7 text-center shadow-2xl shadow-ink/20"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close and go back to the list"
+          className="absolute right-1.5 top-1.5 grid size-11 place-items-center rounded-full text-ink-faint transition-colors hover:bg-sunken active:bg-sunken"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            className="size-5"
+            aria-hidden="true"
+          >
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+
+        <span
+          aria-hidden="true"
+          className="mx-auto grid size-16 place-items-center rounded-full border border-arrived-line bg-arrived-soft text-arrived"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-8"
+          >
+            <path d="M5 12.5l5 5 9-10.5" />
+          </svg>
+        </span>
+
+        <h2
+          id="all-out-title"
+          className="mt-4 text-[24px] font-bold leading-tight tracking-tight"
+        >
+          All DAs clocked out!
+        </h2>
+        <p className="mx-auto mt-1.5 max-w-[17rem] text-[14px] leading-relaxed text-ink-muted">
+          <span className="tnum font-mono font-bold text-ink">
+            {count}/{count}
+          </span>{" "}
+          in.{" "}
+          {closed
+            ? "The night is closed."
+            : "Sending the sheet closes the night."}
+        </p>
+
+        <div className="mt-5 flex gap-2">
+          {viewUrl ? (
+            <a
+              href={viewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onView}
+              className={buttonClass(
+                "secondary",
+                "lg",
+                "min-h-14 flex-1 text-[16px]",
+              )}
+            >
+              View PDF
+            </a>
+          ) : (
             <Button
               variant="secondary"
               size="lg"
-              disabled={busy}
-              onClick={() => setConfirming(false)}
-              className="min-h-14"
+              loading={busy}
+              onClick={onViewBuild}
+              className="min-h-14 flex-1 text-[16px]"
             >
-              Cancel
+              View PDF
             </Button>
-          </>
-        ) : (
+          )}
           <Button
             variant="arrived"
             size="lg"
-            onClick={() => setConfirming(true)}
-            className="min-h-14 w-full text-[16px]"
+            loading={busy && !ready}
+            onClick={onShare}
+            className="min-h-14 flex-1 text-[16px]"
           >
-            End day
+            Share PDF
           </Button>
-        )}
-      </div>
-
-      {note ? (
-        <p className="mt-2 text-center text-[12px] text-ink-muted">{note}</p>
-      ) : null}
-      {error ? (
-        <div className="mt-3">
-          <ErrorNote>{error}</ErrorNote>
         </div>
-      ) : null}
-    </section>
+
+        <p aria-live="polite" className="mt-3 min-h-4 text-[12px] text-ink-muted">
+          {building ? "Getting the sheet ready\u2026" : note}
+        </p>
+        {error ? (
+          <div className="mt-2 text-left">
+            <ErrorNote>{error}</ErrorNote>
+          </div>
+        ) : null}
+
+        <p className="mt-2 text-[12px] text-ink-faint">
+          Need to change something? Tap × to go back.
+        </p>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

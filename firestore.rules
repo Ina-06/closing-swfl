@@ -208,8 +208,9 @@ service cloud.firestore {
         function closerFields() {
           return changedKeys().hasOnly([
             'status', 'clockOut', 'van', 'vanOk', 'vanIssues', 'grounded',
-            'fuel', 'key', 'charger', 'mobile', 'snack', 'lights', 'cell',
-            'bungees', 'doors', 'tires', 'addedByCloser', 'notes',
+            'fuel', 'key', 'charger', 'sharpie', 'mobile', 'snack', 'lights',
+            'cell', 'bungees', 'doors', 'tires', 'ankleBoots', 'iceCleats',
+            'addedByCloser', 'notes',
             'updatedAt', 'updatedBy'
           ]);
         }

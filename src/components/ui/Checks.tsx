@@ -65,8 +65,8 @@ export function CheckCycle({
       {/* Names, at a size that can be read at arm's length in a dark yard.
           They were 10px and Karim could not pick "Bungees" out from "Lights"
           without stopping to look, which is the whole job of the label.
-          Barely tracked and allowed two lines instead, because two of these
-          carry a reminder as well as a name — "Charger + Sharpie" has to break
+          Barely tracked and allowed two lines instead, because some of these
+          run to two words — "Mobile + Off", "Ankle Boots" — and have to break
           inside a tile a thumb-width across without touching the sides, and
           the tile is tall enough for it to. */}
       <span className="px-1 text-center text-[13px] font-bold uppercase leading-[1.15] tracking-[0.01em]">
@@ -131,8 +131,8 @@ export function CheckBar({
  */
 export function CheckChips({ values }: { values: EntryChecks }) {
   return (
-    /* gap-0.5 rather than gap-1: nine boxes and eight gaps have to clear the
-       column on a laptop, and a pixel of air between them is enough — they
+    /* gap-0.5 rather than gap-1: twelve boxes and eleven gaps have to clear
+       the column on a laptop, and a pixel of air between them is enough — they
        already carry their own borders. */
     <span className="flex gap-0.5">
       {CHECKS.map((check) => {

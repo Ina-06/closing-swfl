@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { useAddJob } from "@/components/repairs/AddJob";
 import { TaskSheet } from "@/components/repairs/TaskSheet";
 import { ErrorNote, SoftWarning } from "@/components/ui/Field";
 import {
@@ -51,14 +52,14 @@ const SHELVES: { key: Shelf; label: string }[] = [
 /**
  * The two orders the board can be read in.
  *
- * `recent` is what the board has always done and is still the default: newest
- * first on To do, most recently finished on the other two. It is the order for
- * catching up — what happened last night, what got signed off this week.
+ * `name` is the default. A job is "63 - Pass side out", so by name means by
+ * van, and somebody walking out to 214 wants everything on 214 together rather
+ * than scattered down a month of reports. See byTitle. It was the second
+ * option once; it is how the board is actually read, so it is what opens.
  *
- * `name` is the other question entirely, and it is the one the list could not
- * answer. A job is "63 - Pass side out", so by name means by van, and somebody
- * walking out to 214 wants everything on 214 together rather than scattered
- * down a month of reports. See byTitle.
+ * `recent` is the order for catching up — newest first on To do, most recently
+ * finished on the other two. What happened last night, what got signed off
+ * this week.
  *
  * Two, not five. This is a to-do list, and the moment a board like this grows
  * a sort menu it grows a wrong setting somebody left it on.
@@ -66,9 +67,26 @@ const SHELVES: { key: Shelf; label: string }[] = [
 type SortKey = "recent" | "name";
 
 const SORTS: { key: SortKey; label: string; hint: string }[] = [
-  { key: "recent", label: "Newest", hint: "Sort by when it was reported" },
   { key: "name", label: "A–Z", hint: "Sort by van and fault" },
+  { key: "recent", label: "Newest", hint: "Sort by when it was reported" },
 ];
+
+/**
+ * Whether a job matches what is in the search box.
+ *
+ * Every word has to be somewhere on the row — the job, the driver, or the
+ * night it was reported on — in any order. "214 mirror" finds the mirror on
+ * 214 whichever way round it was written, and "jennifer" finds everything she
+ * brought back.
+ */
+function matches(task: RepairTask, words: string[]): boolean {
+  if (words.length === 0) return true;
+  const night = task.nightKey
+    ? stationDateLabel(new Date(`${task.nightKey}T12:00:00Z`))
+    : "";
+  const haystack = `${task.title} ${task.driverName} ${night}`.toLowerCase();
+  return words.every((word) => haystack.includes(word));
+}
 
 /**
  * How long a ticked job stays on the list it was ticked on.
@@ -113,9 +131,14 @@ export function RepairsBoard({ uid }: { uid: string }) {
    * and a board that silently reordered itself when you changed tab would be
    * three boards wearing one hat.
    */
-  const [sort, setSort] = useState<SortKey>("recent");
-  /** The task being edited, "new" while one is being typed, null otherwise. */
-  const [editing, setEditing] = useState<RepairTask | "new" | null>(null);
+  const [sort, setSort] = useState<SortKey>("name");
+  /** What is in the search box. Filters all three lists, counts included. */
+  const [query, setQuery] = useState("");
+  /** The task being edited, null otherwise. */
+  const [editing, setEditing] = useState<RepairTask | null>(null);
+  /** A new job being typed — asked for by the button in the header. */
+  const composer = useAddJob();
+  const sheet = composer.adding ? "new" : editing;
   const [failure, setFailure] = useState<string | null>(null);
   /**
    * Jobs ticked off in the last couple of seconds, held where they were.
@@ -147,8 +170,11 @@ export function RepairsBoard({ uid }: { uid: string }) {
     const todo: RepairTask[] = [];
     const done: RepairTask[] = [];
     const archived: RepairTask[] = [];
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
 
     for (const task of tasks) {
+      if (!matches(task, words)) continue;
+
       const where = lingering.has(task.id)
         ? "todo"
         : now === null
@@ -173,7 +199,7 @@ export function RepairsBoard({ uid }: { uid: string }) {
       done: done.sort(order ?? byFinished),
       archived: archived.sort(order ?? byFinished),
     };
-  }, [tasks, now, lingering, sort]);
+  }, [tasks, now, lingering, sort, query]);
 
   const showing = lists[shelf];
 
@@ -225,36 +251,11 @@ export function RepairsBoard({ uid }: { uid: string }) {
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
-        <div className="min-w-0">
-          <h1 className="text-[24px] font-bold leading-tight tracking-tight sm:text-[28px]">
-            Repairs
-          </h1>
-          <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">
-            {loading
-              ? " "
-              : lists.todo.length === 0
-                ? "Nothing outstanding. Every van is signed off."
-                : `${lists.todo.length} ${lists.todo.length === 1 ? "job" : "jobs"} outstanding`}
-          </p>
-        </div>
-
-        {/* Whole-word label rather than a bare plus. This board is opened by
-            whoever is free, not by one person who has learned it. */}
-        <button
-          type="button"
-          onClick={() => {
-            setFailure(null);
-            setEditing("new");
-          }}
-          className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-caution-line bg-caution-soft px-4 text-[14px] font-bold text-caution transition-colors active:brightness-[0.97]"
-        >
-          <span aria-hidden="true" className="text-[17px] leading-none">
-            +
-          </span>
-          Add a job
-        </button>
-      </header>
+      {/* At the very top, because on a board this long the question is
+          usually one van. It filters all three tabs at once and their counts
+          with them, so a tab with a nought on it means "not there" rather
+          than "look somewhere else". */}
+      <Search value={query} onChange={setQuery} />
 
       {error ? (
         <ErrorNote>
@@ -283,7 +284,7 @@ export function RepairsBoard({ uid }: { uid: string }) {
         <div
           role="tablist"
           aria-label="Which jobs to show"
-          className="flex min-w-0 flex-1 gap-1 overflow-x-auto"
+          className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none]"
         >
           {SHELVES.map((option) => {
             const active = shelf === option.key;
@@ -352,7 +353,11 @@ export function RepairsBoard({ uid }: { uid: string }) {
           aria-label="Loading the repairs board"
         />
       ) : showing.length === 0 ? (
-        <Empty shelf={shelf} />
+        query.trim() ? (
+          <NoMatch query={query.trim()} />
+        ) : (
+          <Empty shelf={shelf} />
+        )
       ) : (
         <ul className="space-y-2">
           {showing.map((task) => (
@@ -379,25 +384,29 @@ export function RepairsBoard({ uid }: { uid: string }) {
         {ARCHIVE_AFTER_DAYS} days before it moves to the archive.
       </p>
 
-      {editing ? (
+      {sheet ? (
         <TaskSheet
-          key={editing === "new" ? "new" : editing.id}
-          task={editing === "new" ? null : editing}
-          onClose={() => setEditing(null)}
+          key={sheet === "new" ? "new" : sheet.id}
+          task={sheet === "new" ? null : sheet}
+          onClose={() => {
+            setEditing(null);
+            composer.setAdding(false);
+          }}
           onSave={(title) => {
             setEditing(null);
-            if (editing === "new") {
+            composer.setAdding(false);
+            if (sheet === "new") {
               run("That job", addRepair(manualRepair(title), uid));
             } else {
-              run("That change", editRepair(editing.id, title, uid));
+              run("That change", editRepair(sheet.id, title, uid));
             }
           }}
           onDelete={
-            editing === "new"
+            sheet === "new"
               ? undefined
               : () => {
                   setEditing(null);
-                  run("Removing that job", removeRepair(editing.id));
+                  run("Removing that job", removeRepair(sheet.id));
                 }
           }
         />
@@ -530,6 +539,88 @@ function TaskRow({
           {age !== null ? <Age days={age} done={task.done} /> : null}
         </span>
       </button>
+    </div>
+  );
+}
+
+/**
+ * The search box.
+ *
+ * A real search input, so the phone's keyboard offers Search — with a clear
+ * button of our own rather than the browser's, because iOS only draws that one
+ * while the field has focus, and a filter left on with the keyboard down is
+ * exactly when somebody needs a way to take it off.
+ */
+function Search({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="relative">
+      <label htmlFor="repairs-search" className="sr-only">
+        Search jobs
+      </label>
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-ink-faint"
+        aria-hidden="true"
+      >
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="M16 16l4.5 4.5" />
+      </svg>
+      <input
+        id="repairs-search"
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        enterKeyHint="search"
+        autoComplete="off"
+        spellCheck={false}
+        placeholder="Search jobs, vans or drivers"
+        className="min-h-12 w-full rounded-xl border border-line-strong bg-surface pl-10 pr-11 text-[16px] text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-caution [&::-webkit-search-cancel-button]:appearance-none"
+      />
+      {value ? (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label="Clear the search"
+          className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-lg text-ink-faint transition-colors active:bg-sunken"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            className="size-4"
+            aria-hidden="true"
+          >
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+/** A search with nothing behind it, said as that rather than as an empty tab. */
+function NoMatch({ query }: { query: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-line-strong bg-surface/60 px-5 py-12 text-center">
+      <p className="text-[15px] font-semibold text-ink-muted">
+        Nothing matches &ldquo;{query}&rdquo;
+      </p>
+      <p className="mx-auto mt-1.5 max-w-sm text-[13px] leading-relaxed text-ink-faint">
+        Try the van number on its own, or check the other tabs.
+      </p>
     </div>
   );
 }

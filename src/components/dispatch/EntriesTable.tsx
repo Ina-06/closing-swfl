@@ -61,7 +61,7 @@ export function EntriesTable({
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
         {/* Sized to fit a laptop without sideways scrolling. The overflow is a
             fallback for genuinely narrow windows, not the normal case. */}
-        <table className="w-full min-w-[1588px] table-fixed border-collapse text-left">
+        <table className="w-full min-w-[1636px] table-fixed border-collapse text-left">
           <thead>
             <tr className="border-b border-line text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
               <Th className="w-9 text-right">#</Th>
@@ -83,7 +83,7 @@ export function EntriesTable({
                   rules reject a dispatcher write to any of it. Wide enough for
                   every check on one line; wrapping them would break the order
                   they are read in, which is the order he walks the van. */}
-              <Th className="w-60">Yard</Th>
+              <Th className="w-72">Yard</Th>
               <Th className="w-20" />
             </tr>
           </thead>

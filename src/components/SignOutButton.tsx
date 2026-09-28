@@ -21,7 +21,7 @@ export function SignOutButton({ className = "" }: { className?: string }) {
         await signOut();
         router.replace("/");
       }}
-      className={`rounded-md px-2 py-1 text-[12px] font-medium text-ink-faint transition-colors hover:bg-sunken hover:text-ink-muted ${className}`}
+      className={`whitespace-nowrap rounded-md px-2 py-1 text-[12px] font-medium text-ink-faint transition-colors hover:bg-sunken hover:text-ink-muted ${className}`}
     >
       Sign out
     </button>

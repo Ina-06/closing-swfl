@@ -4,7 +4,7 @@ import { PortalSwitch } from "@/components/PortalSwitch";
 import { RoleGate } from "@/components/RoleGate";
 import { SignOutButton } from "@/components/SignOutButton";
 import { StationDate } from "@/components/StationDate";
-import { Wordmark } from "@/components/Wordmark";
+import { AddJobButton, AddJobProvider } from "@/components/repairs/AddJob";
 
 export const metadata = { title: "Repairs — Closing SWFL" };
 
@@ -28,45 +28,67 @@ export const metadata = { title: "Repairs — Closing SWFL" };
  * proves the rule: it only appears for somebody who came from there. A repairs
  * session still sees no navigation at all, because there is still nowhere it
  * can go. See PortalSwitch.
+ *
+ * The orange chip is the logo here, top left where the Closing mark is on
+ * every other screen. It was a role chip on the right, and the board's own
+ * heading and Add a job sat underneath the header saying "Repairs" a second
+ * time; now the chip names the screen, Add job takes its old place, and the
+ * list starts directly under the header.
  */
 export default function RepairsLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <div className="min-h-dvh">
-      <header className="sticky top-0 z-20 border-b border-line bg-surface/90 pt-safe backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-3 px-4 sm:px-8">
-          <Link href="/repairs" className="rounded-sm">
-            <Wordmark />
-          </Link>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            <StationDate className="tnum hidden font-mono text-xs text-ink-muted sm:inline" />
-            <PortalSwitch to="closing" />
-            <SignOutButton />
-            <span className="rounded-full border border-caution-line bg-caution-soft px-2.5 py-1 text-[11px] font-semibold text-caution">
+    <AddJobProvider>
+      <div className="min-h-dvh">
+        <header className="sticky top-0 z-20 border-b border-line bg-surface/90 pt-safe backdrop-blur-md">
+          <div className="mx-auto flex h-14 max-w-3xl items-center justify-between gap-2 px-4 sm:px-8">
+            <Link
+              href="/repairs"
+              className="flex min-h-9 shrink-0 items-center gap-1.5 rounded-full border border-caution-line bg-caution-soft px-3 text-[14px] font-bold tracking-tight text-caution"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-4 shrink-0"
+                aria-hidden="true"
+              >
+                <path d="M14.5 5.5a4 4 0 015.2 5.2l-8 8a4 4 0 01-5.2-5.2z" />
+                <path d="M5.5 15.5l3 3" />
+              </svg>
               Repairs
-            </span>
+            </Link>
+
+            <div className="flex items-center gap-1.5 sm:gap-3">
+              <StationDate className="tnum hidden font-mono text-xs text-ink-muted sm:inline" />
+              <PortalSwitch to="closing" />
+              <SignOutButton />
+              <AddJobButton />
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-6 pb-safe sm:px-8 sm:py-10">
-        {/* The closer is on this list now. He works both sides of the same van
-            — he writes the fault at the handover and it lands here at End Day
-            — and until now seeing what was outstanding meant signing out and
-            back in.
+        <main className="mx-auto max-w-3xl px-4 py-4 pb-safe sm:px-8 sm:py-8">
+          {/* The closer is on this list now. He works both sides of the same van
+              — he writes the fault at the handover and it lands here at End Day
+              — and until now seeing what was outstanding meant signing out and
+              back in.
 
-            A one-time stand-in is deliberately not. Everywhere else in the app
-            a borrowed code is a closer, because a stand-in covering the close
-            does the close; this board is the station's rather than the
-            night's, and a code that stops working in twelve hours has no
-            business on a list that outlives every session on it. Turned away
-            here rather than shown a board of controls that bounce — the rules
-            draw the same line, with isPermanentCloser. */}
-        <RoleGate allow={["repairs", "closer"]}>{children}</RoleGate>
-        <BuildTag />
-      </main>
-    </div>
+              A one-time stand-in is deliberately not. Everywhere else in the app
+              a borrowed code is a closer, because a stand-in covering the close
+              does the close; this board is the station's rather than the
+              night's, and a code that stops working in twelve hours has no
+              business on a list that outlives every session on it. Turned away
+              here rather than shown a board of controls that bounce — the rules
+              draw the same line, with isPermanentCloser. */}
+          <RoleGate allow={["repairs", "closer"]}>{children}</RoleGate>
+          <BuildTag />
+        </main>
+      </div>
+    </AddJobProvider>
   );
 }

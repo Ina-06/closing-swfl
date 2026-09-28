@@ -52,13 +52,20 @@ export type MetricTone = (typeof METRICS)[number]["tone"];
  * as a column heading on the PDF a few characters wide, where the reminder has
  * already done its work and only the thing needs naming. `letter` is the
  * dispatcher's table, for a check nobody has made yet.
+ *
+ * Two halves, laid out the way Karim asked for them on the phone: the van —
+ * what comes back with it and the walk round it — above the Van issues bar,
+ * and what the driver was lent below it. CHECKS is the two end to end, and is
+ * what the table and the PDF read, so they keep one order with the phone.
  */
-export const CHECKS = [
+export const VAN_CHECKS = [
   { field: "fuel", label: "Fuel", short: "Fuel", letter: "F" },
   { field: "key", label: "Key", short: "Key", letter: "K" },
-  { field: "charger", label: "Charger + Sharpie", short: "Charger", letter: "C" },
+  { field: "charger", label: "Charger", short: "Charger", letter: "C" },
+  /* Its own tile now. It was "Charger + Sharpie" on one, and a tick on that
+     could not say which of the two had come back. */
+  { field: "sharpie", label: "Sharpie", short: "Sharpie", letter: "Sh" },
   { field: "mobile", label: "Mobile + Off", short: "Mobile", letter: "M" },
-  { field: "snack", label: "Snack", short: "Snack", letter: "S" },
   { field: "bungees", label: "2 Bungees", short: "Bungees", letter: "B" },
   /* The last three are the walk round the van rather than the armful he is
      handed back, which is why they are together and at the end: the first six
@@ -69,6 +76,19 @@ export const CHECKS = [
   { field: "tires", label: "Tires", short: "Tires", letter: "T" },
   { field: "lights", label: "Lights", short: "Lights", letter: "L" },
 ] as const;
+
+/**
+ * What the driver was handed for the shift rather than what came with the
+ * van, so it sits under the Van issues bar instead of among the van's tiles.
+ * The snack moved down here from the van's half for the same reason.
+ */
+export const GEAR_CHECKS = [
+  { field: "ankleBoots", label: "Ankle Boots", short: "Boots", letter: "A" },
+  { field: "iceCleats", label: "Ice Cleats", short: "Cleats", letter: "I" },
+  { field: "snack", label: "Snack", short: "Snack", letter: "S" },
+] as const;
+
+export const CHECKS = [...VAN_CHECKS, ...GEAR_CHECKS] as const;
 
 export type CheckField = (typeof CHECKS)[number]["field"];
 

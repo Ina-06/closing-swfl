@@ -137,4 +137,31 @@
       animation: none;
     }
   }
+
+  /* The all-out card grows out of the middle of the screen rather than up
+     from the edge, because it did not come from anywhere — the night
+     finished, and this is the screen saying so. */
+  @keyframes pop-in {
+    from {
+      transform: scale(0.92);
+      opacity: 0;
+    }
+  }
+  .animate-pop {
+    animation: pop-in 200ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  .animate-fade {
+    animation: fade-in 200ms ease-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-pop,
+    .animate-fade {
+      animation: none;
+    }
+  }
 }
