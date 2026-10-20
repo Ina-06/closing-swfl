@@ -67,6 +67,25 @@
   --color-res-soft: #fdeaf3;
   --color-res-line: #f7c6dd;
 
+  /* Scorecard tiers — the four metals, each a light face and a darker edge
+     so the bubble reads as the metal it is named after. Ink on top of each
+     is the deep shade, which clears 4.5:1 on its own face. */
+  --color-bronze: #7a4416;
+  --color-bronze-face: #f3d2b0;
+  --color-bronze-edge: #c98a52;
+
+  --color-silver: #3f4954;
+  --color-silver-face: #e8ecf0;
+  --color-silver-edge: #a9b3bd;
+
+  --color-gold: #6e5000;
+  --color-gold-face: #fbe7a1;
+  --color-gold-edge: #d9ad2b;
+
+  --color-platinum: #2f4a5e;
+  --color-platinum-face: #e4f1f7;
+  --color-platinum-edge: #8fb3c7;
+
   /* Radii */
   --radius-xs: 0.25rem;
   --radius-sm: 0.375rem;

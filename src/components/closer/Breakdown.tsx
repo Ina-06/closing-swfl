@@ -53,16 +53,57 @@ const TONE: Record<
   },
 };
 
+/**
+ * One titled list inside the panel.
+ *
+ * Rescues is the figure that needed this: it is two lists, not one — who
+ * picked packages up and who had them taken off — and each gets its own
+ * heading and its own bubble colour, green for helping and red for being
+ * helped, the same pair the card and the sheet already use for the sign.
+ */
+export type BreakdownGroup = {
+  title: string;
+  lines: BreakdownLine[];
+  bubble: "good" | "bad";
+};
+
+const GROUP_BUBBLE: Record<BreakdownGroup["bubble"], string> = {
+  good: "border-arrived-line bg-arrived-soft text-arrived",
+  bad: "border-overdue-line bg-overdue-soft text-overdue",
+};
+
 export function Breakdown({
   lines,
+  groups,
   tone = "warn",
+  align = "left",
   onClose,
 }: {
-  lines: BreakdownLine[];
+  /** One list under a "Who" heading. Ignored when `groups` is given. */
+  lines?: BreakdownLine[];
+  /** Several titled lists, for a figure that splits — see BreakdownGroup. */
+  groups?: BreakdownGroup[];
   tone?: BreakdownTone;
+  /**
+   * Which edge of the pill the panel grows from.
+   *
+   * Left by default, for the pills in the left half of the row. A pill
+   * further across hangs leftwards instead, or the panel runs off the right
+   * of the phone the way it once ran off the left.
+   */
+  align?: "left" | "right";
   onClose: () => void;
 }) {
   const skin = TONE[tone];
+  const sections = groups
+    ? groups
+        .filter((group) => group.lines.length > 0)
+        .map((group) => ({
+          title: group.title,
+          lines: group.lines,
+          bubble: GROUP_BUBBLE[group.bubble],
+        }))
+    : [{ title: "Who", lines: lines ?? [], bubble: skin.bubble }];
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -89,41 +130,56 @@ export function Breakdown({
           against the left of the phone, and centring a 236px panel under a
           70px pill pushed half of it off the screen — the names came out as
           "an Sanders". Growing rightwards keeps it on screen from either
-          pill, since both sit in the left half of the row. */}
-      <div className="absolute left-0 top-full z-30 mt-2 w-[248px] max-w-[calc(100vw-2rem)]">
+          pill, since both sit in the left half of the row. The Rescues pill
+          is further across and passes align="right" to hang the other way. */}
+      <div
+        className={`absolute top-full z-30 mt-2 w-[248px] max-w-[calc(100vw-2rem)] ${
+          align === "right" ? "right-0" : "left-0"
+        }`}
+      >
         {/* The notch. A rotated square rather than a border trick, so it
             carries the panel's own border on the two sides that show. Over
-            the middle of a pill, which is roughly this far in on both. */}
+            the middle of a pill, which is roughly this far in on all three. */}
         <span
           aria-hidden="true"
-          className={`absolute left-8 top-0 size-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border-l border-t ${skin.notch}`}
+          className={`absolute top-0 size-2.5 -translate-y-1/2 rotate-45 border-l border-t ${
+            align === "right"
+              ? "right-8 translate-x-1/2"
+              : "left-8 -translate-x-1/2"
+          } ${skin.notch}`}
         />
 
         <div
           className={`max-h-[46dvh] overflow-y-auto overscroll-contain rounded-xl border shadow-lg shadow-ink/10 ${skin.panel}`}
         >
-          <p
-            className={`sticky top-0 border-b px-3 pb-1.5 pt-2 text-[10px] font-bold uppercase tracking-[0.08em] ${skin.head}`}
-          >
-            Who
-          </p>
-          <ul className={`divide-y ${skin.rule}`}>
-            {lines.map((line) => (
-              <li
-                key={line.driverId || line.fullName}
-                className="flex items-center gap-2 px-3 py-2"
+          {sections.map((section, index) => (
+            <div key={section.title}>
+              <p
+                className={`sticky top-0 border-b ${index > 0 ? "border-t" : ""} px-3 pb-1.5 pt-2 text-[10px] font-bold uppercase tracking-[0.08em] ${skin.head}`}
               >
-                <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold leading-tight text-ink">
-                  {line.fullName}
-                </span>
-                <span
-                  className={`tnum grid size-6 shrink-0 place-items-center rounded-full border font-mono text-[12px] font-bold ${skin.bubble}`}
-                >
-                  {line.count}
-                </span>
-              </li>
-            ))}
-          </ul>
+                {section.title}
+              </p>
+              <ul className={`divide-y ${skin.rule}`}>
+                {section.lines.map((line) => (
+                  <li
+                    key={line.driverId || line.fullName}
+                    className="flex items-center gap-2 px-3 py-2"
+                  >
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-semibold leading-tight text-ink">
+                      {line.fullName}
+                    </span>
+                    {/* A pill rather than a circle once the figure has three
+                        digits — rescues are packages, and 120 is not 24px. */}
+                    <span
+                      className={`tnum grid h-6 min-w-6 shrink-0 place-items-center rounded-full border px-1.5 font-mono text-[12px] font-bold ${section.bubble}`}
+                    >
+                      {line.count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </div>
     </>

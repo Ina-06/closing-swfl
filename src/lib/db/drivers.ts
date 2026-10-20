@@ -14,7 +14,10 @@ import {
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
 import { nameKey } from "@/lib/names";
+import { SCORECARDS, type Scorecard } from "@/lib/constants";
 import type { Driver } from "@/lib/types";
+
+const SCORECARD_VALUES = new Set<string>(SCORECARDS.map((tier) => tier.value));
 
 const COLLECTION = "drivers";
 
@@ -46,6 +49,9 @@ export function useDrivers() {
               fullName,
               nameKey:
                 typeof data.nameKey === "string" ? data.nameKey : nameKey(fullName),
+              scorecard: SCORECARD_VALUES.has(data.scorecard)
+                ? (data.scorecard as Scorecard)
+                : null,
               createdAt: data.createdAt ?? null,
             };
           }),
@@ -60,7 +66,8 @@ export function useDrivers() {
 }
 
 /**
- * The driver record holds a name and nothing else.
+ * A new driver is a name and nothing else. His scorecard is set afterwards,
+ * from the database page, once there is one to set.
  *
  * BUD, TRN and RES describe a night rather than a person, so they live on the
  * session roster where they are set — not here.
@@ -89,6 +96,17 @@ export async function renameDriver(id: string, fullName: string) {
     fullName: trimmed,
     nameKey: nameKey(trimmed),
   });
+}
+
+/**
+ * Set his last scorecard tier, or clear it with null.
+ *
+ * Dispatcher only, like renaming — the rules already give them every field on
+ * a driver and nobody else any. Read live by the closer's phone off this
+ * record, so the bubble on tonight's sheet changes the moment this does.
+ */
+export async function setScorecard(id: string, scorecard: Scorecard | null) {
+  await updateDoc(doc(getDb(), COLLECTION, id), { scorecard });
 }
 
 /**

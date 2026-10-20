@@ -61,24 +61,25 @@ export function EntriesTable({
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
         {/* Sized to fit a laptop without sideways scrolling. The overflow is a
             fallback for genuinely narrow windows, not the normal case. */}
-        <table className="w-full min-w-[1636px] table-fixed border-collapse text-left">
+        <table className="w-full min-w-[1716px] table-fixed border-collapse text-left">
           <thead>
             <tr className="border-b border-line text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
               <Th className="w-9 text-right">#</Th>
               <Th className="w-44">Name</Th>
               <Th className="w-20">ETA</Th>
-              <Th className="w-48">Returns</Th>
+              <Th className="w-44">Returns</Th>
               <Th className="w-20">Perf</Th>
               <Th className="w-24">Metric</Th>
               <Th className="w-32">Rescues</Th>
-              <Th className="w-36">Infractions</Th>
+              <Th className="w-32">Infractions</Th>
+              <Th className="w-32">Quality</Th>
               <Th className="w-40">Note</Th>
               {/* Beside the note rather than anywhere else, because the two are
                   read together and are the only things on this table that are
                   prose. Read-only: it is HR's field, it lives on the session
                   rather than on this row, and the rules reject a dispatcher
                   write to it. */}
-              <Th className="w-44">Time edit</Th>
+              <Th className="w-40">Time edit</Th>
               {/* Everything Karim owns, in one column. Read-only here — the
                   rules reject a dispatcher write to any of it. Wide enough for
                   every check on one line; wrapping them would break the order
@@ -259,6 +260,15 @@ function EntryRow({
           onCommit={(infractions) => save({ infractions })}
           placeholder="None"
           ariaLabel={`Infractions for ${entry.fullName}`}
+        />
+      </td>
+
+      <td className="px-3 py-2">
+        <CellInput
+          value={entry.quality}
+          onCommit={(quality) => save({ quality })}
+          placeholder="None"
+          ariaLabel={`Quality issues for ${entry.fullName}`}
         />
       </td>
 

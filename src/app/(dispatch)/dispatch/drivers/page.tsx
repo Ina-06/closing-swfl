@@ -4,17 +4,23 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { ErrorNote, Label, TextInput } from "@/components/ui/Field";
+import { ScorecardPicker } from "@/components/ui/Scorecard";
 import {
   addDriver,
   deleteDriver,
   renameDriver,
+  setScorecard,
   useDrivers,
 } from "@/lib/db/drivers";
 import { nameKey } from "@/lib/names";
 import type { Driver } from "@/lib/types";
 
 /**
- * The driver database: names, and nothing else.
+ * The driver database: names, and each driver's last scorecard.
+ *
+ * The scorecard is here and not on the roster because it is about the person
+ * — it holds until the next card comes out — and it is what the closer's phone
+ * shows as a metal bubble on his sheet.
  *
  * BUD, TRN and RES are not here on purpose — they describe a night, not a
  * person, so they are set on the roster. Deleting is safe because the session
@@ -68,7 +74,8 @@ export default function DriversPage() {
             Driver database
           </h1>
           <p className="mt-1 text-[13px] text-ink-muted">
-            Names only. BUD, TRN and RES are set on tonight&rsquo;s roster.
+            Names and last scorecard. BUD, TRN and RES are set on
+            tonight&rsquo;s roster.
           </p>
         </div>
         <p className="tnum font-mono text-[12px] text-ink-muted">
@@ -187,7 +194,7 @@ function DriverRow({
         aria-label={`Name for ${driver.fullName}`}
         spellCheck={false}
         disabled={busy}
-        className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1.5 text-[15px] font-medium text-ink outline-none transition-colors hover:border-line focus:border-brand focus:bg-surface"
+        className="min-w-0 flex-1 basis-full rounded-md border border-transparent bg-transparent px-2 py-1.5 text-[15px] sm:basis-0 font-medium text-ink outline-none transition-colors hover:border-line focus:border-brand focus:bg-surface"
       />
 
       {dirty ? (
@@ -195,6 +202,25 @@ function DriverRow({
           Unsaved
         </span>
       ) : null}
+
+      {/* Saves on the click, like the arrows on tonight's table. No busy
+          state: Firestore shows the change locally before it lands, and a
+          refused write comes back through onError. */}
+      <ScorecardPicker
+        value={driver.scorecard}
+        label={`Last scorecard for ${driver.fullName}`}
+        onChange={(scorecard) => {
+          setScorecard(driver.id, scorecard).catch((err: unknown) =>
+            onError(
+              err instanceof Error ? err.message : "That scorecard did not save.",
+            ),
+          );
+        }}
+      />
+
+      {/* Pushes Delete to the far edge, on its own line under the name on a
+          phone and beside the picker on a laptop. */}
+      <span aria-hidden="true" className="flex-1 sm:hidden" />
 
       {/* Two taps, inline. Deleting is permanent, but it is also a five-second
           fix — retyping a name — so this never becomes a modal. */}

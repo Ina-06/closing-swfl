@@ -13,6 +13,10 @@ export type SheetRow = {
   number: string;
   name: string;
   time: string;
+  /** Signed packages, "+23" or "-11", or "" for none. */
+  rescues: string;
+  /** Which way the rescue went, so the renderer colours it without deciding. */
+  rescueSign: "plus" | "minus" | "";
   van: string;
   /** Keyed off CHECKS, so the sheet cannot fall out of order with the phone. */
   checks: Record<CheckField, Mark>;
@@ -71,6 +75,21 @@ function timeLabel(entry: Entry): string {
   return entry.clockOutManual.trim();
 }
 
+/**
+ * Rescues as the paper reads them: the sign kept, because "23" and "-23" are
+ * the same glyphs minus the one that matters, and nothing at all for none.
+ *
+ * Checked for a real number because this is fed raw from Firestore on the
+ * server, and a night written before rescues existed has no field at all —
+ * that is a blank cell, not a "+NaN".
+ */
+function rescueCell(raw: unknown): Pick<SheetRow, "rescues" | "rescueSign"> {
+  const count = typeof raw === "number" && Number.isFinite(raw) ? raw : 0;
+  if (count > 0) return { rescues: `+${count}`, rescueSign: "plus" };
+  if (count < 0) return { rescues: `-${Math.abs(count)}`, rescueSign: "minus" };
+  return { rescues: "", rescueSign: "" };
+}
+
 export function sheetRows(entries: Entry[]): SheetRow[] {
   return entries.map((entry, index) => {
     const checks = {} as Record<CheckField, Mark>;
@@ -90,6 +109,7 @@ export function sheetRows(entries: Entry[]): SheetRow[] {
         entry.secondTrip ? `${entry.fullName} (2nd)` : entry.fullName,
       ),
       time: timeLabel(entry),
+      ...rescueCell(entry.rescues),
       van: entry.van.trim(),
       checks,
       vanIssues: printable(entry.vanIssues),

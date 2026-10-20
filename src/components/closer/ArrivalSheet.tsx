@@ -7,8 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { BroadcastNote } from "@/components/BroadcastNote";
-import { TimeEditNotice } from "@/components/TimeEditNotice";
 import {
   ClockPickerDialog,
   ClockWheels,
@@ -21,6 +19,7 @@ import { Button } from "@/components/ui/Button";
 import { CheckBar, CheckCycle, type Check } from "@/components/ui/Checks";
 import { ErrorNote } from "@/components/ui/Field";
 import { FlagTag } from "@/components/ui/FlagToggle";
+import { ScorecardBubble } from "@/components/ui/Scorecard";
 import { flagsOn } from "@/components/closer/DriverCard";
 import {
   clockOut,
@@ -39,6 +38,7 @@ import {
   stationTimeLabel,
   type CheckField,
   type MetricTone,
+  type Scorecard,
 } from "@/lib/constants";
 import { etaOffset, offsetLabel, stationNowMinutes } from "@/lib/eta";
 import { withNotes, type VanFlags } from "@/lib/vanIssues";
@@ -58,6 +58,7 @@ export function ArrivalSheet({
   entry,
   timeEdit,
   broadcast,
+  scorecard,
   now,
   uid,
   openOnVan = false,
@@ -84,6 +85,13 @@ export function ArrivalSheet({
    * a driver in front of him, which is when he has to remember to say it.
    */
   broadcast: string;
+  /**
+   * His last scorecard tier, off the driver record, or null if none is set.
+   *
+   * Passed in for the same reason again: it is about the person, not tonight's
+   * row, so it lives on the driver and is looked up by the board.
+   */
+  scorecard: Scorecard | null;
   /** Where we are on tonight's timeline, or null before the client hydrates. */
   now: number | null;
   uid: string;
@@ -371,25 +379,16 @@ export function ArrivalSheet({
             </button>
           </header>
 
-          {entry.notes ? (
-            <p className="mt-4 rounded-lg border border-warn-line bg-warn-soft px-3 py-2.5 text-[14px] leading-snug text-warn">
-              <span className="mr-1.5 text-[10px] font-bold uppercase tracking-wider">
-                Note
-              </span>
-              {entry.notes}
-            </p>
-          ) : null}
-
-          {timeEdit ? <TimeEditNotice>{timeEdit}</TimeEditNotice> : null}
-
-          {/* Last of the three strips, because the other two are about the man
-              stood in front of him and this one is about everybody. */}
-          {broadcast ? (
-            <BroadcastNote className="mt-3">{broadcast}</BroadcastNote>
-          ) : null}
-
-          {/* First, because it is what he reads before he opens his mouth. */}
-          <FromDispatch entry={entry} />
+          {/* First, because it is what he reads before he opens his mouth.
+              The note, HR's time edit and the broadcast used to be three
+              strips above this; they are the last three rows of it now, in
+              the order Karim asked for, so the whole picture is one list. */}
+          <FromDispatch
+            entry={entry}
+            scorecard={scorecard}
+            timeEdit={timeEdit}
+            broadcast={broadcast}
+          />
 
           <div className="mt-6 space-y-3">
             {/* Against the clock, wherever the clock is. For a driver still on
@@ -1091,61 +1090,169 @@ function checkPatch(field: CheckField, value: Check): YardFields {
 }
 
 /**
- * The dispatcher's half, read-only.
+ * Everything known about him before the van stops, read-only.
  *
  * Karim needs to see it — a driver with three returns is a driver he is about
- * to have a conversation with — but it is not his to change, and the rules
- * would refuse the write anyway. Showing it flat rather than as disabled inputs
- * is the honest rendering: these are facts, not controls someone switched off.
+ * to have a conversation with — but it is not his to change here, and the
+ * rules would refuse the write anyway. Showing it flat rather than as disabled
+ * inputs is the honest rendering: these are facts, not controls someone
+ * switched off.
+ *
+ * In Karim's order, which is the order the conversation goes: how the route
+ * went (productivity), anything he did wrong (infractions, quality), what came
+ * back and who helped (returns, rescues), where he stands overall (last
+ * scorecard), then the three pieces of prose — the note about him, HR's edit
+ * to his hours, and what the whole yard is being told.
+ *
+ * Every row is always there, so the list has one shape for every driver and
+ * the eye learns where each answer sits. An empty one says "None" in grey; a
+ * filled one carries its own colour, so the rows that need reading stand out
+ * from the ones that do not.
  */
-function FromDispatch({ entry }: { entry: Entry }) {
+function FromDispatch({
+  entry,
+  scorecard,
+  timeEdit,
+  broadcast,
+}: {
+  entry: Entry;
+  scorecard: Scorecard | null;
+  timeEdit: string;
+  broadcast: string;
+}) {
   const metric = METRICS.find((option) => option.value === entry.metric);
   const infraction = entry.infractions.trim();
+  const quality = entry.quality.trim();
+  const note = entry.notes.trim();
+  const edit = timeEdit.trim();
+  const told = broadcast.trim();
 
-  const blank =
+  const dispatchBlank =
     !entry.returnsRaw.trim() &&
-    !entry.infractions.trim() &&
+    !infraction &&
+    !quality &&
     entry.rescues === 0 &&
     entry.performance === null &&
     !metric;
 
   return (
     <section className="mt-5">
-      <SectionTitle>From dispatch</SectionTitle>
+      <SectionTitle>Before you start</SectionTitle>
 
-      {blank ? (
-        <p className="mt-2 rounded-xl border border-dashed border-line-strong bg-sunken/50 px-3.5 py-3 text-[13px] leading-relaxed text-ink-faint">
-          {entry.addedByCloser
-            ? "Nothing yet — you added him, so dispatch fills this in afterwards."
-            : "Nothing entered for him yet."}
+      {entry.addedByCloser && dispatchBlank ? (
+        <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-faint">
+          You added him, so dispatch fills their half in afterwards.
         </p>
-      ) : (
-        <dl className="mt-2 divide-y divide-line rounded-xl border border-line bg-sunken/50">
-          <Row
-            term="Performance"
-            value={<Performance direction={entry.performance} metric={metric} />}
-          />
-          <Row term="Returns" value={entry.returnsRaw.trim() || "None"} />
-          <Row
-            term="Infractions"
-            value={
-              infraction ? (
-                /* An infraction is the one thing on this sheet Karim has to
-                   act on, so it does not sit in the list looking like the
-                   rest of it. */
-                <span className="-my-0.5 block rounded-md border border-warn-line bg-warn-soft px-2 py-1.5 font-semibold text-warn">
-                  {infraction}
-                </span>
-              ) : (
-                "None"
-              )
-            }
-          />
-          <Row term="Rescues" value={<Rescues count={entry.rescues} />} />
-        </dl>
-      )}
+      ) : null}
+
+      <dl className="mt-2 divide-y divide-line rounded-xl border border-line bg-sunken/50">
+        <Row
+          term="Productivity"
+          value={<Performance direction={entry.performance} metric={metric} />}
+        />
+        <Row
+          term="Infractions"
+          value={
+            infraction ? (
+              /* An infraction is the one thing on this sheet Karim has to
+                 act on, so it does not sit in the list looking like the
+                 rest of it. */
+              <Tinted tone="border-warn-line bg-warn-soft font-semibold text-warn">
+                {infraction}
+              </Tinted>
+            ) : (
+              <None />
+            )
+          }
+        />
+        <Row
+          term="Quality"
+          value={
+            quality ? (
+              /* Orange rather than amber: a fault as well, but a different
+                 one, and two rows in the same colour would read as one. */
+              <Tinted tone="border-caution-line bg-caution-soft font-semibold text-caution">
+                {quality}
+              </Tinted>
+            ) : (
+              <None />
+            )
+          }
+        />
+        <Row term="Returns" value={entry.returnsRaw.trim() || <None />} />
+        <Row term="Rescues" value={<Rescues count={entry.rescues} />} />
+        <Row
+          term="Last scorecard"
+          value={
+            scorecard ? (
+              <ScorecardBubble value={scorecard} />
+            ) : (
+              <None>Not set</None>
+            )
+          }
+        />
+        <Row
+          term="Notes"
+          value={
+            note ? (
+              /* Karim's and the dispatcher's, one field — see lib/notes. */
+              <Tinted tone="border-warn-line bg-warn-soft text-warn">{note}</Tinted>
+            ) : (
+              <None />
+            )
+          }
+        />
+        <Row
+          term="Time edits"
+          value={
+            edit ? (
+              /* Mono with its breaks kept: it is pasted out of a payroll
+                 system and half of it is clock times. */
+              <Tinted tone="whitespace-pre-line border-bud-line bg-bud-soft font-mono text-[12.5px] leading-relaxed text-bud">
+                {edit}
+              </Tinted>
+            ) : (
+              <None />
+            )
+          }
+        />
+        <Row
+          term="Broadcast"
+          value={
+            told ? (
+              /* Blue, like the strip at the top of the board: this is the
+                 station talking, not something about him. */
+              <Tinted tone="whitespace-pre-line border-brand-line bg-brand-soft text-brand">
+                {told}
+              </Tinted>
+            ) : (
+              <None />
+            )
+          }
+        />
+      </dl>
     </section>
   );
+}
+
+/** A filled-in row's value, in the colour of what it is. */
+function Tinted({
+  tone,
+  children,
+}: {
+  tone: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span className={`-my-0.5 block rounded-md border px-2 py-1.5 ${tone}`}>
+      {children}
+    </span>
+  );
+}
+
+/** Nothing here, said quietly so the rows that do say something stand out. */
+function None({ children = "None" }: { children?: React.ReactNode }) {
+  return <span className="text-ink-faint">{children}</span>;
 }
 
 /**
@@ -1157,7 +1264,7 @@ function FromDispatch({ entry }: { entry: Entry }) {
  * the one character that matters.
  */
 function Rescues({ count }: { count: number }) {
-  if (count === 0) return <>None</>;
+  if (count === 0) return <None />;
 
   const took = count > 0;
 
@@ -1209,7 +1316,7 @@ function Performance({
   direction: Entry["performance"];
   metric: (typeof METRICS)[number] | undefined;
 }) {
-  if (!direction && !metric) return <>Not set</>;
+  if (!direction && !metric) return <None>Not set</None>;
 
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -1241,7 +1348,7 @@ function Performance({
 function Row({ term, value }: { term: string; value: React.ReactNode }) {
   return (
     <div className="flex gap-3 px-3.5 py-2.5">
-      <dt className="w-[86px] shrink-0 pt-0.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
+      <dt className="w-[92px] shrink-0 pt-0.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
         {term}
       </dt>
       <dd className="min-w-0 flex-1 text-[14px] leading-snug text-ink">

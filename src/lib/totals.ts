@@ -144,3 +144,43 @@ export function nightTotals(entries: Entry[]): NightTotals {
     { returns: 0, infractions: 0 },
   );
 }
+
+/**
+ * Who is on rescues tonight, split the two ways it can go.
+ *
+ * Rescues are signed — +23 he picked up off somebody, -11 taken off him — so
+ * one list of counts would put a man who helped beside a man who needed help
+ * with nothing but a minus sign between them. Two lists, each worst first in
+ * its own sense: the biggest rescuer at the top of one, the driver who had the
+ * most taken off him at the top of the other. Counts are in packages and the
+ * lines carry them unsigned; which list a line is on says the sign.
+ *
+ * Summed by driver for the same reason as everything above. A second trip that
+ * picked up more packages is more of the same rescue, not a second man.
+ */
+export function rescuesByDriver(entries: Entry[]): {
+  rescuing: BreakdownLine[];
+  rescued: BreakdownLine[];
+} {
+  return {
+    rescuing: byDriver(entries, (entry) => Math.max(0, entry.rescues)),
+    rescued: byDriver(entries, (entry) => Math.max(0, -entry.rescues)),
+  };
+}
+
+/**
+ * Packages moved on rescues tonight — the figure on the pill.
+ *
+ * One number, not two. Every package picked up was taken off somebody, so the
+ * two sides should match; when they do not it is because only one half was
+ * typed, and the larger side is the one closest to what actually happened.
+ */
+export function rescuedPackages(entries: Entry[]): number {
+  let given = 0;
+  let taken = 0;
+  for (const entry of entries) {
+    if (entry.rescues > 0) given += entry.rescues;
+    else taken -= entry.rescues;
+  }
+  return Math.max(given, taken);
+}

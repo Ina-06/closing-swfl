@@ -180,7 +180,7 @@ service cloud.firestore {
             'seq', 'driverId', 'fullName', 'isBud', 'isTrainer', 'isRescuer',
             'eta', 'returnsRaw', 'returnsCount', 'returnsReasons',
             'returnsMismatch', 'performance', 'metric', 'infractions',
-            'rescues', 'notes', 'clockOutManual', 'status',
+            'quality', 'rescues', 'notes', 'clockOutManual', 'status',
             'updatedAt', 'updatedBy'
           ]);
         }
@@ -312,6 +312,54 @@ service cloud.firestore {
       // there is nobody to ask about it afterwards. The portal turns a
       // stand-in away at the door, so nothing on their screen offers this.
       allow delete: if isRepairs() || isPermanentCloser();
+    }
+
+    // The station's vans and gas cards, and which went out today.
+    //
+    // Shown on the repairs board and read by the same two people: whoever is
+    // signed in as Repairs — Issam, ticking them off after launch — and Karim
+    // on his own phone. Only Repairs adds and removes; Karim ticks. A one-time
+    // stand-in is off it for the same reason
+    // they are off the board's own writes: the list is the station's and
+    // outlives every night on it, and the repairs portal turns them away at
+    // the door anyway.
+    //
+    // `usedOn` names a round, not a flag, so "used" means used this session.
+    // The list resets when the round below moves on — nothing writes to the
+    // vans to clear them.
+    match /fleet/{itemId} {
+      function fleetFields() {
+        return ['kind', 'label', 'usedOn', 'createdAt', 'updatedAt', 'updatedBy'];
+      }
+
+      allow read: if isRepairs() || isPermanentCloser();
+
+      // What is on the list is the Repairs login's to say. Karim, crossing
+      // over from the close, can tick a van off and nothing more — he cannot
+      // add one or take one away.
+      allow create: if isRepairs()
+                    && request.resource.data.keys().hasOnly(fleetFields())
+                    && request.resource.data.kind in ['van', 'gasCard'];
+      allow update: if (isRepairs()
+                        && changedKeys().hasOnly(['label', 'usedOn', 'updatedAt', 'updatedBy']))
+                    || (isPermanentCloser()
+                        && changedKeys().hasOnly(['usedOn', 'updatedAt', 'updatedBy']));
+      allow delete: if isRepairs();
+    }
+
+    // Which round of van and gas-card ticks is current. One document.
+    //
+    // The session moves it, so the two roles that start and end a session
+    // write it: the closer at End Day — a one-time stand-in too, because a
+    // stand-in ends the day like anybody else — and the dispatcher when they
+    // post a new roster. It holds one string and nothing else, and writing it
+    // cannot touch a van, a card or a repair; it only changes which ticks
+    // count as this session's.
+    match /fleetMeta/{docId} {
+      allow read: if isRepairs() || isCloser() || isDispatcher();
+      allow create, update: if (isCloser() || isDispatcher())
+                            && request.resource.data.keys().hasOnly(['round', 'night', 'updatedAt', 'updatedBy']);
+      allow delete: if false;
     }
 
     // One-time closer codes. Written and verified only by the Admin SDK, which

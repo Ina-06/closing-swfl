@@ -26,6 +26,7 @@ const BLANK = {
   performance: null as "up" | "down" | null,
   metric: null as Metric | null,
   infractions: "",
+  quality: "",
   notes: "",
   rescues: 0,
 };
@@ -173,6 +174,7 @@ export function EntryForm({
           performance: form.performance,
           metric: form.metric,
           infractions: form.infractions.trim(),
+          quality: form.quality.trim(),
           /**
            * Karim's note comes first, then whatever was typed here.
            *
@@ -368,7 +370,7 @@ export function EntryForm({
         </div>
       </div>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-1.5">
           <Label htmlFor="infractions">Infractions</Label>
           <TextInput
@@ -377,6 +379,21 @@ export function EntryForm({
             onChange={(event) =>
               setForm({ ...form, infractions: event.target.value })
             }
+            placeholder="None"
+            autoComplete="off"
+            className="h-11 py-0"
+          />
+        </div>
+
+        {/* Beside infractions because it is the same kind of thing said the
+            same way — what went wrong on the route, in the dispatcher's own
+            words — and it lands under it on Karim's sheet. */}
+        <div className="space-y-1.5">
+          <Label htmlFor="quality">Quality</Label>
+          <TextInput
+            id="quality"
+            value={form.quality}
+            onChange={(event) => setForm({ ...form, quality: event.target.value })}
             placeholder="None"
             autoComplete="off"
             className="h-11 py-0"

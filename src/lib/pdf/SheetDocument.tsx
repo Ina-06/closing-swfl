@@ -30,16 +30,22 @@ import type { Mark, SheetRow } from "@/lib/sheet";
  * twelve. Everything else gave up a little rather than the checks giving up a
  * lot, and a tick column is the one thing here that cannot be read wrong for
  * being narrow — it holds a single glyph.
+ *
+ * And once more for rescues, which took its 6% from the name and the van
+ * issues — the two columns that wrap rather than overflow when they are
+ * tight, so the cost is a taller row now and then rather than a cut word.
  */
 const COLUMNS = {
   number: 3,
-  name: 14.5,
+  name: 13,
   time: 6,
+  /** "RESCUES" at the heading size, and "+120" comfortably under it. */
+  rescues: 6,
   van: 5.5,
   /** Twelve of these. 4.25% of the printable width is ~33pt, which fits
       "CHARGER" at the heading size below. */
   check: 4.25,
-  vanIssues: 20,
+  vanIssues: 15.5,
 } as const;
 
 const INK = "#101820";
@@ -211,6 +217,9 @@ export function SheetDocument({
             <Head label="#" width={COLUMNS.number} centre />
             <Head label="NAME" width={COLUMNS.name} />
             <Head label="TIME" width={COLUMNS.time} centre />
+            {/* Straight after the time, where Karim asked for it: the two
+                numbers that say how a driver's night ended. */}
+            <Head label="RESCUES" width={COLUMNS.rescues} centre />
             <Head label="VAN" width={COLUMNS.van} centre />
             {/* Next to the van it is about, not nine tick columns away at the
                 far edge of a landscape page. Whoever picks this up in the
@@ -242,6 +251,23 @@ export function SheetDocument({
               </View>
               <View style={[styles.cell, { width: `${COLUMNS.time}%` }]}>
                 <Text style={styles.centre}>{row.time}</Text>
+              </View>
+              {/* Green for packages he picked up, red for packages taken off
+                  him — the same pair as the tick and the cross. */}
+              <View style={[styles.cell, { width: `${COLUMNS.rescues}%` }]}>
+                <Text
+                  style={[
+                    styles.centre,
+                    styles.bold,
+                    row.rescueSign === "plus"
+                      ? { color: YES }
+                      : row.rescueSign === "minus"
+                        ? { color: NO }
+                        : {},
+                  ]}
+                >
+                  {row.rescues}
+                </Text>
               </View>
               <View style={[styles.cell, { width: `${COLUMNS.van}%` }]}>
                 <Text style={styles.centre}>{row.van}</Text>

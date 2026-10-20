@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 import type { ReturnsReason } from "@/lib/returns";
-import type { CheckField, Metric } from "@/lib/constants";
+import type { CheckField, Metric, Scorecard } from "@/lib/constants";
 
 /**
  * A person on the roster. The full name is canonical and is copied onto the
@@ -12,6 +12,15 @@ export type Driver = {
   fullName: string;
   /** Normalised for matching a pasted line against this record. Never displayed. */
   nameKey: string;
+  /**
+   * His last scorecard tier, or null if nobody has set one.
+   *
+   * Unlike BUD, TRN and RES this one is about the person rather than the
+   * night — it is the week Amazon graded, and it stays true until the next
+   * card comes out — so it lives here, on the record, and is read off it
+   * by the closer's phone rather than copied onto every entry.
+   */
+  scorecard: Scorecard | null;
   createdAt: Timestamp | null;
 };
 
@@ -77,6 +86,11 @@ export type Entry = {
   performance: "up" | "down" | null;
   metric: Metric | null;
   infractions: string;
+  /**
+   * Quality issues dispatch has against him tonight — a missed photo, a
+   * concession. Free text, written the same way infractions are.
+   */
+  quality: string;
   /** Signed, in packages: +23 he picked up, -11 taken off him. */
   rescues: number;
   /** Anything Karim needs to know about this driver. Surfaced on his card. */
@@ -171,6 +185,7 @@ export type EntryDispatchFields = Pick<
   | "performance"
   | "metric"
   | "infractions"
+  | "quality"
   | "rescues"
   | "notes"
   | "clockOutManual"
@@ -223,6 +238,29 @@ export type RepairTask = {
   done: boolean;
   /** When it was ticked off. The archive clock runs from here. */
   doneAt: Timestamp | null;
+  createdAt: Timestamp | null;
+  updatedAt: Timestamp | null;
+  updatedBy: string;
+};
+
+/**
+ * A van or a gas card the station owns, on the list Issam ticks after launch.
+ *
+ * The tick is the name of a round, not a boolean. "Used" only ever means used
+ * this session — End Day makes every van spare again — and storing which
+ * round it was ticked in means the whole list clears by moving one marker
+ * (`fleetMeta/round`) rather than by rewriting every van. The vans and cards
+ * themselves are permanent until somebody removes one. See lib/db/fleet.
+ */
+export type FleetKind = "van" | "gasCard";
+
+export type FleetItem = {
+  id: string;
+  kind: FleetKind;
+  /** What is painted on the van or embossed on the card: "214", "Card 4 · 0912". */
+  label: string;
+  /** The round it was last ticked as used in, or "" for spare. */
+  usedOn: string;
   createdAt: Timestamp | null;
   updatedAt: Timestamp | null;
   updatedBy: string;

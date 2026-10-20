@@ -34,6 +34,22 @@ export const METRICS = [
 ] as const;
 
 export type Metric = (typeof METRICS)[number]["value"];
+
+/**
+ * A driver's scorecard tier, lowest to highest.
+ *
+ * Each one renders in its own metal — see the bronze, silver, gold and
+ * platinum tokens in globals.css — so the bubble on Karim's phone is read by
+ * colour before it is read by word.
+ */
+export const SCORECARDS = [
+  { value: "bronze", label: "Bronze" },
+  { value: "silver", label: "Silver" },
+  { value: "gold", label: "Gold" },
+  { value: "platinum", label: "Platinum" },
+] as const;
+
+export type Scorecard = (typeof SCORECARDS)[number]["value"];
 export type MetricTone = (typeof METRICS)[number]["tone"];
 
 /**

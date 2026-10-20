@@ -213,6 +213,7 @@ export async function addCloserEntry(
     performance: null,
     metric: null,
     infractions: "",
+    quality: "",
     rescues: 0,
     notes: driver.notes ?? "",
     clockOutManual: "",

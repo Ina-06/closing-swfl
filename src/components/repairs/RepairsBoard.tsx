@@ -1,8 +1,24 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useAddJob } from "@/components/repairs/AddJob";
+import {
+  FLEET_KINDS,
+  FleetList,
+  FleetPanel,
+  splitFleet,
+} from "@/components/repairs/Fleet";
 import { TaskSheet } from "@/components/repairs/TaskSheet";
+import { useAuth } from "@/lib/auth/AuthProvider";
+import { useFleet, useFleetRound } from "@/lib/db/fleet";
+import { useFinePointer } from "@/lib/pointer";
+import type { FleetKind } from "@/lib/types";
 import { ErrorNote, SoftWarning } from "@/components/ui/Field";
 import {
   addRepair,
@@ -156,6 +172,34 @@ export function RepairsBoard({ uid }: { uid: string }) {
   const now = useNow();
 
   /**
+   * The vans and gas cards Issam ticks off after launch.
+   *
+   * On a laptop they sit in a panel to the right of the jobs, both on screen
+   * at once. A phone has no right-hand side, so there they are two more
+   * views behind a switch at the top — `view` is that switch, and a laptop
+   * ignores it.
+   */
+  const fleet = useFleet();
+  const [view, setView] = useState<"jobs" | FleetKind>("jobs");
+  /**
+   * Which round of ticks is current — the session, moved on by End Day. Read
+   * live, so this board clears itself the moment Karim ends the day.
+   */
+  const fleetRound = useFleetRound();
+  const round = fleetRound.round;
+  const fleetLoading = fleet.loading || fleetRound.loading;
+  const fleetError = fleet.error ?? fleetRound.error;
+  /**
+   * Adding and removing vans and cards is the Repairs login's job. Karim,
+   * signed in as the closer and crossed over, ticks them off and nothing
+   * more — the rules hold the same line.
+   */
+  const auth = useAuth();
+  const canManageFleet = auth.status === "signedIn" && auth.role === "repairs";
+  /** Click the words to edit them — laptop only, see lib/pointer. */
+  const inline = useFinePointer();
+
+  /**
    * The three lists, in the order each of them is read.
    *
    * Worked out here rather than in three filters down the page so the counts
@@ -250,7 +294,50 @@ export function RepairsBoard({ uid }: { uid: string }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-8">
+      <div className="space-y-4">
+        {/* Phone only. Three things share one column there, so they take
+            turns; on a laptop the vans and cards have a panel of their own on
+            the right and this switch would only be saying so twice. */}
+        <ViewSwitch
+          view={view}
+          onChange={setView}
+          jobs={loading ? null : lists.todo.length}
+          spare={
+            fleetLoading
+              ? null
+              : {
+                  van: splitFleet(fleet.items, "van", round).spare.length,
+                  gasCard: splitFleet(fleet.items, "gasCard", round).spare
+                    .length,
+                }
+          }
+        />
+
+        {failure ? <ErrorNote>{failure}</ErrorNote> : null}
+        {fleetError ? (
+          <ErrorNote>
+            Could not read the vans and gas cards: {fleetError}. If this says
+            permission denied, the Firestore rules may not be published yet.
+          </ErrorNote>
+        ) : null}
+
+        {view !== "jobs" ? (
+          <div className="lg:hidden">
+            <FleetList
+              key={view}
+              kind={view}
+              items={fleet.items}
+              loading={fleetLoading}
+              round={round}
+              canManage={canManageFleet}
+              uid={uid}
+              onError={setFailure}
+            />
+          </div>
+        ) : null}
+
+        <div className={`space-y-4 ${view === "jobs" ? "" : "hidden lg:block"}`}>
       {/* At the very top, because on a board this long the question is
           usually one van. It filters all three tabs at once and their counts
           with them, so a tab with a nought on it means "not there" rather
@@ -263,8 +350,6 @@ export function RepairsBoard({ uid }: { uid: string }) {
           denied, the Firestore rules may not be published yet.
         </ErrorNote>
       ) : null}
-      {failure ? <ErrorNote>{failure}</ErrorNote> : null}
-
       {capped ? (
         <SoftWarning>
           This board is showing the {tasks.length} most recent jobs, which is as
@@ -367,11 +452,18 @@ export function RepairsBoard({ uid }: { uid: string }) {
                 daysLeft={now === null ? null : daysUntilArchive(task, now)}
                 age={now === null ? null : daysOpen(task, now)}
                 leaving={lingering.has(task.id)}
+                inline={inline}
                 onToggle={() => toggle(task)}
                 onOpen={() => {
                   setFailure(null);
                   setEditing(task);
                 }}
+                onRename={(title) =>
+                  run("That change", editRepair(task.id, title, uid))
+                }
+                onRemove={() =>
+                  run("Removing that job", removeRepair(task.id))
+                }
               />
             </li>
           ))}
@@ -382,7 +474,24 @@ export function RepairsBoard({ uid }: { uid: string }) {
         Van issues land here on their own when the closer ends the night. A job
         stays on this list until somebody ticks it off, then sits under Done for{" "}
         {ARCHIVE_AFTER_DAYS} days before it moves to the archive.
+        {inline ? " Click a job's words to change them; click away to save." : ""}
       </p>
+        </div>
+      </div>
+
+      {/* Top right of the page on a laptop, and it stays there while the job
+          list scrolls under it — after launch it is the thing being worked
+          down, and it should not scroll away from the person doing that. */}
+      <aside className="hidden lg:sticky lg:top-20 lg:block">
+        <FleetPanel
+          items={fleet.items}
+          loading={fleetLoading}
+          round={round}
+          canManage={canManageFleet}
+          uid={uid}
+          onError={setFailure}
+        />
+      </aside>
 
       {sheet ? (
         <TaskSheet
@@ -434,8 +543,11 @@ function TaskRow({
   daysLeft,
   age,
   leaving,
+  inline,
   onToggle,
   onOpen,
+  onRename,
+  onRemove,
 }: {
   task: RepairTask;
   /** Days before it moves to the archive, or null when that is not the question. */
@@ -444,46 +556,38 @@ function TaskRow({
   age: number | null;
   /** Just ticked off, and on its way to Done. See `lingering`. */
   leaving: boolean;
+  /**
+   * A laptop: the words are edited where they are, and saved when the click
+   * goes somewhere else. A phone keeps the sheet — a thumb scrolling past
+   * would otherwise be opening a keyboard on every line it touched.
+   */
+  inline: boolean;
   onToggle: () => void;
   onOpen: () => void;
+  onRename: (title: string) => void;
+  onRemove: () => void;
 }) {
+  if (inline) {
+    return (
+      <InlineTaskRow
+        task={task}
+        daysLeft={daysLeft}
+        age={age}
+        leaving={leaving}
+        onToggle={onToggle}
+        onRename={onRename}
+        onRemove={onRemove}
+      />
+    );
+  }
+
   return (
     <div
       className={`flex items-stretch overflow-hidden rounded-xl border border-line bg-surface transition-opacity duration-500 ${
         leaving ? "opacity-55" : ""
       }`}
     >
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={task.done}
-        aria-label={`${task.done ? "Put back" : "Tick off"}: ${task.title}`}
-        onClick={onToggle}
-        className="grid w-12 shrink-0 place-items-center self-stretch transition-colors active:bg-sunken"
-      >
-        <span
-          className={`grid size-6 place-items-center rounded-md border-2 transition-colors ${
-            task.done
-              ? "border-arrived bg-arrived text-ink-inverse"
-              : "border-line-strong bg-surface"
-          }`}
-        >
-          {task.done ? (
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="size-4"
-              aria-hidden="true"
-            >
-              <path d="M5 12.5l5 5 9-10.5" />
-            </svg>
-          ) : null}
-        </span>
-      </button>
+      <TickBox task={task} onToggle={onToggle} />
 
       <button
         type="button"
@@ -502,43 +606,330 @@ function TaskRow({
           {task.title}
         </span>
 
-        {/* Where it came from on the left, how long it has been here on the
-            right. They belong on one line because they are the two halves of
-            the same question — when was this reported, and how long ago was
-            that — and the age sits in the corner so a list of them reads down
-            the right-hand edge without anybody hunting for it. */}
-        <span className="mt-1.5 flex items-end justify-between gap-3">
-          <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-            {/* In the order it gets asked for: what night, who was driving.
-                The van is not here — it is the front of the line above, which
-                is the only place it needs to be said. */}
-            {task.nightKey || task.driverName || task.source === "manual" ? (
-              <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-none text-ink-faint">
-                {task.nightKey ? (
-                  <span>
-                    {stationDateLabel(new Date(`${task.nightKey}T12:00:00Z`))}
-                  </span>
-                ) : null}
-                {task.nightKey && task.driverName ? <Dot /> : null}
-                {task.driverName ? <span>{task.driverName}</span> : null}
-                {task.source === "manual" ? <span>Added by hand</span> : null}
-              </span>
-            ) : null}
-
-            {/* Only on the Done list, and only as long as it is true. Somebody
-                wondering where last month's work went should find the answer on
-                the row itself rather than in a tab they have not opened. */}
-            {daysLeft !== null ? (
-              <span className="block text-[11px] font-medium text-ink-faint">
-                Moves to the archive in {daysLeft}{" "}
-                {daysLeft === 1 ? "day" : "days"}
-              </span>
-            ) : null}
-          </span>
-
-          {age !== null ? <Age days={age} done={task.done} /> : null}
-        </span>
+        <TaskMeta task={task} daysLeft={daysLeft} age={age} />
       </button>
+    </div>
+  );
+}
+
+/**
+ * The same job on a laptop, with its words editable where they sit.
+ *
+ * No sheet. Clicking the line puts the caret in it; clicking anywhere else
+ * saves it, Enter saves it, Escape puts it back the way it was. A line
+ * emptied out is put back too rather than saved — a job with no words is not
+ * a correction, and removing one is the × on the right, which asks twice.
+ *
+ * The box looks like the text until it is hovered or focused, so the list
+ * reads exactly as it does on a phone and only shows it is editable when the
+ * pointer is on it.
+ */
+function InlineTaskRow({
+  task,
+  daysLeft,
+  age,
+  leaving,
+  onToggle,
+  onRename,
+  onRemove,
+}: {
+  task: RepairTask;
+  daysLeft: number | null;
+  age: number | null;
+  leaving: boolean;
+  onToggle: () => void;
+  onRename: (title: string) => void;
+  onRemove: () => void;
+}) {
+  const [draft, setDraft] = useState(task.title);
+  const [focused, setFocused] = useState(false);
+  const [lastSeen, setLastSeen] = useState(task.title);
+  const [confirming, setConfirming] = useState(false);
+  const box = useRef<HTMLTextAreaElement>(null);
+
+  // The stored line changed underneath us — somebody else corrected it — and
+  // this box is not being typed in, so the draft follows. Adjusted during
+  // render, the same way the dispatcher's table cells do it.
+  if (!focused && task.title !== lastSeen) {
+    setLastSeen(task.title);
+    setDraft(task.title);
+  }
+
+  // Grows with what is in it, so a three-line fault is three lines tall and
+  // never scrolls inside its own box.
+  useLayoutEffect(() => {
+    const field = box.current;
+    if (!field) return;
+    field.style.height = "auto";
+    field.style.height = `${field.scrollHeight}px`;
+  }, [draft]);
+
+  function commit() {
+    const next = draft.trim();
+    if (!next) {
+      setDraft(task.title);
+      return;
+    }
+    if (next !== task.title) onRename(next);
+  }
+
+  return (
+    <div
+      className={`group flex items-stretch overflow-hidden rounded-xl border bg-surface transition-[opacity,border-color] duration-500 ${
+        focused ? "border-brand" : "border-line"
+      } ${leaving ? "opacity-55" : ""}`}
+    >
+      <TickBox task={task} onToggle={onToggle} />
+
+      <div className="min-w-0 flex-1 py-2 pr-1">
+        <textarea
+          ref={box}
+          value={draft}
+          rows={1}
+          onChange={(event) => setDraft(event.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => {
+            setFocused(false);
+            commit();
+          }}
+          onKeyDown={(event) => {
+            // Shift+Enter is still a new line, for the fault written on three.
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              event.currentTarget.blur();
+            }
+            if (event.key === "Escape") {
+              setDraft(task.title);
+              // Blur after the reset has rendered, so commit sees the original.
+              const field = event.currentTarget;
+              requestAnimationFrame(() => field.blur());
+            }
+          }}
+          aria-label={`Job: ${task.title}`}
+          title="Click to edit — click away or press Enter to save"
+          spellCheck={false}
+          className={`-mx-1.5 block w-[calc(100%+0.75rem)] resize-none overflow-hidden rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[15px] font-semibold leading-snug outline-none transition-colors hover:bg-sunken/70 focus:bg-surface ${
+            task.done && !focused
+              ? "text-ink-muted line-through decoration-ink-faint"
+              : "text-ink"
+          }`}
+        />
+
+        <div className="pr-2">
+          <TaskMeta task={task} daysLeft={daysLeft} age={age} />
+        </div>
+      </div>
+
+      {/* Removing, which the sheet used to hold. Faint until the row is
+          hovered so forty of them do not stripe the list, and two clicks
+          like everywhere else on the board. */}
+      {confirming ? (
+        <span className="flex shrink-0 items-start gap-1 py-2.5 pr-2">
+          <button
+            type="button"
+            onClick={onRemove}
+            className="min-h-8 rounded-md border border-overdue-line bg-overdue-soft px-2 text-[12px] font-bold text-overdue"
+          >
+            Remove
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirming(false)}
+            className="min-h-8 rounded-md px-1.5 text-[12px] font-semibold text-ink-faint hover:text-ink"
+          >
+            Keep
+          </button>
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setConfirming(true)}
+          aria-label={`Remove: ${task.title}`}
+          title="Remove this job — only for something typed by mistake"
+          className="grid w-10 shrink-0 place-items-center text-ink-faint opacity-40 transition-[opacity,color,background-color] hover:bg-overdue-soft hover:text-overdue group-hover:opacity-100 focus-visible:opacity-100"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            className="size-4"
+            aria-hidden="true"
+          >
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The box on the left of a row — a real checkbox to a screen reader and a
+ * 44px target to a thumb. Shared by both kinds of row so ticking a job off is
+ * the same control on a phone and a laptop.
+ */
+function TickBox({
+  task,
+  onToggle,
+}: {
+  task: RepairTask;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={task.done}
+      aria-label={`${task.done ? "Put back" : "Tick off"}: ${task.title}`}
+      onClick={onToggle}
+      className="grid w-12 shrink-0 place-items-center self-stretch transition-colors active:bg-sunken"
+    >
+      <span
+        className={`grid size-6 place-items-center rounded-md border-2 transition-colors ${
+          task.done
+            ? "border-arrived bg-arrived text-ink-inverse"
+            : "border-line-strong bg-surface"
+        }`}
+      >
+        {task.done ? (
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-4"
+            aria-hidden="true"
+          >
+            <path d="M5 12.5l5 5 9-10.5" />
+          </svg>
+        ) : null}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * Where it came from on the left, how long it has been here on the right.
+ *
+ * They belong on one line because they are the two halves of the same
+ * question — when was this reported, and how long ago was that — and the age
+ * sits in the corner so a list of them reads down the right-hand edge without
+ * anybody hunting for it.
+ */
+function TaskMeta({
+  task,
+  daysLeft,
+  age,
+}: {
+  task: RepairTask;
+  daysLeft: number | null;
+  age: number | null;
+}) {
+  return (
+    <span className="mt-1.5 flex items-end justify-between gap-3">
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+        {/* In the order it gets asked for: what night, who was driving.
+            The van is not here — it is the front of the line above, which
+            is the only place it needs to be said. */}
+        {task.nightKey || task.driverName || task.source === "manual" ? (
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-none text-ink-faint">
+            {task.nightKey ? (
+              <span>
+                {stationDateLabel(new Date(`${task.nightKey}T12:00:00Z`))}
+              </span>
+            ) : null}
+            {task.nightKey && task.driverName ? <Dot /> : null}
+            {task.driverName ? <span>{task.driverName}</span> : null}
+            {task.source === "manual" ? <span>Added by hand</span> : null}
+          </span>
+        ) : null}
+
+        {/* Only on the Done list, and only as long as it is true. Somebody
+            wondering where last month's work went should find the answer on
+            the row itself rather than in a tab they have not opened. */}
+        {daysLeft !== null ? (
+          <span className="block text-[11px] font-medium text-ink-faint">
+            Moves to the archive in {daysLeft}{" "}
+            {daysLeft === 1 ? "day" : "days"}
+          </span>
+        ) : null}
+      </span>
+
+      {age !== null ? <Age days={age} done={task.done} /> : null}
+    </span>
+  );
+}
+
+/**
+ * Jobs, vans or gas cards — the phone's way of fitting three lists in one
+ * column.
+ *
+ * Phone only (hidden from `lg` up), because a laptop shows the vans and cards
+ * in their own panel on the right. Each option carries the number that list
+ * is read for: jobs still to do, and vans and cards still spare this session. In the
+ * board's orange so it reads as part of the board, and sized for a thumb.
+ */
+function ViewSwitch({
+  view,
+  onChange,
+  jobs,
+  spare,
+}: {
+  view: "jobs" | FleetKind;
+  onChange: (view: "jobs" | FleetKind) => void;
+  jobs: number | null;
+  spare: Record<FleetKind, number> | null;
+}) {
+  const options: { key: "jobs" | FleetKind; label: string; count: number | null }[] =
+    [
+      { key: "jobs", label: "Jobs", count: jobs },
+      ...FLEET_KINDS.map((option) => ({
+        key: option.kind,
+        label: option.label,
+        count: spare ? spare[option.kind] : null,
+      })),
+    ];
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Jobs, vans or gas cards"
+      className="grid grid-cols-3 gap-1 rounded-xl border border-line bg-surface p-1 lg:hidden"
+    >
+      {options.map((option) => {
+        const active = view === option.key;
+        return (
+          <button
+            key={option.key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(option.key)}
+            className={`flex min-h-11 flex-col items-center justify-center rounded-lg px-1 leading-none transition-colors ${
+              active
+                ? "bg-caution-soft text-caution"
+                : "text-ink-muted active:bg-sunken"
+            }`}
+          >
+            <span className="text-[13px] font-semibold">{option.label}</span>
+            <span
+              className={`tnum mt-1 font-mono text-[11px] font-bold ${
+                active ? "text-caution" : "text-ink-faint"
+              }`}
+            >
+              {option.count === null
+                ? " "
+                : option.key === "jobs"
+                  ? `${option.count} to do`
+                  : `${option.count} spare`}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }

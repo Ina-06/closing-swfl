@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import type { DocumentData } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
+import { endFleetRound, startFleetRound } from "@/lib/db/fleet";
 import { stationNightKey } from "@/lib/constants";
 import type { RosterEntry, Session } from "@/lib/types";
 
@@ -199,6 +200,13 @@ export async function createSession(input: RosterInput) {
     },
     { merge: true },
   );
+
+  // A new day clears the vans and gas cards on the repairs board, if End Day
+  // did not already. Not awaited and never allowed to fail the roster: the
+  // night starting is the thing that matters here. See startFleetRound.
+  startFleetRound(input.nightKey, input.updatedBy).catch((error: unknown) =>
+    console.warn("Could not clear the vans and gas cards:", error),
+  );
 }
 
 /**
@@ -234,6 +242,14 @@ export async function closeSession(nightKey: string, updatedBy: string) {
     updatedAt: serverTimestamp(),
     updatedBy,
   });
+
+  // Every van and gas card is spare again. Separate from the close and never
+  // allowed to fail it — End Day is the last thing Karim does all night, and a
+  // list on another screen is not a reason to show him an error. Touches the
+  // round marker only: no van, no card, and nothing on the repairs board.
+  endFleetRound(nightKey, updatedBy).catch((error: unknown) =>
+    console.warn("Could not clear the vans and gas cards:", error),
+  );
 }
 
 /**

@@ -19,11 +19,18 @@ import { BroadcastNote } from "@/components/BroadcastNote";
 import { NoteSheet } from "@/components/NoteSheet";
 import { ErrorNote } from "@/components/ui/Field";
 import { addCloserEntry } from "@/lib/db/closer";
+import { useDrivers } from "@/lib/db/drivers";
 import { useEntries } from "@/lib/db/entries";
 import { etaMinutes, minutesLate, stationNowMinutes } from "@/lib/eta";
 import { pendingNote } from "@/lib/notes";
 import { timeEditFor } from "@/lib/timeEdits";
-import { infractionsByDriver, nightTotals, returnsByDriver } from "@/lib/totals";
+import {
+  infractionsByDriver,
+  nightTotals,
+  rescuedPackages,
+  rescuesByDriver,
+  returnsByDriver,
+} from "@/lib/totals";
 import type { Entry, RosterEntry, Session } from "@/lib/types";
 
 /**
@@ -157,9 +164,9 @@ export function CloserBoard({
    * which is also how it reads: he is asking about returns *instead of* asking
    * about infractions.
    */
-  const [breakdown, setBreakdown] = useState<"returns" | "infractions" | null>(
-    null,
-  );
+  const [breakdown, setBreakdown] = useState<
+    "returns" | "infractions" | "rescues" | null
+  >(null);
   const now = useStationClock();
 
   const { returning, deliveringEntries, inYard, done } = useMemo(() => {
@@ -264,6 +271,26 @@ export function CloserBoard({
     [entries],
   );
   const returnsLines = useMemo(() => returnsByDriver(entries), [entries]);
+  /** Rescues, split into who helped and who was helped. */
+  const rescueLines = useMemo(() => rescuesByDriver(entries), [entries]);
+  const rescueTotal = useMemo(() => rescuedPackages(entries), [entries]);
+  const anyRescues =
+    rescueLines.rescuing.length > 0 || rescueLines.rescued.length > 0;
+
+  /**
+   * Each driver's last scorecard, by driverId.
+   *
+   * The tier is about the person, so it lives on the driver record rather
+   * than on tonight's rows, and this one listener is how the sheet reaches
+   * it. Empty until it lands — the sheet says "Not set" for a moment rather
+   * than waiting on it.
+   */
+  const { drivers } = useDrivers();
+  const scorecards = useMemo(
+    () =>
+      new Map((drivers ?? []).map((driver) => [driver.id, driver.scorecard])),
+    [drivers],
+  );
 
   /**
    * A sheet is over the list, so the list is not his screen at the moment.
@@ -428,6 +455,47 @@ export function CloserBoard({
               {breakdown === "infractions" && infractionLines.length > 0 ? (
                 <Breakdown
                   lines={infractionLines}
+                  onClose={() => setBreakdown(null)}
+                />
+              ) : null}
+            </div>
+
+            {/* The third figure, and the same question again: how many
+                packages moved on rescues tonight, then whose. Two lists
+                behind it rather than one, because a rescue has two sides.
+                Hangs leftwards — it is the furthest pill across, and a panel
+                growing right from here would leave the phone. */}
+            <div className="relative">
+              <Total
+                label="Rescues"
+                value={rescueTotal}
+                open={breakdown === "rescues"}
+                onClick={
+                  anyRescues
+                    ? () =>
+                        setBreakdown((was) =>
+                          was === "rescues" ? null : "rescues",
+                        )
+                    : undefined
+                }
+              />
+
+              {breakdown === "rescues" && anyRescues ? (
+                <Breakdown
+                  tone="plain"
+                  align="right"
+                  groups={[
+                    {
+                      title: "Rescuing",
+                      lines: rescueLines.rescuing,
+                      bubble: "good",
+                    },
+                    {
+                      title: "Being rescued",
+                      lines: rescueLines.rescued,
+                      bubble: "bad",
+                    },
+                  ]}
                   onClose={() => setBreakdown(null)}
                 />
               ) : null}
@@ -749,6 +817,7 @@ export function CloserBoard({
           entry={open}
           timeEdit={timeEditFor(session, open.driverId)}
           broadcast={session.broadcastNote}
+          scorecard={scorecards.get(open.driverId) ?? null}
           /* The clock itself, not a lateness worked out from it. The sheet
              needs to compare the ETA against a different moment in each state —
              now while he is on the road or stood at the van, the stamp once he
