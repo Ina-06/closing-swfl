@@ -9,17 +9,14 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useAddJob } from "@/components/repairs/AddJob";
-import {
-  FLEET_KINDS,
-  FleetList,
-  FleetPanel,
-  splitFleet,
-} from "@/components/repairs/Fleet";
+import { AvailableList, splitFleet } from "@/components/repairs/Fleet";
 import { TaskSheet } from "@/components/repairs/TaskSheet";
+import { VansDatabase } from "@/components/repairs/VansDatabase";
 import { useAuth } from "@/lib/auth/AuthProvider";
-import { useFleet, useFleetRound } from "@/lib/db/fleet";
+import { useAvailable } from "@/lib/db/fleet";
+import { useVans } from "@/lib/db/vans";
 import { useFinePointer } from "@/lib/pointer";
-import type { FleetKind } from "@/lib/types";
+import { vanKey, vanOfTitle } from "@/lib/vans";
 import { ErrorNote, SoftWarning } from "@/components/ui/Field";
 import {
   addRepair,
@@ -40,7 +37,7 @@ import {
   type Shelf,
 } from "@/lib/repairs";
 import { stationDateLabel } from "@/lib/constants";
-import type { RepairTask } from "@/lib/types";
+import type { RepairTask, VanRecord } from "@/lib/types";
 
 /**
  * The repairs board.
@@ -114,6 +111,20 @@ function matches(task: RepairTask, words: string[]): boolean {
  */
 const LINGER_MS = 2200;
 
+/** The board's three views, one tab each — on a phone and a laptop alike. */
+type View = "jobs" | "available" | "vans";
+
+/**
+ * What a job card can say about its van.
+ *
+ * `error` when the database could not be read, which the card shows as ERR
+ * so a broken lookup is never mistaken for a van that is simply not in it.
+ */
+type VanLookup =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "ready"; byKey: ReadonlyMap<string, VanRecord> };
+
 /**
  * Today, to the hour, as the thing the archive clock is measured against.
  *
@@ -173,30 +184,30 @@ export function RepairsBoard({ uid }: { uid: string }) {
   const now = useNow();
 
   /**
-   * The vans and gas cards Issam ticks off after launch.
-   *
-   * On a laptop they sit in a panel to the right of the jobs, both on screen
-   * at once. A phone has no right-hand side, so there they are two more
-   * views behind a switch at the top — `view` is that switch, and a laptop
-   * ignores it.
+   * Which of the three is showing: the jobs, today's available vans and gas
+   * cards, or the vans database. Tabs on every screen size — the database is
+   * four columns wide and would not fit beside the jobs anyway.
    */
-  const fleet = useFleet();
-  const [view, setView] = useState<"jobs" | FleetKind>("jobs");
+  const [view, setView] = useState<View>("jobs");
   /**
-   * Which round of ticks is current — the session, moved on by End Day. Read
-   * live, so this board clears itself the moment Karim ends the day.
+   * Today's available vans and gas cards. Read live, so the list empties
+   * itself the moment Karim ends the day.
    */
-  const fleetRound = useFleetRound();
-  const round = fleetRound.round;
-  const fleetLoading = fleet.loading || fleetRound.loading;
-  const fleetError = fleet.error ?? fleetRound.error;
+  const available = useAvailable();
+  /** The vans database, for its own tab and for every job card's van. */
+  const vanDb = useVans();
+  const lookup: VanLookup = vanDb.error
+    ? { status: "error" }
+    : vanDb.loading
+      ? { status: "loading" }
+      : { status: "ready", byKey: vanDb.byKey };
   /**
-   * Adding and removing vans and cards is the Repairs login's job. Karim,
-   * signed in as the closer and crossed over, ticks them off and nothing
-   * more — the rules hold the same line.
+   * Writing the list and the database is the Repairs login's job. Karim,
+   * signed in as the closer and crossed over, ticks spares off and reads the
+   * database, and nothing more — the rules hold the same line.
    */
   const auth = useAuth();
-  const canManageFleet = auth.status === "signedIn" && auth.role === "repairs";
+  const canManage = auth.status === "signedIn" && auth.role === "repairs";
   /** Click the words to edit them — laptop only, see lib/pointer. */
   const inline = useFinePointer();
 
@@ -295,204 +306,199 @@ export function RepairsBoard({ uid }: { uid: string }) {
   }
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-8">
-      <div className="space-y-4">
-        {/* Phone only. Three things share one column there, so they take
-            turns; on a laptop the vans and cards have a panel of their own on
-            the right and this switch would only be saying so twice. */}
-        <ViewSwitch
-          view={view}
-          onChange={setView}
-          jobs={loading ? null : lists.todo.length}
-          spare={
-            fleetLoading
-              ? null
-              : {
-                  van: splitFleet(fleet.items, "van", round).spare.length,
-                  gasCard: splitFleet(fleet.items, "gasCard", round).spare
-                    .length,
-                }
-          }
-        />
+    <div className="space-y-4">
+      <ViewSwitch
+        view={view}
+        onChange={setView}
+        jobs={loading ? null : lists.todo.length}
+        available={
+          available.loading ? null : splitFleet(available.items).spare.length
+        }
+        vans={vanDb.loading ? null : vanDb.vans.length}
+      />
 
-        {failure ? <ErrorNote>{failure}</ErrorNote> : null}
-        {fleetError ? (
+      {failure ? <ErrorNote>{failure}</ErrorNote> : null}
+
+      {view === "available" ? (
+        <>
+          {available.error ? (
+            <ErrorNote>
+              Could not read the available vans and gas cards:{" "}
+              {available.error}. If this says permission denied, the
+              Firestore rules may not be published yet.
+            </ErrorNote>
+          ) : null}
+          <AvailableList
+            items={available.items}
+            loading={available.loading}
+            round={available.round}
+            canManage={canManage}
+            uid={uid}
+            onError={setFailure}
+          />
+        </>
+      ) : null}
+
+      {view === "vans" ? (
+        <>
+          {vanDb.error ? (
+            <ErrorNote>
+              Could not read the vans database: {vanDb.error}. If this says
+              permission denied, the Firestore rules may not be published
+              yet.
+            </ErrorNote>
+          ) : null}
+          <VansDatabase
+            vans={vanDb.vans}
+            loading={vanDb.loading}
+            canManage={canManage}
+            uid={uid}
+            onError={setFailure}
+          />
+        </>
+      ) : null}
+
+      <div className={`space-y-4 ${view === "jobs" ? "" : "hidden"}`}>
+        {/* At the very top, because on a board this long the question is
+            usually one van. It filters all three tabs at once and their counts
+            with them, so a tab with a nought on it means "not there" rather
+            than "look somewhere else". */}
+        <Search value={query} onChange={setQuery} />
+
+        {error ? (
           <ErrorNote>
-            Could not read the vans and gas cards: {fleetError}. If this says
-            permission denied, the Firestore rules may not be published yet.
+            Could not read the repairs board: {error}. If this says permission
+            denied, the Firestore rules may not be published yet.
           </ErrorNote>
         ) : null}
-
-        {view !== "jobs" ? (
-          <div className="lg:hidden">
-            <FleetList
-              key={view}
-              kind={view}
-              items={fleet.items}
-              loading={fleetLoading}
-              round={round}
-              canManage={canManageFleet}
-              uid={uid}
-              onError={setFailure}
-            />
-          </div>
+        {capped ? (
+          <SoftWarning>
+            This board is showing the {tasks.length} most recent jobs, which is as
+            many as it holds. Anything older is still in the database but is not
+            on this screen.
+          </SoftWarning>
         ) : null}
 
-        <div className={`space-y-4 ${view === "jobs" ? "" : "hidden lg:block"}`}>
-      {/* At the very top, because on a board this long the question is
-          usually one van. It filters all three tabs at once and their counts
-          with them, so a tab with a nought on it means "not there" rather
-          than "look somewhere else". */}
-      <Search value={query} onChange={setQuery} />
-
-      {error ? (
-        <ErrorNote>
-          Could not read the repairs board: {error}. If this says permission
-          denied, the Firestore rules may not be published yet.
-        </ErrorNote>
-      ) : null}
-      {capped ? (
-        <SoftWarning>
-          This board is showing the {tasks.length} most recent jobs, which is as
-          many as it holds. Anything older is still in the database but is not
-          on this screen.
-        </SoftWarning>
-      ) : null}
-
-      {/* Which jobs on the left, what order on the right. Two questions about
-          one list, side by side, because they are asked together — "what is
-          still outstanding, and put 214 together while you are at it". */}
-      <div className="flex items-center gap-2">
-        {/* Scrolls rather than wraps on a narrow phone. Three tabs and their
-            counts fit a 390px screen, but "Archive · 128" late in the year does
-            not, and a tab row that reflows to two lines moves the list under
-            the thumb that was reaching for it. */}
-        <div
-          role="tablist"
-          aria-label="Which jobs to show"
-          className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none]"
-        >
-          {SHELVES.map((option) => {
-            const active = shelf === option.key;
-            return (
-              <button
-                key={option.key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setShelf(option.key)}
-                className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3.5 text-[13px] font-semibold transition-colors ${
-                  active
-                    ? "border-caution-line bg-caution-soft text-caution"
-                    : "border-line bg-surface text-ink-muted active:brightness-[0.97]"
-                }`}
-              >
-                {option.label}
-                <span
-                  className={`tnum font-mono text-[12px] font-bold ${
-                    active ? "text-caution" : "text-ink-faint"
+        {/* Which jobs on the left, what order on the right. Two questions about
+            one list, side by side, because they are asked together — "what is
+            still outstanding, and put 214 together while you are at it". */}
+        <div className="flex items-center gap-2">
+          {/* Scrolls rather than wraps on a narrow phone. Three tabs and their
+              counts fit a 390px screen, but "Archive · 128" late in the year does
+              not, and a tab row that reflows to two lines moves the list under
+              the thumb that was reaching for it. */}
+          <div
+            role="tablist"
+            aria-label="Which jobs to show"
+            className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none]"
+          >
+            {SHELVES.map((option) => {
+              const active = shelf === option.key;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setShelf(option.key)}
+                  className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border px-3.5 text-[13px] font-semibold transition-colors ${
+                    active
+                      ? "border-caution-line bg-caution-soft text-caution"
+                      : "border-line bg-surface text-ink-muted active:brightness-[0.97]"
                   }`}
                 >
-                  {loading ? "" : lists[option.key].length}
-                </span>
-              </button>
-            );
-          })}
+                  {option.label}
+                  <span
+                    className={`tnum font-mono text-[12px] font-bold ${
+                      active ? "text-caution" : "text-ink-faint"
+                    }`}
+                  >
+                    {loading ? "" : lists[option.key].length}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* A segmented pair rather than a dropdown. Two options is not a menu,
+              and a native select on a phone opens a wheel for a choice that
+              should cost one tap. Never scrolls away with the tabs — the whole
+              point of it is that it applies to whichever one is showing. */}
+          <div
+            role="group"
+            aria-label="Sort the board"
+            className="flex shrink-0 rounded-lg border border-line bg-surface p-0.5"
+          >
+            {SORTS.map((option) => {
+              const active = sort === option.key;
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  aria-pressed={active}
+                  title={option.hint}
+                  onClick={() => setSort(option.key)}
+                  className={`min-h-10 rounded-md px-2.5 text-[12px] font-semibold transition-colors ${
+                    active
+                      ? "bg-caution-soft text-caution"
+                      : "text-ink-muted active:brightness-[0.97]"
+                  }`}
+                >
+                  {option.label}
+                  <span className="sr-only"> — {option.hint}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* A segmented pair rather than a dropdown. Two options is not a menu,
-            and a native select on a phone opens a wheel for a choice that
-            should cost one tap. Never scrolls away with the tabs — the whole
-            point of it is that it applies to whichever one is showing. */}
-        <div
-          role="group"
-          aria-label="Sort the board"
-          className="flex shrink-0 rounded-lg border border-line bg-surface p-0.5"
-        >
-          {SORTS.map((option) => {
-            const active = sort === option.key;
-            return (
-              <button
-                key={option.key}
-                type="button"
-                aria-pressed={active}
-                title={option.hint}
-                onClick={() => setSort(option.key)}
-                className={`min-h-10 rounded-md px-2.5 text-[12px] font-semibold transition-colors ${
-                  active
-                    ? "bg-caution-soft text-caution"
-                    : "text-ink-muted active:brightness-[0.97]"
-                }`}
-              >
-                {option.label}
-                <span className="sr-only"> — {option.hint}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {loading ? (
-        <div
-          className="h-56 animate-pulse rounded-xl border border-line bg-surface"
-          aria-busy="true"
-          aria-label="Loading the repairs board"
-        />
-      ) : showing.length === 0 ? (
-        query.trim() ? (
-          <NoMatch query={query.trim()} />
+        {loading ? (
+          <div
+            className="h-56 animate-pulse rounded-xl border border-line bg-surface"
+            aria-busy="true"
+            aria-label="Loading the repairs board"
+          />
+        ) : showing.length === 0 ? (
+          query.trim() ? (
+            <NoMatch query={query.trim()} />
+          ) : (
+            <Empty shelf={shelf} />
+          )
         ) : (
-          <Empty shelf={shelf} />
-        )
-      ) : (
-        <ul className="space-y-2">
-          {showing.map((task) => (
-            <li key={task.id}>
-              <TaskRow
-                task={task}
-                daysLeft={now === null ? null : daysUntilArchive(task, now)}
-                age={now === null ? null : daysOpen(task, now)}
-                leaving={lingering.has(task.id)}
-                inline={inline}
-                onToggle={() => toggle(task)}
-                onOpen={() => {
-                  setFailure(null);
-                  setEditing(task);
-                }}
-                onRename={(title) =>
-                  run("That change", editRepair(task.id, title, uid))
-                }
-                onRemove={() =>
-                  run("Removing that job", removeRepair(task.id))
-                }
-              />
-            </li>
-          ))}
-        </ul>
-      )}
+          <ul className="space-y-2">
+            {showing.map((task) => (
+              <li key={task.id}>
+                <TaskRow
+                  task={task}
+                  daysLeft={now === null ? null : daysUntilArchive(task, now)}
+                  age={now === null ? null : daysOpen(task, now)}
+                  leaving={lingering.has(task.id)}
+                  lookup={lookup}
+                  inline={inline}
+                  onToggle={() => toggle(task)}
+                  onOpen={() => {
+                    setFailure(null);
+                    setEditing(task);
+                  }}
+                  onRename={(title) =>
+                    run("That change", editRepair(task.id, title, uid))
+                  }
+                  onRemove={() =>
+                    run("Removing that job", removeRepair(task.id))
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        )}
 
-      <p className="pt-1 text-[12px] leading-relaxed text-ink-faint">
-        Van issues land here on their own when the closer ends the night. A job
-        stays on this list until somebody ticks it off, then sits under Done for{" "}
-        {ARCHIVE_AFTER_DAYS} days before it moves to the archive.
-        {inline ? " Click a job's words to change them; click away to save." : ""}
-      </p>
-        </div>
+        <p className="pt-1 text-[12px] leading-relaxed text-ink-faint">
+          Van issues land here on their own when the closer ends the night. A job
+          stays on this list until somebody ticks it off, then sits under Done for{" "}
+          {ARCHIVE_AFTER_DAYS} days before it moves to the archive.
+          {inline ? " Click a job's words to change them; click away to save." : ""}
+        </p>
       </div>
-
-      {/* Top right of the page on a laptop, and it stays there while the job
-          list scrolls under it — after launch it is the thing being worked
-          down, and it should not scroll away from the person doing that. */}
-      <aside className="hidden lg:sticky lg:top-20 lg:block">
-        <FleetPanel
-          items={fleet.items}
-          loading={fleetLoading}
-          round={round}
-          canManage={canManageFleet}
-          uid={uid}
-          onError={setFailure}
-        />
-      </aside>
 
       {sheet ? (
         <TaskSheet
@@ -506,6 +512,8 @@ export function RepairsBoard({ uid }: { uid: string }) {
             setEditing(null);
             composer.setAdding(false);
             if (sheet === "new") {
+              // Back to the jobs, so the one just typed is seen landing.
+              setView("jobs");
               run("That job", addRepair(manualRepair(title), uid));
             } else {
               run("That change", editRepair(sheet.id, title, uid));
@@ -550,6 +558,7 @@ function TaskRow({
   daysLeft,
   age,
   leaving,
+  lookup,
   inline,
   onToggle,
   onOpen,
@@ -563,6 +572,8 @@ function TaskRow({
   age: number | null;
   /** Just ticked off, and on its way to Done. See `lingering`. */
   leaving: boolean;
+  /** The vans database, for the VIN, vendor and vendor number line. */
+  lookup: VanLookup;
   /**
    * This machine has a mouse or trackpad at all. Shows the × that removes a
    * job without opening the sheet, and decides what Enter on the focused row
@@ -607,7 +618,7 @@ function TaskRow({
               if (title !== null) onRename(title);
             }}
           />
-          <TaskMeta task={task} daysLeft={daysLeft} age={age} />
+          <TaskMeta task={task} daysLeft={daysLeft} age={age} lookup={lookup} />
         </div>
       ) : (
         <button
@@ -631,7 +642,7 @@ function TaskRow({
             {task.title}
           </span>
 
-          <TaskMeta task={task} daysLeft={daysLeft} age={age} />
+          <TaskMeta task={task} daysLeft={daysLeft} age={age} lookup={lookup} />
         </button>
       )}
 
@@ -809,18 +820,25 @@ function TaskMeta({
   task,
   daysLeft,
   age,
+  lookup,
 }: {
   task: RepairTask;
   daysLeft: number | null;
   age: number | null;
+  lookup: VanLookup;
 }) {
+  const van = vanDetails(task, lookup);
+  const origin = Boolean(
+    task.nightKey || task.driverName || task.source === "manual",
+  );
+
   return (
     <span className="mt-1.5 flex items-end justify-between gap-3">
       <span className="flex min-w-0 flex-1 flex-col gap-1.5">
         {/* In the order it gets asked for: what night, who was driving.
             The van is not here — it is the front of the line above, which
             is the only place it needs to be said. */}
-        {task.nightKey || task.driverName || task.source === "manual" ? (
+        {origin || van ? (
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] leading-none text-ink-faint">
             {task.nightKey ? (
               <span>
@@ -830,6 +848,18 @@ function TaskMeta({
             {task.nightKey && task.driverName ? <Dot /> : null}
             {task.driverName ? <span>{task.driverName}</span> : null}
             {task.source === "manual" ? <span>Added by hand</span> : null}
+            {/* The van's own facts, from the vans database, after where the
+                job came from — see vanDetails. */}
+            {van ? (
+              <>
+                {origin ? <Dot /> : null}
+                <VanFact label="VIN" value={van.vin} mono />
+                <Dot />
+                <VanFact label="Vendor" value={van.vendor} />
+                <Dot />
+                <VanFact label="Vendor#" value={van.vendorNumber} mono />
+              </>
+            ) : null}
           </span>
         ) : null}
 
@@ -850,40 +880,107 @@ function TaskMeta({
 }
 
 /**
- * Jobs, vans or gas cards — the phone's way of fitting three lists in one
- * column.
+ * The VIN, vendor and vendor number for the van a job is about, or null for
+ * nothing to show.
  *
- * Phone only (hidden from `lg` up), because a laptop shows the vans and cards
- * in their own panel on the right. Each option carries the number that list
- * is read for: jobs still to do, and vans and cards still spare this session. In the
- * board's orange so it reads as part of the board, and sized for a thumb.
+ * Nothing while the database is still loading, and nothing when the job has
+ * no van at the front of it or its van is not in the database — blank, not an
+ * error, because a van nobody has typed in yet is not a fault. ERR in all
+ * three when the database could not be read, so a broken lookup is never
+ * mistaken for a missing van.
+ */
+function vanDetails(
+  task: RepairTask,
+  lookup: VanLookup,
+): { vin: string; vendor: string; vendorNumber: string } | null {
+  if (lookup.status === "loading") return null;
+  if (lookup.status === "error") {
+    return { vin: "ERR", vendor: "ERR", vendorNumber: "ERR" };
+  }
+  const key = vanKey(vanOfTitle(task.title));
+  if (!key) return null;
+  const van = lookup.byKey.get(key);
+  if (!van) return null;
+  return { vin: van.vin, vendor: van.vendor, vendorNumber: van.vendorNumber };
+}
+
+/** One of the three, label and value, in the grey of the line it sits on. */
+function VanFact({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  const broken = value === "ERR";
+  return (
+    <span className="min-w-0 break-all">
+      {label}:{" "}
+      <span
+        className={`${mono ? "tnum font-mono" : ""} ${
+          broken ? "font-bold text-overdue" : "text-ink-muted"
+        }`}
+      >
+        {value}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Jobs, Available Vans & Gas Cards, Vans Database — the board's three views.
+ *
+ * The same switch on a phone and a laptop. Each option carries the number its
+ * list is read for: jobs still to do, spares not yet used today, and vans in
+ * the database. In the board's orange so it reads as part of the board, and
+ * sized for a thumb.
  */
 function ViewSwitch({
   view,
   onChange,
   jobs,
-  spare,
+  available,
+  vans,
 }: {
-  view: "jobs" | FleetKind;
-  onChange: (view: "jobs" | FleetKind) => void;
+  view: View;
+  onChange: (view: View) => void;
   jobs: number | null;
-  spare: Record<FleetKind, number> | null;
+  available: number | null;
+  vans: number | null;
 }) {
-  const options: { key: "jobs" | FleetKind; label: string; count: number | null }[] =
-    [
-      { key: "jobs", label: "Jobs", count: jobs },
-      ...FLEET_KINDS.map((option) => ({
-        key: option.kind,
-        label: option.label,
-        count: spare ? spare[option.kind] : null,
-      })),
-    ];
+  const options: {
+    key: View;
+    label: string;
+    short: string;
+    count: string | null;
+  }[] = [
+    {
+      key: "jobs",
+      label: "Jobs",
+      short: "Jobs",
+      count: jobs === null ? null : `${jobs} to do`,
+    },
+    {
+      key: "available",
+      label: "Available Vans & Gas Cards",
+      short: "Available",
+      count: available === null ? null : `${available} left`,
+    },
+    {
+      key: "vans",
+      label: "Vans Database",
+      short: "Vans DB",
+      count: vans === null ? null : `${vans} ${vans === 1 ? "van" : "vans"}`,
+    },
+  ];
 
   return (
     <div
       role="tablist"
-      aria-label="Jobs, vans or gas cards"
-      className="grid grid-cols-3 gap-1 rounded-xl border border-line bg-surface p-1 lg:hidden"
+      aria-label="Jobs, available vans and gas cards, or the vans database"
+      className="grid grid-cols-3 gap-1 rounded-xl border border-line bg-surface p-1"
     >
       {options.map((option) => {
         const active = view === option.key;
@@ -893,24 +990,25 @@ function ViewSwitch({
             type="button"
             role="tab"
             aria-selected={active}
+            aria-label={option.label}
             onClick={() => onChange(option.key)}
-            className={`flex min-h-11 flex-col items-center justify-center rounded-lg px-1 leading-none transition-colors ${
+            className={`flex min-h-11 flex-col items-center justify-center rounded-lg px-1 leading-none transition-colors md:min-h-12 ${
               active
                 ? "bg-caution-soft text-caution"
-                : "text-ink-muted active:bg-sunken"
+                : "text-ink-muted hover:bg-sunken/60 active:bg-sunken"
             }`}
           >
-            <span className="text-[13px] font-semibold">{option.label}</span>
+            {/* The full name wherever it fits; a phone gets the short one. */}
+            <span className="text-[13px] font-semibold md:text-[14px]">
+              <span className="md:hidden">{option.short}</span>
+              <span className="hidden md:inline">{option.label}</span>
+            </span>
             <span
               className={`tnum mt-1 font-mono text-[11px] font-bold ${
                 active ? "text-caution" : "text-ink-faint"
               }`}
             >
-              {option.count === null
-                ? " "
-                : option.key === "jobs"
-                  ? `${option.count} to do`
-                  : `${option.count} spare`}
+              {option.count ?? " "}
             </span>
           </button>
         );

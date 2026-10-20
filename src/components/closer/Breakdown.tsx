@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useKeepOnScreen } from "@/lib/keepOnScreen";
 import type { BreakdownLine } from "@/lib/totals";
 
 /**
@@ -95,6 +96,7 @@ export function Breakdown({
   onClose: () => void;
 }) {
   const skin = TONE[tone];
+  const panel = useKeepOnScreen<HTMLDivElement>();
   const sections = groups
     ? groups
         .filter((group) => group.lines.length > 0)
@@ -133,7 +135,8 @@ export function Breakdown({
           pill, since both sit in the left half of the row. The Rescues pill
           is further across and passes align="right" to hang the other way. */}
       <div
-        className={`absolute top-full z-30 mt-2 w-[248px] max-w-[calc(100vw-2rem)] ${
+        ref={panel}
+        className={`absolute top-full z-30 mt-2 w-[248px] max-w-[calc(100vw-2rem)] translate-x-(--nudge) ${
           align === "right" ? "right-0" : "left-0"
         }`}
       >
@@ -144,8 +147,8 @@ export function Breakdown({
           aria-hidden="true"
           className={`absolute top-0 size-2.5 -translate-y-1/2 rotate-45 border-l border-t ${
             align === "right"
-              ? "right-8 translate-x-1/2"
-              : "left-8 -translate-x-1/2"
+              ? "right-[calc(2rem+var(--nudge,0px))] translate-x-1/2"
+              : "left-[calc(2rem-var(--nudge,0px))] -translate-x-1/2"
           } ${skin.notch}`}
         />
 

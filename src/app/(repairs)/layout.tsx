@@ -18,8 +18,8 @@ export const metadata = { title: "Repairs — Closing SWFL" };
  * the office, by whoever picked it up, so it is sized for the narrower of the
  * two and allowed to grow: `max-w-3xl` with the safe-area padding the closer's
  * chrome uses, because half the people opening it are holding a phone. From
- * `lg` up it widens to `max-w-6xl`, which is the room the vans and gas cards
- * panel takes on the right of the jobs — see RepairsBoard.
+ * `lg` up it widens to `max-w-5xl`, which is the room the vans database needs
+ * for its four columns — see RepairsBoard.
  *
  * No navigation, for the same reason HR has none — the board is the portal.
  * Tonight, the roster and the archive of past sheets are all somewhere this
@@ -45,7 +45,7 @@ export default function RepairsLayout({
     <AddJobProvider>
       <div className="min-h-dvh">
         <header className="sticky top-0 z-20 border-b border-line bg-surface/90 pt-safe backdrop-blur-md">
-          <div className="mx-auto flex h-14 max-w-3xl lg:max-w-6xl items-center justify-between gap-2 px-4 sm:px-8">
+          <div className="mx-auto flex h-14 max-w-3xl lg:max-w-5xl items-center justify-between gap-2 px-4 sm:px-8">
             <Link href="/repairs" className="flex items-center gap-2.5 rounded-sm">
               <Mark className="size-7" />
               <span className="leading-none">
@@ -64,7 +64,7 @@ export default function RepairsLayout({
           </div>
         </header>
 
-        <main className="mx-auto max-w-3xl lg:max-w-6xl px-4 py-4 pb-safe sm:px-8 sm:py-8">
+        <main className="mx-auto max-w-3xl lg:max-w-5xl px-4 py-4 pb-safe sm:px-8 sm:py-8">
           {/* The closer is on this list now. He works both sides of the same van
               — he writes the fault at the handover and it lands here at End Day
               — and until now seeing what was outstanding meant signing out and

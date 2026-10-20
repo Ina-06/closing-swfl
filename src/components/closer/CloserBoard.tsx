@@ -5,6 +5,7 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import { AddDriverSheet } from "@/components/closer/AddDriverSheet";
 import { AllReturningBanner } from "@/components/closer/AllReturningBanner";
 import { ArrivalSheet } from "@/components/closer/ArrivalSheet";
+import { AvailableDropdown } from "@/components/closer/AvailableDropdown";
 import {
   DoneCard,
   RosterCard,
@@ -12,6 +13,7 @@ import {
   YardCard,
 } from "@/components/closer/DriverCard";
 import { Breakdown } from "@/components/closer/Breakdown";
+import { splitFleet } from "@/components/repairs/Fleet";
 import { EndDay } from "@/components/closer/EndDay";
 import { RosterSheet } from "@/components/closer/RosterSheet";
 import { Summary } from "@/components/closer/Summary";
@@ -20,6 +22,7 @@ import { NoteSheet } from "@/components/NoteSheet";
 import { ErrorNote } from "@/components/ui/Field";
 import { addCloserEntry } from "@/lib/db/closer";
 import { useDrivers } from "@/lib/db/drivers";
+import { useAvailable } from "@/lib/db/fleet";
 import { useEntries } from "@/lib/db/entries";
 import { etaMinutes, minutesLate, stationNowMinutes } from "@/lib/eta";
 import { pendingNote } from "@/lib/notes";
@@ -141,6 +144,8 @@ export function CloserBoard({
    */
   const [openOnVan, setOpenOnVan] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  /** A tick on the available vans and gas cards that the server refused. */
+  const [fleetError, setFleetError] = useState<string | null>(null);
   /**
    * Folded to begin with.
    *
@@ -165,7 +170,7 @@ export function CloserBoard({
    * about infractions.
    */
   const [breakdown, setBreakdown] = useState<
-    "returns" | "infractions" | "rescues" | null
+    "returns" | "infractions" | "rescues" | "available" | null
   >(null);
   const now = useStationClock();
 
@@ -286,6 +291,14 @@ export function CloserBoard({
    * than waiting on it.
    */
   const { drivers } = useDrivers();
+
+  /**
+   * Today's available vans and gas cards, as Issam typed them on the repairs
+   * board. Live, so a line he adds mid-evening is here without a refresh, and
+   * gone with the rest of the list once the day is ended.
+   */
+  const available = useAvailable();
+  const spareCount = splitFleet(available.items).spare.length;
   const scorecards = useMemo(
     () =>
       new Map((drivers ?? []).map((driver) => [driver.id, driver.scorecard])),
@@ -408,7 +421,7 @@ export function CloserBoard({
               provokes are one control: "seven returns" is what gets asked for
               at End Day, "whose" is what gets asked half a second later, and
               reading it off the sheet meant opening forty of them. */}
-          <div className="flex items-start gap-2">
+          <div className="flex flex-wrap items-start gap-1.5">
             <div className="relative">
               <Total
                 label="Returns"
@@ -463,8 +476,8 @@ export function CloserBoard({
             {/* The third figure, and the same question again: how many
                 packages moved on rescues tonight, then whose. Two lists
                 behind it rather than one, because a rescue has two sides.
-                Hangs leftwards — it is the furthest pill across, and a panel
-                growing right from here would leave the phone. */}
+                Hangs leftwards — it is past the middle of the phone, and a
+                panel growing right from here would leave it. */}
             <div className="relative">
               <Total
                 label="Rescues"
@@ -496,6 +509,35 @@ export function CloserBoard({
                       bubble: "bad",
                     },
                   ]}
+                  onClose={() => setBreakdown(null)}
+                />
+              ) : null}
+            </div>
+
+            {/* The spares — what is left to reach for on a van switch or an
+                emergency. A list he can tick rather than a count to read, so
+                it opens even when every line is used. Hangs leftwards: it is
+                the last pill across now. */}
+            <div className="relative">
+              <Total
+                label="Available"
+                value={spareCount}
+                open={breakdown === "available"}
+                onClick={
+                  available.items.length > 0
+                    ? () =>
+                        setBreakdown((was) =>
+                          was === "available" ? null : "available",
+                        )
+                    : undefined
+                }
+              />
+
+              {breakdown === "available" && available.items.length > 0 ? (
+                <AvailableDropdown
+                  items={available.items}
+                  uid={uid}
+                  onError={setFleetError}
                   onClose={() => setBreakdown(null)}
                 />
               ) : null}
@@ -561,6 +603,7 @@ export function CloserBoard({
 
       {error ? <ErrorNote>Lost the live feed: {error}</ErrorNote> : null}
       {addError ? <ErrorNote>{addError}</ErrorNote> : null}
+      {fleetError ? <ErrorNote>{fleetError}</ErrorNote> : null}
 
       {/* Above the lists because it is not about anybody on them. It is the
           first thing on the screen under the counts, and it is on every

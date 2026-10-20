@@ -244,23 +244,45 @@ export type RepairTask = {
 };
 
 /**
- * A van or a gas card the station owns, on the list Issam ticks after launch.
+ * One line on today's list of spare vans and gas cards.
  *
- * The tick is the name of a round, not a boolean. "Used" only ever means used
- * this session — End Day makes every van spare again — and storing which
- * round it was ticked in means the whole list clears by moving one marker
- * (`fleetMeta/round`) rather than by rewriting every van. The vans and cards
- * themselves are permanent until somebody removes one. See lib/db/fleet.
+ * Typed by Issam each day, one by one, like a to-do list — "BR.03", "Card
+ * 1142" — and not linked to the vans database: vans and cards are written the
+ * same way and handled the same way, so they share one list.
+ *
+ * Every line belongs to the round it was written in, and only the current
+ * round's lines are shown. End Day moves the round on, which is what empties
+ * the list for the next day without deleting anything. See lib/fleetRound.
  */
-export type FleetKind = "van" | "gasCard";
-
 export type FleetItem = {
   id: string;
-  kind: FleetKind;
-  /** What is painted on the van or embossed on the card: "214", "Card 4 · 0912". */
+  /** What is painted on the van or written on the card: "BR.03", "Card 1142". */
   label: string;
-  /** The round it was last ticked as used in, or "" for spare. */
-  usedOn: string;
+  /** The round it was written in — see `fleetMeta/round`. */
+  round: string;
+  /** Ticked off as used, by Issam or the closer. */
+  used: boolean;
+  createdAt: Timestamp | null;
+  updatedAt: Timestamp | null;
+  updatedBy: string;
+};
+
+/**
+ * A van in the station's vans database.
+ *
+ * Four facts, typed once by Issam. Each job on the repairs board looks its van
+ * up here by the number at the front of the line, live, so correcting a VIN
+ * here corrects every job card on that van.
+ */
+export type VanRecord = {
+  id: string;
+  /** "BR.03", as written. */
+  van: string;
+  vendor: string;
+  vin: string;
+  vendorNumber: string;
+  /** `van`, normalised for lookup — see vanKey. */
+  key: string;
   createdAt: Timestamp | null;
   updatedAt: Timestamp | null;
   updatedBy: string;
