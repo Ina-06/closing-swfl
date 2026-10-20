@@ -28,10 +28,10 @@ const FIELDS: {
   placeholder: string;
   mono?: boolean;
 }[] = [
-  { key: "van", label: "Van #", placeholder: "BR.03", mono: true },
+  { key: "van", label: "Van #", placeholder: "Van#", mono: true },
   { key: "vendor", label: "Vendor", placeholder: "Vendor" },
-  { key: "vin", label: "VIN #", placeholder: "17-character VIN", mono: true },
-  { key: "vendorNumber", label: "Vendor #", placeholder: "Vendor number", mono: true },
+  { key: "vin", label: "VIN #", placeholder: "VIN#", mono: true },
+  { key: "vendorNumber", label: "Vendor #", placeholder: "Vendor#", mono: true },
 ];
 
 export function VansDatabase({
