@@ -3,27 +3,46 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * Whether this is a laptop — a mouse or trackpad — rather than a phone.
+ * Whether this machine has a mouse or trackpad.
  *
- * Asked of the pointer rather than the screen width, because the question is
- * really "could a tap here be an accident". A thumb scrolling a list on a
- * phone brushes text all the time; a mouse click on a line of text is meant.
- * So anything that turns a click into editing in place asks this first, and a
- * phone keeps the sheet that has to be opened on purpose.
+ * Two answers, either of which is enough. `any-pointer: fine` asks whether a
+ * fine pointer exists anywhere — not `pointer`, which asks about the primary
+ * one, and which a touchscreen laptop answers with "a finger" while somebody
+ * is using its trackpad. And because even that is a browser's guess, the
+ * first real mouse movement over the page settles it for good.
  *
- * False on the server and on the first render, so the phone behaviour is what
+ * Only for what to *show* — the × beside a job, the hint under the list.
+ * Whether a click edits in place is decided by the click itself, from its
+ * pointerType; see TaskRow on the repairs board.
+ *
+ * False on the server and on the first render, so the phone layout is what
  * renders until the browser has answered.
  */
-const QUERY = "(hover: hover) and (pointer: fine)";
+const QUERY = "(any-pointer: fine)";
+
+let mouseSeen = false;
+
+function subscribe(onChange: () => void) {
+  const media = window.matchMedia(QUERY);
+  media.addEventListener("change", onChange);
+
+  const onMove = (event: PointerEvent) => {
+    if (event.pointerType !== "mouse" || mouseSeen) return;
+    mouseSeen = true;
+    onChange();
+  };
+  window.addEventListener("pointermove", onMove, { passive: true });
+
+  return () => {
+    media.removeEventListener("change", onChange);
+    window.removeEventListener("pointermove", onMove);
+  };
+}
 
 export function useFinePointer(): boolean {
   return useSyncExternalStore(
-    (onChange) => {
-      const media = window.matchMedia(QUERY);
-      media.addEventListener("change", onChange);
-      return () => media.removeEventListener("change", onChange);
-    },
-    () => window.matchMedia(QUERY).matches,
+    subscribe,
+    () => mouseSeen || window.matchMedia(QUERY).matches,
     () => false,
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -529,14 +530,20 @@ export function RepairsBoard({ uid }: { uid: string }) {
  *
  * Two controls side by side rather than one row that does both, because they
  * do genuinely different things and the wrong one at midnight is expensive:
- * the box on the left says the van is fixed, the rest of the row opens what it
- * says for correction. A single tappable row would have to guess, and every
- * guess it made would be wrong half the time.
+ * the box on the left says the van is fixed, the rest of the row is what it
+ * says. A single tappable row would have to guess, and every guess it made
+ * would be wrong half the time.
  *
- * The box is a real checkbox to a screen reader and a 44px target to a thumb,
- * which is most of why it is a button with a role rather than an `<input>` —
- * the other reason is that an input inside this layout cannot be made big
- * enough to hit without also being ugly.
+ * What clicking the words does depends on what clicked them, decided on the
+ * click itself. A mouse or trackpad turns them into a text box right where
+ * they are — click away or press Enter to save, Escape to put it back. A
+ * finger opens the sheet, so a thumb scrolling past on a phone can never open
+ * a keyboard on a line it brushed.
+ *
+ * Asked of the click rather than of the device, because the device cannot be
+ * trusted to answer: a touchscreen laptop tells the browser its main pointer
+ * is a finger even while somebody is using the trackpad, and the whole office
+ * was getting the phone's sheet. The event knows exactly what touched it.
  */
 function TaskRow({
   task,
@@ -557,9 +564,9 @@ function TaskRow({
   /** Just ticked off, and on its way to Done. See `lingering`. */
   leaving: boolean;
   /**
-   * A laptop: the words are edited where they are, and saved when the click
-   * goes somewhere else. A phone keeps the sheet — a thumb scrolling past
-   * would otherwise be opening a keyboard on every line it touched.
+   * This machine has a mouse or trackpad at all. Shows the × that removes a
+   * job without opening the sheet, and decides what Enter on the focused row
+   * does, since a key press says nothing about fingers.
    */
   inline: boolean;
   onToggle: () => void;
@@ -567,93 +574,143 @@ function TaskRow({
   onRename: (title: string) => void;
   onRemove: () => void;
 }) {
-  if (inline) {
-    return (
-      <InlineTaskRow
-        task={task}
-        daysLeft={daysLeft}
-        age={age}
-        leaving={leaving}
-        onToggle={onToggle}
-        onRename={onRename}
-        onRemove={onRemove}
-      />
-    );
+  /** The words are a text box right now. */
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  /** What pressed the row last — "mouse", "pen", "touch", or "" for a key. */
+  const pointer = useRef("");
+
+  function activate() {
+    const how = pointer.current;
+    pointer.current = "";
+    if (how === "mouse" || how === "pen" || (how === "" && inline)) {
+      setEditing(true);
+    } else {
+      onOpen();
+    }
   }
 
   return (
     <div
-      className={`flex items-stretch overflow-hidden rounded-xl border border-line bg-surface transition-opacity duration-500 ${
-        leaving ? "opacity-55" : ""
-      }`}
+      className={`group flex items-stretch overflow-hidden rounded-xl border bg-surface transition-[opacity,border-color] duration-500 ${
+        editing ? "border-brand" : "border-line"
+      } ${leaving ? "opacity-55" : ""}`}
     >
       <TickBox task={task} onToggle={onToggle} />
 
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label={`Edit: ${task.title}`}
-        className="min-w-0 flex-1 py-3 pr-3 text-left transition-colors active:bg-sunken"
-      >
-        {/* The whole job, van number and all. `whitespace-pre-wrap` because the
-            van issues column arrives with the closer's own line breaks in it
-            and a fault typed on three lines should stay on three. */}
-        <span
-          className={`block whitespace-pre-wrap text-[15px] font-semibold leading-snug ${
-            task.done ? "text-ink-muted line-through decoration-ink-faint" : "text-ink"
-          }`}
+      {editing ? (
+        <div className="min-w-0 flex-1 py-2 pr-3">
+          <TitleEditor
+            task={task}
+            onDone={(title) => {
+              setEditing(false);
+              if (title !== null) onRename(title);
+            }}
+          />
+          <TaskMeta task={task} daysLeft={daysLeft} age={age} />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onPointerDown={(event) => {
+            pointer.current = event.pointerType;
+          }}
+          onClick={activate}
+          aria-label={`Edit: ${task.title}`}
+          title={inline ? "Click to edit — click away or press Enter to save" : undefined}
+          className="min-w-0 flex-1 cursor-text py-3 pr-3 text-left transition-colors hover:bg-sunken/50 active:bg-sunken"
         >
-          {task.title}
-        </span>
+          {/* The whole job, van number and all. `whitespace-pre-wrap` because
+              the van issues column arrives with the closer's own line breaks
+              in it and a fault typed on three lines should stay on three. */}
+          <span
+            className={`block whitespace-pre-wrap text-[15px] font-semibold leading-snug ${
+              task.done ? "text-ink-muted line-through decoration-ink-faint" : "text-ink"
+            }`}
+          >
+            {task.title}
+          </span>
 
-        <TaskMeta task={task} daysLeft={daysLeft} age={age} />
-      </button>
+          <TaskMeta task={task} daysLeft={daysLeft} age={age} />
+        </button>
+      )}
+
+      {/* Removing, which on a phone lives in the sheet. Faint until the row is
+          hovered so forty of them do not stripe the list, and two clicks like
+          everywhere else on the board. */}
+      {inline && !editing ? (
+        confirming ? (
+          <span className="flex shrink-0 items-start gap-1 py-2.5 pr-2">
+            <button
+              type="button"
+              onClick={onRemove}
+              className="min-h-8 rounded-md border border-overdue-line bg-overdue-soft px-2 text-[12px] font-bold text-overdue"
+            >
+              Remove
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              className="min-h-8 rounded-md px-1.5 text-[12px] font-semibold text-ink-faint hover:text-ink"
+            >
+              Keep
+            </button>
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirming(true)}
+            aria-label={`Remove: ${task.title}`}
+            title="Remove this job — only for something typed by mistake"
+            className="grid w-10 shrink-0 place-items-center text-ink-faint opacity-40 transition-[opacity,color,background-color] hover:bg-overdue-soft hover:text-overdue group-hover:opacity-100 focus-visible:opacity-100"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              className="size-4"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
+        )
+      ) : null}
     </div>
   );
 }
 
 /**
- * The same job on a laptop, with its words editable where they sit.
+ * The words of a job, as a text box, for as long as somebody is changing them.
  *
- * No sheet. Clicking the line puts the caret in it; clicking anywhere else
- * saves it, Enter saves it, Escape puts it back the way it was. A line
- * emptied out is put back too rather than saved — a job with no words is not
- * a correction, and removing one is the × on the right, which asks twice.
+ * Opens focused with the caret at the end, because the common case is adding
+ * to what is there. Clicking anywhere else or Enter saves; Shift+Enter is a
+ * new line, for a fault written on three; Escape puts it back. A line emptied
+ * out is put back too rather than saved — a job with no words is not a
+ * correction, and removing one is the × beside it, which asks twice.
  *
- * The box looks like the text until it is hovered or focused, so the list
- * reads exactly as it does on a phone and only shows it is editable when the
- * pointer is on it.
+ * `onDone` gets the new words, or null when there is nothing to save.
  */
-function InlineTaskRow({
+function TitleEditor({
   task,
-  daysLeft,
-  age,
-  leaving,
-  onToggle,
-  onRename,
-  onRemove,
+  onDone,
 }: {
   task: RepairTask;
-  daysLeft: number | null;
-  age: number | null;
-  leaving: boolean;
-  onToggle: () => void;
-  onRename: (title: string) => void;
-  onRemove: () => void;
+  onDone: (title: string | null) => void;
 }) {
   const [draft, setDraft] = useState(task.title);
-  const [focused, setFocused] = useState(false);
-  const [lastSeen, setLastSeen] = useState(task.title);
-  const [confirming, setConfirming] = useState(false);
   const box = useRef<HTMLTextAreaElement>(null);
+  /** Escape was pressed, so the blur that follows must not save. */
+  const cancelled = useRef(false);
 
-  // The stored line changed underneath us — somebody else corrected it — and
-  // this box is not being typed in, so the draft follows. Adjusted during
-  // render, the same way the dispatcher's table cells do it.
-  if (!focused && task.title !== lastSeen) {
-    setLastSeen(task.title);
-    setDraft(task.title);
-  }
+  useEffect(() => {
+    const field = box.current;
+    if (!field) return;
+    field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+  }, []);
 
   // Grows with what is in it, so a three-line fault is three lines tall and
   // never scrolls inside its own box.
@@ -664,104 +721,32 @@ function InlineTaskRow({
     field.style.height = `${field.scrollHeight}px`;
   }, [draft]);
 
-  function commit() {
-    const next = draft.trim();
-    if (!next) {
-      setDraft(task.title);
-      return;
-    }
-    if (next !== task.title) onRename(next);
-  }
-
   return (
-    <div
-      className={`group flex items-stretch overflow-hidden rounded-xl border bg-surface transition-[opacity,border-color] duration-500 ${
-        focused ? "border-brand" : "border-line"
-      } ${leaving ? "opacity-55" : ""}`}
-    >
-      <TickBox task={task} onToggle={onToggle} />
-
-      <div className="min-w-0 flex-1 py-2 pr-1">
-        <textarea
-          ref={box}
-          value={draft}
-          rows={1}
-          onChange={(event) => setDraft(event.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => {
-            setFocused(false);
-            commit();
-          }}
-          onKeyDown={(event) => {
-            // Shift+Enter is still a new line, for the fault written on three.
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              event.currentTarget.blur();
-            }
-            if (event.key === "Escape") {
-              setDraft(task.title);
-              // Blur after the reset has rendered, so commit sees the original.
-              const field = event.currentTarget;
-              requestAnimationFrame(() => field.blur());
-            }
-          }}
-          aria-label={`Job: ${task.title}`}
-          title="Click to edit — click away or press Enter to save"
-          spellCheck={false}
-          className={`-mx-1.5 block w-[calc(100%+0.75rem)] resize-none overflow-hidden rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[15px] font-semibold leading-snug outline-none transition-colors hover:bg-sunken/70 focus:bg-surface ${
-            task.done && !focused
-              ? "text-ink-muted line-through decoration-ink-faint"
-              : "text-ink"
-          }`}
-        />
-
-        <div className="pr-2">
-          <TaskMeta task={task} daysLeft={daysLeft} age={age} />
-        </div>
-      </div>
-
-      {/* Removing, which the sheet used to hold. Faint until the row is
-          hovered so forty of them do not stripe the list, and two clicks
-          like everywhere else on the board. */}
-      {confirming ? (
-        <span className="flex shrink-0 items-start gap-1 py-2.5 pr-2">
-          <button
-            type="button"
-            onClick={onRemove}
-            className="min-h-8 rounded-md border border-overdue-line bg-overdue-soft px-2 text-[12px] font-bold text-overdue"
-          >
-            Remove
-          </button>
-          <button
-            type="button"
-            onClick={() => setConfirming(false)}
-            className="min-h-8 rounded-md px-1.5 text-[12px] font-semibold text-ink-faint hover:text-ink"
-          >
-            Keep
-          </button>
-        </span>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setConfirming(true)}
-          aria-label={`Remove: ${task.title}`}
-          title="Remove this job — only for something typed by mistake"
-          className="grid w-10 shrink-0 place-items-center text-ink-faint opacity-40 transition-[opacity,color,background-color] hover:bg-overdue-soft hover:text-overdue group-hover:opacity-100 focus-visible:opacity-100"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            className="size-4"
-            aria-hidden="true"
-          >
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
-      )}
-    </div>
+    <textarea
+      ref={box}
+      value={draft}
+      rows={1}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => {
+        const next = draft.trim();
+        onDone(
+          cancelled.current || next === "" || next === task.title ? null : next,
+        );
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+        if (event.key === "Escape") {
+          cancelled.current = true;
+          event.currentTarget.blur();
+        }
+      }}
+      aria-label={`Job: ${task.title}`}
+      spellCheck={false}
+      className="-mx-1.5 -my-1 block w-[calc(100%+0.75rem)] resize-none overflow-hidden rounded-md bg-transparent px-1.5 py-1 text-[15px] font-semibold leading-snug text-ink outline-none"
+    />
   );
 }
 
