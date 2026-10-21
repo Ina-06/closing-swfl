@@ -247,15 +247,20 @@ export type RepairTask = {
  * One line on today's list of spare vans and gas cards.
  *
  * Typed by Issam each day, one by one, like a to-do list — "BR.03", "Card
- * 1142" — and not linked to the vans database: vans and cards are written the
- * same way and handled the same way, so they share one list.
+ * 1142" — and not linked to the vans database. Vans and cards work the same
+ * way, so they are one collection, but they are two lists on screen: someone
+ * reaching for a spare van is not looking for a card.
  *
  * Every line belongs to the round it was written in, and only the current
  * round's lines are shown. End Day moves the round on, which is what empties
  * the list for the next day without deleting anything. See lib/fleetRound.
  */
+export type FleetKind = "van" | "gasCard";
+
 export type FleetItem = {
   id: string;
+  /** Which of the two lists it is on. */
+  kind: FleetKind;
   /** What is painted on the van or written on the card: "BR.03", "Card 1142". */
   label: string;
   /** The round it was written in — see `fleetMeta/round`. */

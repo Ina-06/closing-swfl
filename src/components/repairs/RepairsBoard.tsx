@@ -16,7 +16,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import { useAvailable } from "@/lib/db/fleet";
 import { useVans } from "@/lib/db/vans";
 import { useFinePointer } from "@/lib/pointer";
-import { vanKey, vanOfTitle } from "@/lib/vans";
+import { findVan } from "@/lib/vans";
 import { ErrorNote, SoftWarning } from "@/components/ui/Field";
 import {
   addRepair,
@@ -123,7 +123,11 @@ type View = "jobs" | "available" | "vans";
 type VanLookup =
   | { status: "loading" }
   | { status: "error" }
-  | { status: "ready"; byKey: ReadonlyMap<string, VanRecord> };
+  | {
+      status: "ready";
+      byKey: ReadonlyMap<string, VanRecord>;
+      byNumber: ReadonlyMap<string, readonly VanRecord[]>;
+    };
 
 /**
  * Today, to the hour, as the thing the archive clock is measured against.
@@ -200,7 +204,7 @@ export function RepairsBoard({ uid }: { uid: string }) {
     ? { status: "error" }
     : vanDb.loading
       ? { status: "loading" }
-      : { status: "ready", byKey: vanDb.byKey };
+      : { status: "ready", byKey: vanDb.byKey, byNumber: vanDb.byNumber };
   /**
    * Writing the list and the database is the Repairs login's job. Karim,
    * signed in as the closer and crossed over, ticks spares off and reads the
@@ -897,9 +901,7 @@ function vanDetails(
   if (lookup.status === "error") {
     return { vin: "ERR", vendor: "ERR", vendorNumber: "ERR" };
   }
-  const key = vanKey(vanOfTitle(task.title));
-  if (!key) return null;
-  const van = lookup.byKey.get(key);
+  const van = findVan(task.title, lookup.byKey, lookup.byNumber);
   if (!van) return null;
   return { vin: van.vin, vendor: van.vendor, vendorNumber: van.vendorNumber };
 }

@@ -22,7 +22,7 @@ import {
   markerOnStart,
   type RoundMarker,
 } from "@/lib/fleetRound";
-import type { FleetItem } from "@/lib/types";
+import type { FleetItem, FleetKind } from "@/lib/types";
 
 /**
  * Today's available vans and gas cards — a list Issam types, and the closer
@@ -55,6 +55,9 @@ function toItem(data: DocumentData, id: string): FleetItem {
 
   return {
     id,
+    // A line from before the lists were split has no kind; the vans list is
+    // where it was most likely meant to be.
+    kind: data.kind === "gasCard" ? "gasCard" : "van",
     label: string(data.label),
     round: string(data.round),
     used: data.used === true,
@@ -153,8 +156,9 @@ export function useAvailable() {
   };
 }
 
-/** A line on today's list. */
+/** A line on today's vans list or gas cards list. */
 export async function addFleetItem(
+  kind: FleetKind,
   label: string,
   round: string,
   updatedBy: string,
@@ -163,6 +167,7 @@ export async function addFleetItem(
   if (!trimmed) throw new Error("It needs a number.");
 
   await addDoc(fleetCollection(), {
+    kind,
     label: trimmed,
     round,
     used: false,

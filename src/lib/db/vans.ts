@@ -12,7 +12,7 @@ import {
 } from "firebase/firestore";
 import type { DocumentData } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
-import { vanKey } from "@/lib/vans";
+import { vanKey, vanNumber } from "@/lib/vans";
 import type { VanRecord } from "@/lib/types";
 
 /**
@@ -91,7 +91,18 @@ export function useVans() {
     return map;
   }, [vans]);
 
-  return { vans: vans ?? [], byKey, loading: vans === null, error };
+  /** Each van by its number alone, for a job written "112" — see findVan. */
+  const byNumber = useMemo(() => {
+    const map = new Map<string, VanRecord[]>();
+    for (const van of vans ?? []) {
+      const number = vanNumber(van.key);
+      if (!number) continue;
+      map.set(number, [...(map.get(number) ?? []), van]);
+    }
+    return map;
+  }, [vans]);
+
+  return { vans: vans ?? [], byKey, byNumber, loading: vans === null, error };
 }
 
 /** What a van is written as: the four fields, trimmed. */

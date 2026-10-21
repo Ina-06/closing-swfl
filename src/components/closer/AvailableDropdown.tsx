@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { FleetGroup, FleetRow, splitFleet } from "@/components/repairs/Fleet";
+import { FLEET_KINDS, FleetRow, splitFleet } from "@/components/repairs/Fleet";
 import { setFleetUsed } from "@/lib/db/fleet";
 import { useKeepOnScreen } from "@/lib/keepOnScreen";
 import type { FleetItem } from "@/lib/types";
@@ -32,7 +32,6 @@ export function AvailableDropdown({
   onError: (message: string | null) => void;
   onClose: () => void;
 }) {
-  const { spare, used } = splitFleet(items);
   const panel = useKeepOnScreen<HTMLDivElement>();
 
   useEffect(() => {
@@ -82,26 +81,46 @@ export function AvailableDropdown({
             Available vans &amp; gas cards
           </p>
 
-          <div className="space-y-3">
-            <FleetGroup title="Available" count={spare.length}>
-              {spare.length === 0 ? (
-                <p className="px-3 py-3 text-[13px] text-ink-faint">
-                  Everything on the list has been used today.
-                </p>
-              ) : (
-                spare.map((item) => (
-                  <FleetRow key={item.id} item={item} onToggle={() => toggle(item)} />
-                ))
-              )}
-            </FleetGroup>
+          {/* Vans first, gas cards under them — the same order as the board. */}
+          <div className="space-y-4">
+            {FLEET_KINDS.map((option) => {
+              const { spare, used } = splitFleet(items, option.kind);
+              return (
+                <section
+                  key={option.kind}
+                  aria-label={`Available ${option.label.toLowerCase()}`}
+                  className="space-y-2"
+                >
+                  <h3 className="flex items-baseline gap-1.5 text-[14px] font-bold text-ink">
+                    {option.label}
+                    <span className="tnum font-mono text-[13px] text-arrived">
+                      {spare.length}
+                    </span>
+                    <span className="text-[12px] font-semibold text-ink-muted">
+                      available
+                    </span>
+                  </h3>
 
-            {used.length > 0 ? (
-              <FleetGroup title="Used today" count={used.length}>
-                {used.map((item) => (
-                  <FleetRow key={item.id} item={item} onToggle={() => toggle(item)} />
-                ))}
-              </FleetGroup>
-            ) : null}
+                  {spare.length + used.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-line-strong px-3 py-2.5 text-[12.5px] text-ink-faint">
+                      None on today&apos;s list.
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line">
+                      {/* Used ones underneath, struck through, still there to
+                          un-tick if the wrong one was caught. */}
+                      {[...spare, ...used].map((item) => (
+                        <FleetRow
+                          key={item.id}
+                          item={item}
+                          onToggle={() => toggle(item)}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              );
+            })}
           </div>
         </div>
       </div>

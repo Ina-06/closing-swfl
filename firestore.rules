@@ -327,13 +327,15 @@ service cloud.firestore {
     // on — nothing deletes a line to clear it.
     match /fleet/{itemId} {
       function fleetFields() {
-        return ['label', 'round', 'used', 'createdAt', 'updatedAt', 'updatedBy'];
+        return ['kind', 'label', 'round', 'used', 'createdAt', 'updatedAt', 'updatedBy'];
       }
 
       allow read: if isRepairs() || isCloser();
 
+      // `kind` says which of the two lists a line is on — vans or gas cards.
       allow create: if isRepairs()
                     && request.resource.data.keys().hasOnly(fleetFields())
+                    && request.resource.data.kind in ['van', 'gasCard']
                     && request.resource.data.label is string
                     && request.resource.data.round is string
                     && request.resource.data.used is bool;

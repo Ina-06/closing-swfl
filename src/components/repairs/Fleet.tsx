@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { addFleetItem, removeFleetItem, setFleetUsed } from "@/lib/db/fleet";
 import { vanKey } from "@/lib/vans";
-import type { FleetItem } from "@/lib/types";
+import type { FleetItem, FleetKind } from "@/lib/types";
 
 /**
- * Available vans and gas cards — today's spares, as a to-do list.
+ * Available vans and gas cards — today's spares, as two to-do lists.
  *
  * Issam types them in one by one. Whoever uses one — Issam after launch, or
  * the closer on a van switch at nine o'clock — ticks it off, and it sinks
@@ -14,23 +14,36 @@ import type { FleetItem } from "@/lib/types";
  * was caught. What is left on top is what is still in the yard and in the
  * drawer.
  *
- * Vans and cards are on one list because they are written the same way and
- * handled the same way. Nothing here is linked to the vans database.
+ * Vans first, gas cards under them — on the board and in the closer's
+ * dropdown alike. They work the same way, but somebody reaching for a spare
+ * van should not have to read past the cards to find one. Nothing here is
+ * linked to the vans database.
  *
- * The list belongs to the session. When Karim ends the day it empties on its
- * own — or when the dispatcher starts the next day, if End Day never happened
- * — so there is no "clear" button to forget to press. See lib/fleetRound.
+ * The lists belong to the session. When Karim ends the day they empty on
+ * their own — or when the dispatcher starts the next day, if End Day never
+ * happened — so there is no "clear" button to forget to press. See
+ * lib/fleetRound.
  */
 
-/** Available and used, worked out once for the tab count and the list. */
-export function splitFleet(items: FleetItem[]) {
+export const FLEET_KINDS: {
+  kind: FleetKind;
+  label: string;
+  placeholder: string;
+}[] = [
+  { kind: "van", label: "Vans", placeholder: "Van, e.g. BR.03" },
+  { kind: "gasCard", label: "Gas cards", placeholder: "Gas card, e.g. 1142" },
+];
+
+/** Available and used, worked out once for the counts and the lists. */
+export function splitFleet(items: FleetItem[], kind?: FleetKind) {
+  const mine = kind ? items.filter((item) => item.kind === kind) : items;
   return {
-    spare: items.filter((item) => !item.used),
-    used: items.filter((item) => item.used),
+    spare: mine.filter((item) => !item.used),
+    used: mine.filter((item) => item.used),
   };
 }
 
-/** The full list, as a tab of the repairs board. */
+/** Both lists, as a tab of the repairs board. */
 export function AvailableList({
   items,
   loading,
@@ -51,11 +64,61 @@ export function AvailableList({
   uid: string;
   onError: (message: string | null) => void;
 }) {
+  if (loading) {
+    return (
+      <div
+        className="h-40 max-w-2xl animate-pulse rounded-xl bg-sunken/60"
+        aria-busy="true"
+        aria-label="Loading the available vans and gas cards"
+      />
+    );
+  }
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      {FLEET_KINDS.map((option) => (
+        <KindList
+          key={option.kind}
+          kind={option.kind}
+          label={option.label}
+          placeholder={option.placeholder}
+          items={items.filter((item) => item.kind === option.kind)}
+          round={round}
+          canManage={canManage}
+          uid={uid}
+          onError={onError}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** One of the two lists: its count, its add box, and its rows. */
+function KindList({
+  kind,
+  label,
+  placeholder,
+  items,
+  round,
+  canManage,
+  uid,
+  onError,
+}: {
+  kind: FleetKind;
+  label: string;
+  placeholder: string;
+  items: FleetItem[];
+  round: string | null;
+  canManage: boolean;
+  uid: string;
+  onError: (message: string | null) => void;
+}) {
   const { spare, used } = splitFleet(items);
   /** Remove buttons showing. Off by default so a tick never lands on one. */
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const total = items.length;
+  const fieldId = `fleet-add-${kind}`;
 
   const draftKey = vanKey(draft);
   const duplicate =
@@ -70,20 +133,47 @@ export function AvailableList({
   }
 
   function add() {
-    const label = draft.trim();
-    if (!label || duplicate || round === null) return;
+    const typed = draft.trim();
+    if (!typed || duplicate || round === null) return;
     setDraft("");
-    run("Adding that", addFleetItem(label, round, uid));
+    run("Adding that", addFleetItem(kind, typed, round, uid));
   }
 
+  const remove = (item: FleetItem) =>
+    canManage && editing
+      ? () => run("Removing that", removeFleetItem(item.id))
+      : undefined;
+
   return (
-    <section
-      aria-label="Available vans and gas cards"
-      className="max-w-2xl space-y-3"
-    >
-      {/* At the top, so the field stays put under the thumb while Issam types
-          the list in one after another, and the keyboard never covers what
-          he has just added. */}
+    <section aria-label={`Available ${label.toLowerCase()}`} className="space-y-3">
+      <div className="flex items-end justify-between gap-3">
+        <h2 className="leading-none">
+          <span className="text-[17px] font-bold tracking-tight text-ink">
+            {label}
+          </span>
+          {/* The number this list exists for. */}
+          <span className="tnum ml-2 font-mono text-[15px] font-bold text-arrived">
+            {spare.length}
+          </span>
+          <span className="ml-1 text-[13px] font-semibold text-ink-muted">
+            available of {total}
+          </span>
+        </h2>
+        {canManage && total > 0 ? (
+          <button
+            type="button"
+            aria-pressed={editing}
+            onClick={() => setEditing((was) => !was)}
+            className="min-h-9 rounded-lg px-2.5 text-[12px] font-semibold text-ink-muted transition-colors hover:bg-sunken active:bg-sunken"
+          >
+            {editing ? "Done" : "Edit list"}
+          </button>
+        ) : null}
+      </div>
+
+      {/* Above the rows, so the field stays put under the thumb while Issam
+          types the list in one after another, and the keyboard never covers
+          what he has just added. */}
       {canManage ? (
         <div>
           <form
@@ -93,15 +183,15 @@ export function AvailableList({
               add();
             }}
           >
-            <label htmlFor="fleet-add" className="sr-only">
-              Add a van or gas card
+            <label htmlFor={fieldId} className="sr-only">
+              Add to {label.toLowerCase()}
             </label>
             {/* 16px on the field itself, or iOS zooms the page on focus. */}
             <input
-              id="fleet-add"
+              id={fieldId}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder="Van or gas card, e.g. BR.03"
+              placeholder={placeholder}
               autoComplete="off"
               spellCheck={false}
               enterKeyHint="enter"
@@ -121,88 +211,48 @@ export function AvailableList({
         </div>
       ) : null}
 
-      {loading ? (
-        <div
-          className="h-40 animate-pulse rounded-xl bg-sunken/60"
-          aria-busy="true"
-          aria-label="Loading the available vans and gas cards"
-        />
+      {total === 0 ? (
+        <p className="rounded-xl border border-dashed border-line-strong px-4 py-6 text-center text-[13px] leading-relaxed text-ink-faint">
+          {canManage
+            ? `No ${label.toLowerCase()} on today's list yet. Type each spare above, one at a time. The list empties on its own when the day ends.`
+            : `No ${label.toLowerCase()} on today's list yet. It is written from the Repairs login.`}
+        </p>
       ) : (
-        <>
-          <div className="flex items-end justify-between gap-3">
-            {/* The number this list exists for. */}
-            <p className="leading-none">
-              <span className="tnum font-mono text-[26px] font-bold tracking-tight text-arrived">
-                {spare.length}
-              </span>
-              <span className="ml-1.5 text-[13px] font-semibold text-ink-muted">
-                available of {total}
-              </span>
-            </p>
-            {canManage && total > 0 ? (
-              <button
-                type="button"
-                aria-pressed={editing}
-                onClick={() => setEditing((was) => !was)}
-                className="min-h-9 rounded-lg px-2.5 text-[12px] font-semibold text-ink-muted transition-colors hover:bg-sunken active:bg-sunken"
-              >
-                {editing ? "Done" : "Edit list"}
-              </button>
-            ) : null}
-          </div>
+        <div className="space-y-3">
+          <FleetGroup title="Available" count={spare.length}>
+            {spare.length === 0 ? (
+              <p className="px-3 py-3 text-[13px] text-ink-faint">
+                Every one on the list has been used today.
+              </p>
+            ) : (
+              spare.map((item) => (
+                <FleetRow
+                  key={item.id}
+                  item={item}
+                  onToggle={() =>
+                    run("Ticking that off", setFleetUsed(item.id, true, uid))
+                  }
+                  onRemove={remove(item)}
+                />
+              ))
+            )}
+          </FleetGroup>
 
-          {total === 0 ? (
-            <p className="rounded-xl border border-dashed border-line-strong px-4 py-8 text-center text-[13px] leading-relaxed text-ink-faint">
-              {canManage
-                ? "Nothing on today's list yet. Type each spare van and gas card above, one at a time. The list empties on its own when the day ends."
-                : "Nothing on today's list yet. It is written from the Repairs login."}
-            </p>
-          ) : (
-            <div className="space-y-3">
-              <FleetGroup title="Available" count={spare.length}>
-                {spare.length === 0 ? (
-                  <p className="px-3 py-3 text-[13px] text-ink-faint">
-                    Everything on the list has been used today.
-                  </p>
-                ) : (
-                  spare.map((item) => (
-                    <FleetRow
-                      key={item.id}
-                      item={item}
-                      onToggle={() =>
-                        run("Ticking that off", setFleetUsed(item.id, true, uid))
-                      }
-                      onRemove={
-                        canManage && editing
-                          ? () => run("Removing that", removeFleetItem(item.id))
-                          : undefined
-                      }
-                    />
-                  ))
-                )}
-              </FleetGroup>
-
-              {used.length > 0 ? (
-                <FleetGroup title="Used today" count={used.length}>
-                  {used.map((item) => (
-                    <FleetRow
-                      key={item.id}
-                      item={item}
-                      onToggle={() =>
-                        run("Putting that back", setFleetUsed(item.id, false, uid))
-                      }
-                      onRemove={
-                        canManage && editing
-                          ? () => run("Removing that", removeFleetItem(item.id))
-                          : undefined
-                      }
-                    />
-                  ))}
-                </FleetGroup>
-              ) : null}
-            </div>
-          )}
-        </>
+          {used.length > 0 ? (
+            <FleetGroup title="Used today" count={used.length}>
+              {used.map((item) => (
+                <FleetRow
+                  key={item.id}
+                  item={item}
+                  onToggle={() =>
+                    run("Putting that back", setFleetUsed(item.id, false, uid))
+                  }
+                  onRemove={remove(item)}
+                />
+              ))}
+            </FleetGroup>
+          ) : null}
+        </div>
       )}
     </section>
   );
