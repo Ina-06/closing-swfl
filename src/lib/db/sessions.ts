@@ -201,11 +201,11 @@ export async function createSession(input: RosterInput) {
     { merge: true },
   );
 
-  // A new day empties the list of available vans and gas cards, if End Day
+  // A new day empties the list of available vans and fuel cards, if End Day
   // did not already. Not awaited and never allowed to fail the roster: the
   // night starting is the thing that matters here. See startFleetRound.
   startFleetRound(input.nightKey, input.updatedBy).catch((error: unknown) =>
-    console.warn("Could not empty the available vans and gas cards:", error),
+    console.warn("Could not empty the available vans and fuel cards:", error),
   );
 }
 
@@ -243,13 +243,13 @@ export async function closeSession(nightKey: string, updatedBy: string) {
     updatedBy,
   });
 
-  // The list of available vans and gas cards empties. Separate from the close
+  // The list of available vans and fuel cards empties. Separate from the close
   // and never allowed to fail it — End Day is the last thing Karim does all
   // night, and a list on another screen is not a reason to show him an error.
   // Touches the round marker only: nothing is deleted, and nothing on the
   // repairs board is touched.
   endFleetRound(nightKey, updatedBy).catch((error: unknown) =>
-    console.warn("Could not empty the available vans and gas cards:", error),
+    console.warn("Could not empty the available vans and fuel cards:", error),
   );
 }
 

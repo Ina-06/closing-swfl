@@ -244,7 +244,7 @@ export type RepairTask = {
 };
 
 /**
- * One line on today's list of spare vans and gas cards.
+ * One line on today's list of spare vans and fuel cards.
  *
  * Typed by Issam each day, one by one, like a to-do list — "BR.03", "Card
  * 1142" — and not linked to the vans database. Vans and cards work the same

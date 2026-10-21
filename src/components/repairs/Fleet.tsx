@@ -11,7 +11,7 @@ import { vanKey } from "@/lib/vans";
 import type { FleetItem, FleetKind } from "@/lib/types";
 
 /**
- * Available vans and gas cards — today's spares, as two to-do lists.
+ * Available vans and fuel cards — today's spares, as two to-do lists.
  *
  * Issam types them in one by one. Whoever uses one — Issam after launch, or
  * the closer on a van switch at nine o'clock — ticks it off, and it sinks
@@ -19,7 +19,7 @@ import type { FleetItem, FleetKind } from "@/lib/types";
  * was caught. What is left on top is what is still in the yard and in the
  * drawer.
  *
- * Vans first, gas cards under them — on the board and in the closer's
+ * Vans first, fuel cards under them — on the board and in the closer's
  * dropdown alike. They work the same way, but somebody reaching for a spare
  * van should not have to read past the cards to find one. Nothing here is
  * linked to the vans database.
@@ -36,7 +36,7 @@ export const FLEET_KINDS: {
   placeholder: string;
 }[] = [
   { kind: "van", label: "Vans", placeholder: "Van, e.g. BR.03" },
-  { kind: "gasCard", label: "Gas cards", placeholder: "Gas card, e.g. 1142" },
+  { kind: "gasCard", label: "Fuel Cards", placeholder: "Fuel card, e.g. 1142" },
 ];
 
 /** Available and used, worked out once for the counts and the lists. */
@@ -74,7 +74,7 @@ export function AvailableList({
       <div
         className="h-40 max-w-2xl animate-pulse rounded-xl bg-sunken/60"
         aria-busy="true"
-        aria-label="Loading the available vans and gas cards"
+        aria-label="Loading the available vans and fuel cards"
       />
     );
   }

@@ -194,7 +194,7 @@ export function RepairsBoard({ uid }: { uid: string }) {
    */
   const [view, setView] = useState<View>("jobs");
   /**
-   * Today's available vans and gas cards. Read live, so the list empties
+   * Today's available vans and fuel cards. Read live, so the list empties
    * itself the moment Karim ends the day.
    */
   const available = useAvailable();
@@ -327,7 +327,7 @@ export function RepairsBoard({ uid }: { uid: string }) {
         <>
           {available.error ? (
             <ErrorNote>
-              Could not read the available vans and gas cards:{" "}
+              Could not read the available vans and fuel cards:{" "}
               {available.error}. If this says permission denied, the
               Firestore rules may not be published yet.
             </ErrorNote>
@@ -932,7 +932,7 @@ function VanFact({
 }
 
 /**
- * Jobs, Available Vans & Gas Cards, Vans Database — the board's three views.
+ * Jobs, Available Vans & Fuel Cards, Vans Database — the board's three views.
  *
  * The same switch on a phone and a laptop. Each option carries the number its
  * list is read for: jobs still to do, spares not yet used today, and vans in
@@ -966,7 +966,7 @@ function ViewSwitch({
     },
     {
       key: "available",
-      label: "Available Vans & Gas Cards",
+      label: "Available Vans & Fuel Cards",
       short: "Available",
       count: available === null ? null : `${available} left`,
     },
@@ -981,7 +981,7 @@ function ViewSwitch({
   return (
     <div
       role="tablist"
-      aria-label="Jobs, available vans and gas cards, or the vans database"
+      aria-label="Jobs, available vans and fuel cards, or the vans database"
       className="grid grid-cols-3 gap-1 rounded-xl border border-line bg-surface p-1"
     >
       {options.map((option) => {

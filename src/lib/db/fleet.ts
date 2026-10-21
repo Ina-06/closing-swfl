@@ -25,7 +25,7 @@ import {
 import type { FleetItem, FleetKind } from "@/lib/types";
 
 /**
- * Today's available vans and gas cards — a list Issam types, and the closer
+ * Today's available vans and fuel cards — a list Issam types, and the closer
  * and Issam tick off as they go out.
  *
  * Top-level, beside the repairs board, because the list is read from both
@@ -156,7 +156,7 @@ export function useAvailable() {
   };
 }
 
-/** A line on today's vans list or gas cards list. */
+/** A line on today's vans list or fuel cards list. */
 export async function addFleetItem(
   kind: FleetKind,
   label: string,

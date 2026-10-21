@@ -144,7 +144,7 @@ export function CloserBoard({
    */
   const [openOnVan, setOpenOnVan] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-  /** A tick on the available vans and gas cards that the server refused. */
+  /** A tick on the available vans and fuel cards that the server refused. */
   const [fleetError, setFleetError] = useState<string | null>(null);
   /**
    * Folded to begin with.
@@ -293,12 +293,13 @@ export function CloserBoard({
   const { drivers } = useDrivers();
 
   /**
-   * Today's available vans and gas cards, as Issam typed them on the repairs
+   * Today's available vans and fuel cards, as Issam typed them on the repairs
    * board. Live, so a line he adds mid-evening is here without a refresh, and
    * gone with the rest of the list once the day is ended.
    */
   const available = useAvailable();
-  const spareCount = splitFleet(available.items).spare.length;
+  const spareVans = splitFleet(available.items, "van").spare.length;
+  const spareCards = splitFleet(available.items, "gasCard").spare.length;
   const scorecards = useMemo(
     () =>
       new Map((drivers ?? []).map((driver) => [driver.id, driver.scorecard])),
@@ -519,9 +520,13 @@ export function CloserBoard({
                 it opens even when every line is used. Hangs leftwards: it is
                 the last pill across now. */}
             <div className="relative">
+              {/* Vans and fuel cards counted apart — "2 V + 1 F" — because
+                  a spare card is no help when what broke is a van. */}
               <Total
                 label="Available"
-                value={spareCount}
+                value={spareVans + spareCards}
+                display={`${spareVans} V + ${spareCards} F`}
+                spoken={`${spareVans} ${spareVans === 1 ? "van" : "vans"} and ${spareCards} fuel ${spareCards === 1 ? "card" : "cards"} available`}
                 open={breakdown === "available"}
                 onClick={
                   available.items.length > 0
@@ -896,12 +901,18 @@ export function CloserBoard({
 function Total({
   label,
   value,
+  display,
+  spoken,
   warn = false,
   onClick,
   open = false,
 }: {
   label: string;
   value: number;
+  /** What the pill shows, when it is not simply the number. */
+  display?: string;
+  /** What a screen reader hears, when it is not "<value> <label>". */
+  spoken?: string;
   warn?: boolean;
   /** Omitted when there is nothing to break down. */
   onClick?: () => void;
@@ -926,7 +937,7 @@ function Total({
           loud ? "text-warn" : "text-ink"
         }`}
       >
-        {value}
+        {display ?? value}
       </span>
     </>
   );
@@ -946,7 +957,7 @@ function Total({
       type="button"
       onClick={onClick}
       aria-expanded={open}
-      aria-label={`${value} ${label.toLowerCase()} — ${open ? "hide" : "show"} who`}
+      aria-label={`${spoken ?? `${value} ${label.toLowerCase()}`} — ${open ? "hide" : "show"} who`}
       className={`flex flex-col items-center rounded-lg border px-2.5 py-1 leading-none transition-colors active:brightness-[0.97] ${tone} ${
         open ? (loud ? "ring-2 ring-warn/25" : "ring-2 ring-ink/10") : ""
       }`}

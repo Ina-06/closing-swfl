@@ -1,5 +1,5 @@
 /**
- * The rules for when the list of available vans and gas cards empties, with
+ * The rules for when the list of available vans and fuel cards empties, with
  * nothing else in the way — no Firestore, no React — so they can be tested on
  * their own.
  *

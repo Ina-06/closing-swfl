@@ -7,7 +7,7 @@ import { useKeepOnScreen } from "@/lib/keepOnScreen";
 import type { FleetItem } from "@/lib/types";
 
 /**
- * Today's available vans and gas cards, hanging off the pill that counts
+ * Today's available vans and fuel cards, hanging off the pill that counts
  * them.
  *
  * The list Issam types on the repairs board, brought to the yard for the one
@@ -81,12 +81,11 @@ export function AvailableDropdown({
             Available vans &amp; fuel cards
           </p>
 
-          {/* Vans first, cards under them — the same order as the board. The
-              yard calls them fuel cards, so that is what they are called here. */}
+          {/* Vans first, fuel cards under them — the same order as the board. */}
           <div className="space-y-4">
             {FLEET_KINDS.map((option) => {
               const { spare, used } = splitFleet(items, option.kind);
-              const title = option.kind === "gasCard" ? "Fuel Cards" : option.label;
+              const title = option.label;
               return (
                 <section
                   key={option.kind}
