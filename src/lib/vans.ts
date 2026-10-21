@@ -62,42 +62,59 @@ export function findVan<T extends { key: string }>(
   byKey: ReadonlyMap<string, T>,
   byNumber: ReadonlyMap<string, readonly T[]>,
 ): T | null {
-  const key = vanKey(vanOfTitle(title));
-  if (!key) return null;
+  const keys = vansOfTitle(title).map(vanKey).filter(Boolean);
 
-  const exact = byKey.get(key);
-  if (exact) return exact;
+  // Every way of reading the front of the line, exactly, before any of them
+  // by number — "RT 112" should be RT112 before it is ever just 112.
+  for (const key of keys) {
+    const exact = byKey.get(key);
+    if (exact) return exact;
+  }
 
-  const number = vanNumber(key);
-  if (!number) return null;
-  const bare = key === number;
-  const candidates = (byNumber.get(number) ?? []).filter(
-    (van) =>
-      bare ||
-      van.key === number ||
-      key.endsWith(van.key) ||
-      van.key.endsWith(key),
-  );
-  return candidates.length === 1 ? candidates[0] : null;
+  for (const key of keys) {
+    const number = vanNumber(key);
+    if (!number) continue;
+    const bare = key === number;
+    const candidates = (byNumber.get(number) ?? []).filter(
+      (van) =>
+        bare ||
+        van.key === number ||
+        key.endsWith(van.key) ||
+        van.key.endsWith(key),
+    );
+    if (candidates.length === 1) return candidates[0];
+  }
+  return null;
 }
 
 /**
- * The van a job is about: the front of its line.
+ * The van a job is about, as the ways the front of its line can be read.
  *
- * A job is "BR.03 - Rear door sticks", so the van is whatever is before the
- * first " - ". A line typed by hand without the dash — "BR.03 rear door" —
- * still starts with the van, so that falls back to the first word — or the
- * first two, when the letters and the number were written apart: "RT 112
- * left mirror" is RT 112. A line that starts with a word rather than a van
- * simply finds nothing in the database, which is the right answer.
+ * The van is the first word with a number in it: "BR.03 - Rear door",
+ * "119: Pass side mirror", "EC-RT.82✅ GRD leaking". Short codes written in
+ * front of it are stepped over — "MT - RT.75 Front bumper", "NA - RT.87
+ * Smells gasoline" — as long as they look like codes: capitals (MT, NA,
+ * GRD, RT), "van", or one or two letters ("rt 112"). "Rear door 2 hinges"
+ * stops at "Rear" and finds no van at all, which is the right answer.
+ *
+ * When the letters and the number were written apart — "RT 112 left mirror",
+ * "VAN 150 - Tyre" — the two together are tried first, then the number on
+ * its own.
  */
-export function vanOfTitle(title: string): string {
-  const line = title.trim();
-  const dashed = /^(.+?)\s+-\s/.exec(line);
-  if (dashed) return dashed[1];
-  const [first = "", second = ""] = line.split(/\s+/);
-  if (/^[A-Za-z]{1,4}[.#-]?$/.test(first) && /^\d/.test(second)) {
-    return `${first} ${second}`;
+export function vansOfTitle(title: string): string[] {
+  const words = title.trim().split(/\s+/).slice(0, 5);
+  const code = /^(?:[A-Z]{1,4}|[A-Za-z]{1,2}|[Vv]an)[.:#]?$/;
+  const dash = /^[-–—:|/]+$/;
+
+  for (let index = 0; index < words.length; index++) {
+    const word = words[index];
+    if (/[0-9]/.test(word)) {
+      const before = words[index - 1];
+      return before && code.test(before) && /^[0-9]/.test(word)
+        ? [`${before} ${word}`, word]
+        : [word];
+    }
+    if (!code.test(word) && !dash.test(word)) return [];
   }
-  return first;
+  return [];
 }
