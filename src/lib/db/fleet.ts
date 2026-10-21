@@ -191,6 +191,22 @@ export async function setFleetUsed(
 }
 
 /** Take a line typed by mistake off the list. */
+/** Correct what a line says — a van or card typed wrong. */
+export async function renameFleetItem(
+  id: string,
+  label: string,
+  updatedBy: string,
+) {
+  const trimmed = label.trim().replace(/\s+/g, " ");
+  if (!trimmed) throw new Error("It needs a number.");
+
+  await updateDoc(doc(fleetCollection(), id), {
+    label: trimmed,
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  });
+}
+
 export async function removeFleetItem(id: string) {
   await deleteDoc(doc(fleetCollection(), id));
 }

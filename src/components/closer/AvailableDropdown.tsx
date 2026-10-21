@@ -78,21 +78,23 @@ export function AvailableDropdown({
 
         <div className="max-h-[56dvh] overflow-y-auto overscroll-contain rounded-xl border border-line-strong bg-surface p-3 shadow-lg shadow-ink/10">
           <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-ink-faint">
-            Available vans &amp; gas cards
+            Available vans &amp; fuel cards
           </p>
 
-          {/* Vans first, gas cards under them — the same order as the board. */}
+          {/* Vans first, cards under them — the same order as the board. The
+              yard calls them fuel cards, so that is what they are called here. */}
           <div className="space-y-4">
             {FLEET_KINDS.map((option) => {
               const { spare, used } = splitFleet(items, option.kind);
+              const title = option.kind === "gasCard" ? "Fuel Cards" : option.label;
               return (
                 <section
                   key={option.kind}
-                  aria-label={`Available ${option.label.toLowerCase()}`}
+                  aria-label={`Available ${title.toLowerCase()}`}
                   className="space-y-2"
                 >
                   <h3 className="flex items-baseline gap-1.5 text-[14px] font-bold text-ink">
-                    {option.label}
+                    {title}
                     <span className="tnum font-mono text-[13px] text-arrived">
                       {spare.length}
                     </span>

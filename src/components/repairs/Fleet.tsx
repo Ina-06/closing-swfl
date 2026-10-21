@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { addFleetItem, removeFleetItem, setFleetUsed } from "@/lib/db/fleet";
+import { useEffect, useRef, useState } from "react";
+import {
+  addFleetItem,
+  removeFleetItem,
+  renameFleetItem,
+  setFleetUsed,
+} from "@/lib/db/fleet";
 import { vanKey } from "@/lib/vans";
 import type { FleetItem, FleetKind } from "@/lib/types";
 
@@ -114,7 +119,10 @@ function KindList({
   onError: (message: string | null) => void;
 }) {
   const { spare, used } = splitFleet(items);
-  /** Remove buttons showing. Off by default so a tick never lands on one. */
+  /**
+   * Edit list: the words become editable and the × appears, and ticking is
+   * off until Done — so a tap meant for the words never ticks a van off.
+   */
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const total = items.length;
@@ -143,6 +151,10 @@ function KindList({
     canManage && editing
       ? () => run("Removing that", removeFleetItem(item.id))
       : undefined;
+  const rename = (item: FleetItem) =>
+    canManage && editing
+      ? (next: string) => run("That change", renameFleetItem(item.id, next, uid))
+      : undefined;
 
   return (
     <section aria-label={`Available ${label.toLowerCase()}`} className="space-y-3">
@@ -164,7 +176,11 @@ function KindList({
             type="button"
             aria-pressed={editing}
             onClick={() => setEditing((was) => !was)}
-            className="min-h-9 rounded-lg px-2.5 text-[12px] font-semibold text-ink-muted transition-colors hover:bg-sunken active:bg-sunken"
+            className={`min-h-9 rounded-lg px-3 text-[12px] font-semibold transition-colors ${
+              editing
+                ? "border border-caution-line bg-caution-soft font-bold text-caution"
+                : "text-ink-muted hover:bg-sunken active:bg-sunken"
+            }`}
           >
             {editing ? "Done" : "Edit list"}
           </button>
@@ -219,6 +235,12 @@ function KindList({
         </p>
       ) : (
         <div className="space-y-3">
+          {editing ? (
+            <p className="text-[12px] text-ink-muted">
+              Click a line to change it — click away or press Enter to save.
+              Ticking is off until you press Done.
+            </p>
+          ) : null}
           <FleetGroup title="Available" count={spare.length}>
             {spare.length === 0 ? (
               <p className="px-3 py-3 text-[13px] text-ink-faint">
@@ -233,6 +255,7 @@ function KindList({
                     run("Ticking that off", setFleetUsed(item.id, true, uid))
                   }
                   onRemove={remove(item)}
+                  onRename={rename(item)}
                 />
               ))
             )}
@@ -248,6 +271,7 @@ function KindList({
                     run("Putting that back", setFleetUsed(item.id, false, uid))
                   }
                   onRemove={remove(item)}
+                  onRename={rename(item)}
                 />
               ))}
             </FleetGroup>
@@ -283,9 +307,12 @@ export function FleetGroup({
 
 /**
  * One van or card. The box is the whole row, because ticking is the only
- * thing anybody does here once the list is written — the remove button only
- * appears in Edit list, so a thumb working down twenty lines cannot land on
- * it.
+ * thing anybody does here once the list is written.
+ *
+ * In Edit list it is the other way round: the words are a text box waiting
+ * to happen — click them, change them, click away or press Enter — the ×
+ * removes the line, and the tick box is off, so fixing a typo can never tick
+ * a van off by mistake. Done puts ticking back.
  *
  * Shared with the closer's dropdown, so a tick looks the same from both sides
  * of the door.
@@ -294,57 +321,94 @@ export function FleetRow({
   item,
   onToggle,
   onRemove,
+  onRename,
 }: {
   item: FleetItem;
   onToggle: () => void;
   /** Shown only while the list is being edited. */
   onRemove?: () => void;
+  /** Given only while the list is being edited — see above. */
+  onRename?: (label: string) => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   const used = item.used;
+
+  const box = (
+    <span
+      className={`grid size-5 shrink-0 place-items-center rounded-md border-2 transition-colors ${
+        used
+          ? "border-arrived bg-arrived text-ink-inverse"
+          : "border-line-strong bg-surface"
+      } ${onRename ? "opacity-40" : ""}`}
+    >
+      {used ? (
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="size-3.5"
+          aria-hidden="true"
+        >
+          <path d="M5 12.5l5 5 9-10.5" />
+        </svg>
+      ) : null}
+    </span>
+  );
+
+  const words = (
+    <span
+      className={`tnum min-w-0 truncate font-mono text-[15px] font-bold ${
+        used ? "text-ink-faint line-through decoration-ink-faint" : "text-ink"
+      }`}
+    >
+      {item.label}
+    </span>
+  );
 
   return (
     <li className="flex items-stretch bg-surface">
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={used}
-        aria-label={`${used ? "Put back as available" : "Used today"}: ${item.label}`}
-        onClick={onToggle}
-        className="flex min-h-11 min-w-0 flex-1 items-center gap-3 px-3 text-left transition-colors hover:bg-sunken/60 active:bg-sunken"
-      >
-        <span
-          className={`grid size-5 shrink-0 place-items-center rounded-md border-2 transition-colors ${
-            used
-              ? "border-arrived bg-arrived text-ink-inverse"
-              : "border-line-strong bg-surface"
-          }`}
-        >
-          {used ? (
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="size-3.5"
-              aria-hidden="true"
+      {onRename ? (
+        <div className="flex min-h-11 min-w-0 flex-1 items-center gap-3 pl-3">
+          {box}
+          {renaming ? (
+            <LabelEditor
+              item={item}
+              onDone={(next) => {
+                setRenaming(false);
+                if (next !== null) onRename(next);
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setRenaming(true)}
+              aria-label={`Change: ${item.label}`}
+              title="Click to change — click away or press Enter to save"
+              className="flex min-h-11 min-w-0 flex-1 cursor-text items-center pr-3 text-left transition-colors hover:bg-sunken/60"
             >
-              <path d="M5 12.5l5 5 9-10.5" />
-            </svg>
-          ) : null}
-        </span>
-        <span
-          className={`tnum min-w-0 truncate font-mono text-[15px] font-bold ${
-            used ? "text-ink-faint line-through decoration-ink-faint" : "text-ink"
-          }`}
+              {words}
+            </button>
+          )}
+        </div>
+      ) : (
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={used}
+          aria-label={`${used ? "Put back as available" : "Used today"}: ${item.label}`}
+          onClick={onToggle}
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-3 px-3 text-left transition-colors hover:bg-sunken/60 active:bg-sunken"
         >
-          {item.label}
-        </span>
-      </button>
+          {box}
+          {words}
+        </button>
+      )}
 
-      {onRemove ? (
+      {onRemove && !renaming ? (
         confirming ? (
           <span className="flex shrink-0 items-center gap-1 pr-2">
             <button
@@ -384,5 +448,61 @@ export function FleetRow({
         )
       ) : null}
     </li>
+  );
+}
+
+/**
+ * The words of one line, as a text box, while they are being changed.
+ *
+ * The same rules as a job's words on the board: opens focused with the caret
+ * at the end, click away or Enter saves, Escape puts it back, and a line
+ * emptied out is put back rather than saved — removing one is the ×.
+ *
+ * `onDone` gets the new words, or null when there is nothing to save.
+ */
+function LabelEditor({
+  item,
+  onDone,
+}: {
+  item: FleetItem;
+  onDone: (label: string | null) => void;
+}) {
+  const [draft, setDraft] = useState(item.label);
+  const field = useRef<HTMLInputElement>(null);
+  /** Escape was pressed, so the blur that follows must not save. */
+  const cancelled = useRef(false);
+
+  useEffect(() => {
+    const input = field.current;
+    if (!input) return;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }, []);
+
+  return (
+    <input
+      ref={field}
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => {
+        const next = draft.trim();
+        onDone(cancelled.current || next === "" || next === item.label ? null : next);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+        if (event.key === "Escape") {
+          cancelled.current = true;
+          event.currentTarget.blur();
+        }
+      }}
+      aria-label={`Line: ${item.label}`}
+      autoComplete="off"
+      spellCheck={false}
+      enterKeyHint="done"
+      className="tnum mr-2 min-h-9 min-w-0 flex-1 rounded-md border border-brand bg-surface px-2 font-mono text-[16px] font-bold text-ink outline-none sm:text-[15px]"
+    />
   );
 }
