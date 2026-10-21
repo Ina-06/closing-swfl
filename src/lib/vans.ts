@@ -99,20 +99,28 @@ export function findVan<T extends { key: string }>(
  *
  * When the letters and the number were written apart — "RT 112 left mirror",
  * "VAN 150 - Tyre" — the two together are tried first, then the number on
- * its own.
+ * its own. A code stuck on with a dash — "ZT- 88", "ZT-19" — is stepped over
+ * the same way.
  */
 export function vansOfTitle(title: string): string[] {
   const words = title.trim().split(/\s+/).slice(0, 5);
-  const code = /^(?:[A-Z]{1,4}|[A-Za-z]{1,2}|[Vv]an)[.:#]?$/;
+  // A code may have its dash stuck to it: "ZT- 88".
+  const code = /^(?:[A-Z]{1,4}|[A-Za-z]{1,2}|[Vv]an)[.:#\-–—]?$/;
   const dash = /^[-–—:|/]+$/;
 
   for (let index = 0; index < words.length; index++) {
     const word = words[index];
     if (/[0-9]/.test(word)) {
       const before = words[index - 1];
-      return before && code.test(before) && /^[0-9]/.test(word)
-        ? [`${before} ${word}`, word]
-        : [word];
+      const readings =
+        before && code.test(before) && /^[0-9]/.test(word)
+          ? [`${before} ${word}`, word]
+          : [word];
+      // A code glued on with a dash — "ZT-19", "EC-RT.82" — is also read
+      // without it: 19, RT.82.
+      const glued = /^[A-Za-z]{1,4}[-–—](.*[0-9].*)$/.exec(word);
+      if (glued) readings.push(glued[1]);
+      return readings;
     }
     if (!code.test(word) && !dash.test(word)) return [];
   }
