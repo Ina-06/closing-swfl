@@ -1,3 +1,22 @@
+# SWFL Closing App
+
+A real-time dispatch platform for a last-mile delivery station. It replaces a paper tracking sheet and WhatsApp updates with one flow from opening dispatch to end-of-day closing.
+
+**Live:** [closing-swfl.vercel.app](https://closing-swfl.vercel.app). Access needs a station key, so the app itself is private to the team.
+
+![Sign-in screen](docs/screenshot.png)
+
+## Highlights
+
+- **Dispatcher view (laptop):** build tonight's roster from a pasted driver list, then log each driver's ETA and returns.
+- **Closer view (phone):** live driver cards that update in real time and sort by ETA, plus arrival checks at the van and End Day.
+- **Auto-generated reports:** End Day produces the night's sheet as a PDF, and returns export to Excel.
+- **Role-based access:** Dispatcher, Closer, HR and Repairs each get their own screen behind one station key, enforced by Firestore security rules.
+
+**Stack:** Next.js 16 · TypeScript · React 19 · Tailwind CSS v4 · Firebase (Firestore, Admin SDK) · Vercel
+
+---
+
 # Closing — SWFL
 
 Driver closing sheet for an Amazon delivery station. Replaces two things: the
