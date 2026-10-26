@@ -8,7 +8,7 @@ import type { Entry } from "@/lib/types";
 /**
  * The closing sheet, as the PDF that gets posted to the group.
  *
- * Either role can ask for it. Karim generates it at End Day and sends it to the
+ * Either role can ask for it. The closer generates it at End Day and sends it to the
  * group; the dispatcher pulls the same night again from the archive weeks
  * later. It is rendered fresh from the entries every time — the entries are the
  * record, the PDF is only a view of them — so both are read-only operations
@@ -16,7 +16,7 @@ import type { Entry } from "@/lib/types";
  * stricter of the two roles.
  *
  * Two ways in, same sheet. POST is the app asking, signed in, and gets the file
- * as a download. GET is a link being followed — Karim tapping View to read it
+ * as a download. GET is a link being followed — the closer tapping View to read it
  * in Safari — and gets the same bytes marked to display rather than save. A
  * link cannot carry an Authorization header, so it carries a signed pass
  * instead; see lib/sheetPass.

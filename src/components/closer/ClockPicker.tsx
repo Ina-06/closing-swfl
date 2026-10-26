@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/Button";
  * because that control is two different things depending on what is holding it
  * — a proper wheel on an iPhone, a pair of tiny spinner arrows in a desktop
  * browser — and the one screen in this app where a time is typed rather than
- * stamped has to behave the same on both. Karim is on a phone and whoever is
+ * stamped has to behave the same on both. The closer is on a phone and whoever is
  * checking the night afterwards is not.
  *
  * Built on CSS scroll snapping rather than on drag maths. The browser already
@@ -125,7 +125,7 @@ function Wheel<T extends string | number>({
    *
    * Not on every scroll event: committing mid-flick would fire forty times on
    * one spin, and on the custom clock-out that is forty writes to a record
-   * Karim has not finished choosing. The browser's own snapping is what lands
+   * the closer has not finished choosing. The browser's own snapping is what lands
    * it on a row; this only has to notice where it came to rest.
    */
   function onScroll() {
@@ -256,7 +256,7 @@ export function ClockWheels({
 /**
  * The wheels as something that opens over the sheet.
  *
- * Its own layer above the arrival sheet, not a panel inside it. Karim opens
+ * Its own layer above the arrival sheet, not a panel inside it. The closer opens
  * this with the driver stood in front of him and one number in mind; the record
  * behind it is not what he is reading, and a picker that pushed the sheet
  * around would move the button he is about to press next.

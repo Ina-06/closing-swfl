@@ -87,7 +87,7 @@ export async function postAuthed(path: string, body: unknown): Promise<Response>
  * There is no feature test for this. `download` is present on every anchor on
  * every platform; what differs is that WebKit treats a click on one pointing at
  * a `blob:` url as a *navigation* to that url rather than as a download. A
- * navigation is something a content blocker extension can refuse, and Karim's
+ * navigation is something a content blocker extension can refuse, and the closer's
  * does — "The URL was blocked by a content blocker" is what he gets instead of
  * a PDF. So on these devices the share sheet is not the nicer route, it is the
  * only one, and a failed share must be reported rather than quietly turned into
@@ -138,7 +138,7 @@ export type HandOff = "shared" | "cancelled" | "saved" | "failed";
  * `why` exists because three nights were spent guessing between two paths that
  * produce the identical message. It is a dozen characters of shorthand meant to
  * be read back over the phone or photographed — never an explanation, and never
- * the thing Karim is expected to act on. That is what the sentence beside it is
+ * the thing the closer is expected to act on. That is what the sentence beside it is
  * for.
  */
 export type Handover = { how: HandOff; why: string };
@@ -146,7 +146,7 @@ export type Handover = { how: HandOff; why: string };
 /**
  * Whether this is a Home Screen web app rather than a tab.
  *
- * Not a detail. Karim's phone reports `home`, which settles two things we had
+ * Not a detail. The closer's phone reports `home`, which settles two things we had
  * been guessing at: there is no address bar on his screen, so Safari's Reload
  * Without Content Blockers is nowhere he can reach it; and the share sheet is
  * being asked for from a standalone web app, which is the one context where
@@ -189,7 +189,7 @@ async function offer(
  * Hand a file to whatever the phone uses to send things.
  *
  * On a phone this is the system share sheet, which is where WhatsApp lives —
- * the same two taps Karim already uses to post a photo of the paper sheet.
+ * the same two taps the closer already uses to post a photo of the paper sheet.
  * Anywhere that downloads files properly, it downloads instead.
  *
  * The blob must already be in hand when this is called, and this is the whole
@@ -222,7 +222,7 @@ export async function shareOrSave(
      * One attempt. There is only ever one to be had.
      *
      * This used to try the full payload and then fall back to the file on its
-     * own, and the trace off Karim's phone is what killed that:
+     * own, and the trace off the closer's phone is what killed that:
      * `home·AbortError7·NotAllowedError0`. The first call was refused in seven
      * milliseconds, and the second came back as NotAllowedError in none at all
      * — which is iOS saying the gesture is spent. A failed share consumes the

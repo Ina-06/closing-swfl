@@ -213,7 +213,7 @@ export async function createSession(input: RosterInput) {
  * The wave is over — everyone still out is on their way back.
  *
  * Written from the client rather than from the spreadsheet route on purpose.
- * This is the half that reaches Karim's phone, and it reaches it through the
+ * This is the half that reaches the closer's phone, and it reaches it through the
  * listener he already has open, in the time it takes Firestore to acknowledge
  * one field. Making it wait on a workbook being generated would put a
  * spreadsheet in front of the thing it is announcing.
@@ -244,7 +244,7 @@ export async function closeSession(nightKey: string, updatedBy: string) {
   });
 
   // The list of available vans and fuel cards empties. Separate from the close
-  // and never allowed to fail it — End Day is the last thing Karim does all
+  // and never allowed to fail it — End Day is the last thing the closer does all
   // night, and a list on another screen is not a reason to show him an error.
   // Touches the round marker only: nothing is deleted, and nothing on the
   // repairs board is touched.
@@ -256,7 +256,7 @@ export async function closeSession(nightKey: string, updatedBy: string) {
 /**
  * Closed by mistake, or a driver turned up after End Day.
  *
- * The dispatcher's only, because it undoes something Karim did and the two of
+ * The dispatcher's only, because it undoes something the closer did and the two of
  * them are not in the same room. Still not a delete — closedAt is cleared, the
  * night itself is untouched.
  */
@@ -360,7 +360,7 @@ export async function saveTimeEdit(
  *
  * One field on the night rather than a note copied onto every row. Written from
  * either side, because whoever knows the thing is the one who should be able to
- * say it — the dispatcher hours before the wave goes out, or Karim at the gate
+ * say it — the dispatcher hours before the wave goes out, or the closer at the gate
  * when he finds it is locked.
  *
  * Cleared by emptying the box, and cleared means an empty string rather than a

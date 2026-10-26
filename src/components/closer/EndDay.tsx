@@ -18,7 +18,7 @@ import { stationDateLabel } from "@/lib/constants";
 import type { Entry, Session } from "@/lib/types";
 
 /**
- * End Day — the last thing Karim does before he goes home.
+ * End Day — the last thing the closer does before he goes home.
  *
  * There is no button at all until every driver on the sheet is clocked out.
  * Not a warning, not an override: a night is not over while a van is out, and
@@ -145,7 +145,7 @@ export function EndDay({
    * Start building the moment the night is closed, however it got closed.
    *
    * Usually that is End Day on this phone, but the dispatcher can close a night
-   * from their end, and Karim can come back to a closed one after a reload. All
+   * from their end, and the closer can come back to a closed one after a reload. All
    * three land on a pair of buttons with the file already behind them.
    *
    * A failure here is swallowed on purpose. He has not asked for anything yet,
@@ -233,7 +233,7 @@ export function EndDay({
    * and the yard is a metal building with vans in it. Offline, the write is
    * put in IndexedDB and goes up when the phone next has signal — which is
    * exactly the behaviour wanted — but the promise sits there unresolved until
-   * then, and anything waiting on it waits all night. The last thing Karim does
+   * then, and anything waiting on it waits all night. The last thing the closer does
    * must not be able to leave Share spinning, so the push runs behind the panel
    * and reports itself when it lands.
    */
@@ -261,7 +261,7 @@ export function EndDay({
      * sitting there unticked, so tonight it is not news — pushRepairs reads the
      * board and drops it. The number below is therefore honest about what was
      * filed rather than about what was on the sheet, and on most nights it is
-     * smaller than the summary Karim has just read.
+     * smaller than the summary the closer has just read.
      */
     pushRepairs(repairsFromEntries(nightKey, entries), uid)
       .then((count) => {
@@ -728,7 +728,7 @@ function AllOutCard({
  * that got covered by the arrow drawn on the photograph of it.
  *
  * So it is deliberately the last thing on the panel, directly beneath the error
- * it explains, and it holds the answer rather than the question. Karim is not
+ * it explains, and it holds the answer rather than the question. The closer is not
  * expected to read it. It is there to be photographed.
  */
 function HowThisPhoneOpens({ trace }: { trace: string | null }) {

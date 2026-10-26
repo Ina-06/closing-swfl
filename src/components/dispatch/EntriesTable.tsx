@@ -43,7 +43,7 @@ export function EntriesTable({
           Nobody on the sheet yet
         </p>
         <p className="mt-1 text-[13px] text-ink-faint">
-          The first driver you enter above lands here, and on Karim&rsquo;s
+          The first driver you enter above lands here, and on the closer&rsquo;s
           phone at the same time.
         </p>
       </div>
@@ -80,7 +80,7 @@ export function EntriesTable({
                   rather than on this row, and the rules reject a dispatcher
                   write to it. */}
               <Th className="w-40">Time edit</Th>
-              {/* Everything Karim owns, in one column. Read-only here — the
+              {/* Everything the closer owns, in one column. Read-only here — the
                   rules reject a dispatcher write to any of it. Wide enough for
                   every check on one line; wrapping them would break the order
                   they are read in, which is the order he walks the van. */}
@@ -112,7 +112,7 @@ export function EntriesTable({
           the column for a gap. */}
       <p className="px-1 text-[11px] text-ink-faint">
         <span className="font-semibold uppercase tracking-[0.1em]">Yard</span>{" "}
-        {CHECKS.map((check) => check.label).join(" · ")} — a letter means Karim
+        {CHECKS.map((check) => check.label).join(" · ")} — a letter means the closer
         has not checked it yet.
       </p>
     </div>
@@ -305,8 +305,8 @@ function EntryRow({
                 save({
                   clockOutManual,
                   // Typing a time here is what marks him done. Clearing it only
-                  // undoes that — a driver Karim already has at the van stays
-                  // where Karim put him.
+                  // undoes that — a driver the closer already has at the van stays
+                  // where the closer put him.
                   status: clockOutManual.trim()
                     ? "clockedOut"
                     : done
@@ -388,7 +388,7 @@ function EntryRow({
 }
 
 /**
- * The van, as it lands from Karim's phone.
+ * The van, as it lands from the closer's phone.
  *
  * Nothing here is editable and nothing here is a placeholder: until he has been
  * at the van there is genuinely nothing to say, so the row stays quiet rather
@@ -396,7 +396,7 @@ function EntryRow({
  */
 function VanReadout({ entry }: { entry: Entry }) {
   /**
-   * Whether Karim has actually had this driver in front of him.
+   * Whether the closer has actually had this driver in front of him.
    *
    * A stamp or a driver still at the van both mean yes. A clock-out typed on
    * this side does not — that one is a task driver who phoned his time in, and

@@ -2,7 +2,7 @@
  * Which build of the app this screen actually is.
  *
  * Small, faint, and at the bottom of every page, because the question it
- * answers keeps coming up and there has been no way to answer it. When Karim
+ * answers keeps coming up and there has been no way to answer it. When the closer
  * says a button did nothing, the first thing worth knowing is whether his phone
  * is running the version that fixed it — and a phone that has restored a page
  * out of Safari's cache looks exactly like a phone that is up to date. There is

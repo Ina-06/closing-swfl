@@ -47,7 +47,7 @@ export type SessionStatus = "open" | "allReturning" | "closed";
 /**
  * Where a driver is in the close.
  *
- * Three states, not two. `arrived` is the van standing in the yard with Karim
+ * Three states, not two. `arrived` is the van standing in the yard with the closer
  * at it, part-way through the handover; `clockedOut` is the handover finished
  * and the time on the record. Collapsing them meant tapping Arrived stamped a
  * time before anyone had looked at the van, which is not what happens.
@@ -93,13 +93,13 @@ export type Entry = {
   quality: string;
   /** Signed, in packages: +23 he picked up, -11 taken off him. */
   rescues: number;
-  /** Anything Karim needs to know about this driver. Surfaced on his card. */
+  /** Anything the closer needs to know about this driver. Surfaced on his card. */
   notes: string;
   /**
    * A clock-out the driver reported to the dispatcher, typed by hand.
    *
    * Separate from `clockOut` on purpose. That one is stamped by the server when
-   * Karim clocks him out at the van; this one is hearsay relayed over the
+   * the closer clocks him out at the van; this one is hearsay relayed over the
    * phone, and the two should never be mistaken for each other.
    */
   clockOutManual: string;
@@ -144,7 +144,7 @@ export type Entry = {
    * Turned up without being announced, and is not on tonight's roster either.
    *
    * Nobody knew he was coming — that is what the badge on both screens means,
-   * and why it is worth one. A driver Karim gets to before the dispatcher does
+   * and why it is worth one. A driver the closer gets to before the dispatcher does
    * is not this: his name is on the roster, he was expected, and the only thing
    * missing is the ETA the dispatcher has not typed yet.
    */
@@ -154,7 +154,7 @@ export type Entry = {
    *
    * He went back out and came in again, so there are two vans, two sets of
    * checks and two times against one name — and one row cannot hold that. This
-   * one's time is typed rather than stamped: by the time Karim is putting it in
+   * one's time is typed rather than stamped: by the time the closer is putting it in
    * he is recording a trip, not standing at the end of one.
    *
    * Written once, when the row is created, and never touched again. It is a
@@ -246,7 +246,7 @@ export type RepairTask = {
 /**
  * One line on today's list of spare vans and fuel cards.
  *
- * Typed by Issam each day, one by one, like a to-do list — "BR.03", "Card
+ * Typed by fleet/repairs each day, one by one, like a to-do list — "BR.03", "Card
  * 1142" — and not linked to the vans database. Vans and cards work the same
  * way, so they are one collection, but they are two lists on screen: someone
  * reaching for a spare van is not looking for a card.
@@ -265,7 +265,7 @@ export type FleetItem = {
   label: string;
   /** The round it was written in — see `fleetMeta/round`. */
   round: string;
-  /** Ticked off as used, by Issam or the closer. */
+  /** Ticked off as used, by fleet/repairs or the closer. */
   used: boolean;
   createdAt: Timestamp | null;
   updatedAt: Timestamp | null;
@@ -275,7 +275,7 @@ export type FleetItem = {
 /**
  * A van in the station's vans database.
  *
- * Four facts, typed once by Issam. Each job on the repairs board looks its van
+ * Four facts, typed once by fleet/repairs. Each job on the repairs board looks its van
  * up here by the number at the front of the line, live, so correcting a VIN
  * here corrects every job card on that van.
  */
@@ -308,13 +308,13 @@ export type Session = {
    */
   roster: RosterEntry[];
   /**
-   * Notes Karim has left himself about drivers who have no row yet, by driverId.
+   * Notes the closer has left himself about drivers who have no row yet, by driverId.
    *
    * They live on the session rather than as entries because creating a row is
    * not a neutral act: a row means dispatch has heard from him, it takes his
    * name off the still-to-call-in list, and the next thing anyone does — the
    * dispatcher entering him properly — would add a *second* row for the same
-   * driver. Half of what Karim wants to write down is about a driver nobody has
+   * driver. Half of what the closer wants to write down is about a driver nobody has
    * heard from yet, so the note has to be able to exist before the row does.
    *
    * It moves onto the entry the moment one is created, wherever it is created

@@ -160,13 +160,13 @@ export async function addRepair(
  * The board is read here rather than passed in, because the screen that calls
  * this is the closer's phone and it has no repairs listener open — it has no
  * business having one. One read, one batch, and the count of what was actually
- * posted comes back so Karim can be told.
+ * posted comes back so the closer can be told.
  *
  * Deliberately not a transaction. Two people ending the same night at the same
  * second is not a thing that happens — there is one closer, on one phone, in
  * one yard — and the cost of getting it wrong is a duplicate line on a to-do
  * list, which anybody can tick off. The cost of a transaction failing at that
- * moment is Karim staring at an error on the last thing he does all night.
+ * moment is the closer staring at an error on the last thing he does all night.
  */
 export async function pushRepairs(
   candidates: NewRepair[],

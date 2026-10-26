@@ -6,9 +6,9 @@
  * Each line records the round it was written in, and the list shows only the
  * current round's lines. Two moments move the round on:
  *
- *   - End Day, always. Karim ending the night empties the list.
+ *   - End Day, always. The closer ending the night empties the list.
  *   - The dispatcher starting a new day, but only if End Day did not already
- *     empty the list for it. If it did, anything written since — Issam typing
+ *     empty the list for it. If it did, anything written since — fleet/repairs typing
  *     up the spares before the roster was posted — belongs to the new day and
  *     has to survive the roster going up.
  *

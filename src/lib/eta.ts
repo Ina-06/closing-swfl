@@ -110,7 +110,7 @@ export function lateLabel(late: number): string {
  *
  * Positive is early, negative is late, and the sign is the whole point — one
  * number that says both which side of the ETA he landed on and by how far,
- * which is what Karim is reading in the second before he clocks somebody out.
+ * which is what the closer is reading in the second before he clocks somebody out.
  *
  * `against` is whatever the honest reference is at the moment it is asked for:
  * the clock while he is still out or stood at the van, and the stamped
@@ -125,7 +125,7 @@ export function etaOffset(eta: string, against: number | null): number | null {
 }
 
 /**
- * The signed offset as Karim reads it out: "+12 mins", "-24 mins".
+ * The signed offset as the closer reads it out: "+12 mins", "-24 mins".
  *
  * Minutes for anything inside the hour, which is every figure this was asked
  * for — a handover runs on how many minutes either side of the time he gave.

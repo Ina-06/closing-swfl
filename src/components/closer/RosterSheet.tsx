@@ -14,7 +14,7 @@ import type { RosterEntry } from "@/lib/types";
  * The dashed card used to write the moment it was touched: one tap put the
  * driver in the yard, marked him unannounced, and left a row on the sheet. A
  * tap is not a van pulling in — it is as often a thumb on the wrong line of a
- * list Karim is scrolling — and there was no way back from it that returned him
+ * list the closer is scrolling — and there was no way back from it that returned him
  * to being a name on the roster.
  *
  * So tapping the card opens this and writes nothing at all. It is the same
@@ -35,7 +35,7 @@ export function RosterSheet({
   onClose,
 }: {
   row: RosterEntry;
-  /** Anything Karim wrote against this name while it was still dashed. */
+  /** Anything the closer wrote against this name while it was still dashed. */
   note: string;
   /** What HR changed about his hours tonight, or "". */
   timeEdit: string;

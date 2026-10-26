@@ -99,7 +99,7 @@ export function EntryForm({
 
   const duplicate = resolved ? enteredIds.has(resolved.driverId) : false;
 
-  /** Karim's note about this driver, still waiting for a row to land on. */
+  /** The closer's note about this driver, still waiting for a row to land on. */
   const waitingNote = resolved ? pendingNote(session, resolved.driverId) : "";
 
   /**
@@ -133,7 +133,7 @@ export function EntryForm({
   }
 
   /**
-   * A driver who phoned his own clock-out in lands on Karim's phone already
+   * A driver who phoned his own clock-out in lands on the closer's phone already
    * done, rather than as one more person he is waiting for.
    *
    * That is decided by the time being typed, not by which button sent the
@@ -176,7 +176,7 @@ export function EntryForm({
           infractions: form.infractions.trim(),
           quality: form.quality.trim(),
           /**
-           * Karim's note comes first, then whatever was typed here.
+           * The closer's note comes first, then whatever was typed here.
            *
            * He can write against a name before anybody has heard from the
            * driver, and that note has been waiting on the session for this
@@ -269,7 +269,7 @@ export function EntryForm({
         </div>
       </div>
 
-      {/* Karim wrote this against the name before anyone had heard from the
+      {/* The closer wrote this against the name before anyone had heard from the
           driver, and it is about to be carried onto the row. Shown rather than
           applied silently: the dispatcher is on the phone to this person, and a
           note saying "ask him about the third stop" is a thing to ask about
@@ -277,7 +277,7 @@ export function EntryForm({
       {waitingNote ? (
         <p className="mt-2 flex gap-2 rounded-md border border-warn-line bg-warn-soft px-2.5 py-2 text-[12px] leading-snug text-warn">
           <span className="shrink-0 font-bold uppercase tracking-wider">
-            Karim&rsquo;s note
+            The closer&rsquo;s note
           </span>
           <span>{waitingNote}</span>
         </p>
@@ -387,7 +387,7 @@ export function EntryForm({
 
         {/* Beside infractions because it is the same kind of thing said the
             same way — what went wrong on the route, in the dispatcher's own
-            words — and it lands under it on Karim's sheet. */}
+            words — and it lands under it on the closer's sheet. */}
         <div className="space-y-1.5">
           <Label htmlFor="quality">Quality</Label>
           <TextInput
@@ -401,14 +401,14 @@ export function EntryForm({
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="notes" hint="shows on Karim's phone">
+          <Label htmlFor="notes" hint="shows on the closer's phone">
             Note
           </Label>
           <TextInput
             id="notes"
             value={form.notes}
             onChange={(event) => setForm({ ...form, notes: event.target.value })}
-            placeholder="Only if Karim needs to know something"
+            placeholder="Only if the closer needs to know something"
             autoComplete="off"
             className="h-11 py-0"
           />

@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 /**
  * The door between the close and the repairs board.
  *
- * Karim works both. A van comes in with a mirror hanging off, he writes it
+ * The closer works both. A van comes in with a mirror hanging off, he writes it
  * against the driver and it lands on the board at End Day — and then somebody
  * asks him what is still outstanding, and until now the only way to answer was
  * to sign out, type the station key again and sign back in as Repairs. Twice,

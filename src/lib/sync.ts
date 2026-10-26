@@ -6,7 +6,7 @@ import { useSyncExternalStore } from "react";
  * Whether what is on the screen has actually reached the server.
  *
  * With the cache on, a write succeeds instantly whether or not the phone has
- * signal — which is the point, and also the danger. Karim needs to be able to
+ * signal — which is the point, and also the danger. The closer needs to be able to
  * tell "I stamped that van" from "I stamped that van and it is safe", and
  * nothing else on his screen would ever look different.
  *

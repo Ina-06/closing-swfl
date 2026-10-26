@@ -135,7 +135,7 @@ export default function LoginPage() {
             onSubmit={(event) => {
               event.preventDefault();
               // Enter reuses the role this device signed in with last time —
-              // Karim's phone is always the closer, and he types one-handed.
+              // the closer's phone only ever has the closer on it, and he types one-handed.
               if (lastRole) void submit(lastRole);
               else setError("Pick which screen you need.");
             }}

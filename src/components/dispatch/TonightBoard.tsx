@@ -50,7 +50,7 @@ export function TonightBoard({
     (entry) => entry.status === "clockedOut",
   ).length;
 
-  /** The same two figures Karim has at the top of his phone — see lib/totals. */
+  /** The same two figures the closer has at the top of his phone — see lib/totals. */
   const totals = useMemo(() => nightTotals(entries), [entries]);
 
   return (
@@ -90,7 +90,7 @@ export function TonightBoard({
         <ErrorNote>Could not reach tonight&rsquo;s sheet: {error}</ErrorNote>
       ) : null}
 
-      {/* The same strip Karim has at the top of his phone, in the same blue,
+      {/* The same strip the closer has at the top of his phone, in the same blue,
           reading the same words. It is here rather than only on his screen so
           that whoever typed it can see it went out — a broadcast you cannot
           confirm is a broadcast you type twice. Written from Note all in the
@@ -154,7 +154,7 @@ export function TonightBoard({
 
         {session.status === "closed" ? (
           <>
-            {/* Karim closed it, and he is not in the room. A driver turning up
+            {/* The closer closed it, and he is not in the room. A driver turning up
                 after End Day should not mean the night is finished with him. */}
             <Button
               variant="ghost"

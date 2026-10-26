@@ -4,7 +4,7 @@ import type { Entry, RosterEntry, Session } from "@/lib/types";
  * What HR changed about a driver's hours tonight.
  *
  * A third party to the close. The dispatcher has what the driver said on the
- * phone, Karim has what happened in the yard, and HR has the hours — which
+ * phone, the closer has what happened in the yard, and HR has the hours — which
  * neither of the other two owns and neither of them should be able to edit. So
  * it is its own field, written by one role, and read by both the others.
  *

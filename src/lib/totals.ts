@@ -5,7 +5,7 @@ import type { Entry } from "@/lib/types";
  * The two numbers that describe the night rather than a driver.
  *
  * Both screens carry them, and they have to agree. A dispatcher reading "7
- * returns" off a laptop and Karim reading "6" off a phone is worse than
+ * returns" off a laptop and the closer reading "6" off a phone is worse than
  * neither of them having the figure at all, so it is counted once, here, and
  * both sides render the same object.
  */
@@ -70,7 +70,7 @@ export type BreakdownLine = {
 /**
  * Who a night total actually belongs to.
  *
- * The figures at the top of Karim's phone answer "how many" and are the numbers
+ * The figures at the top of the closer's phone answer "how many" and are the numbers
  * somebody asks for at End Day. This answers the question straight after it,
  * which is the one he cannot get off a total: which of them, and who has more
  * than one. Until now the only way was to read forty rows.
@@ -78,7 +78,7 @@ export type BreakdownLine = {
  * Summed by driver rather than by row. A second trip is a second row under one
  * name, and a man does not have two separate infractions — or two separate
  * piles of returns — because he went back out. The list has to read the way
- * Karim would say it out loud.
+ * the closer would say it out loud.
  *
  * Worst first, because that is the order the conversation happens in. Ties go
  * alphabetically so the list does not reshuffle itself under his thumb every

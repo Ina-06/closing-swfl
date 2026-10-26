@@ -25,8 +25,8 @@ import {
 import type { FleetItem, FleetKind } from "@/lib/types";
 
 /**
- * Today's available vans and fuel cards — a list Issam types, and the closer
- * and Issam tick off as they go out.
+ * Today's available vans and fuel cards — a list fleet/repairs types, and the closer
+ * and fleet/repairs tick off as they go out.
  *
  * Top-level, beside the repairs board, because the list is read from both
  * sides of the door: the board, where it is written, and the closer's screen,
@@ -115,7 +115,7 @@ export function useFleet(round: string | null) {
  * Which round is current, live.
  *
  * Live rather than read once, so the list on an office laptop empties itself
- * the moment Karim ends the day in the yard, without a refresh.
+ * the moment the closer ends the day in the yard, without a refresh.
  */
 export function useFleetRound() {
   const [round, setRound] = useState<string | null>(null);
@@ -229,8 +229,8 @@ export async function endFleetRound(nightKey: string, updatedBy: string) {
 /**
  * The dispatcher starts a new day: empty the list if End Day never did.
  *
- * If Karim ended the last day the list is already empty, and anything written
- * since — Issam typing up the spares before the roster was posted — belongs to
+ * If the closer ended the last day the list is already empty, and anything written
+ * since — fleet/repairs typing up the spares before the roster was posted — belongs to
  * today and survives this. See markerOnStart for the whole rule.
  */
 export async function startFleetRound(nightKey: string, updatedBy: string) {

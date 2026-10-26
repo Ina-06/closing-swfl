@@ -11,7 +11,7 @@ import type { Entry } from "@/lib/types";
  *
  * Only the drivers with something against them — a van issue, or a note from
  * dispatch. A clean handover has nothing anybody needs to read back, and twenty
- * rows of dashes would bury the three that matter. This is the list Karim runs
+ * rows of dashes would bury the three that matter. This is the list the closer runs
  * an eye down before he ends the night, so the shorter it is the better it
  * works: everything on it is something somebody has to do something about.
  *

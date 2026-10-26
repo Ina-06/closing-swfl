@@ -9,7 +9,7 @@ import type { VanRecord } from "@/lib/types";
  * The vans database — every van, and the three things the office gets asked
  * for about one: who it is from, its VIN, and the vendor's number for it.
  *
- * Typed once by Issam and read on every job card: a job on BR.03 shows BR.03's
+ * Typed once by fleet/repairs and read on every job card: a job on BR.03 shows BR.03's
  * VIN, vendor and vendor number under it, looked up live, so a correction here
  * shows on every card at once.
  *

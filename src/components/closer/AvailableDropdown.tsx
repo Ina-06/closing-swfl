@@ -10,10 +10,10 @@ import type { FleetItem } from "@/lib/types";
  * Today's available vans and fuel cards, hanging off the pill that counts
  * them.
  *
- * The list Issam types on the repairs board, brought to the yard for the one
+ * The list fleet/repairs types on the repairs board, brought to the yard for the one
  * moment it matters there: a van that will not start at nine, a card that gets
- * declined. Karim — or whoever holds the close tonight — ticks off what he
- * used, and Issam sees it on the board as it happens.
+ * declined. The closer — or whoever holds the close tonight — ticks off what he
+ * used, and fleet/repairs sees it on the board as it happens.
  *
  * Ticking only. What is on the list is the Repairs login's to say, so there is
  * no add box and no remove button here.

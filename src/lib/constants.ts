@@ -2,7 +2,7 @@
  * Station-wide constants.
  *
  * The timezone here is the single source of truth for every rendered time in
- * the app. We never read the device timezone — Karim's phone, my laptop, the
+ * the app. We never read the device timezone — the closer's phone, my laptop, the
  * Vercel server and the PDF must all agree on what "9:45" means.
  */
 export const APP_NAME = "Closing";
@@ -39,7 +39,7 @@ export type Metric = (typeof METRICS)[number]["value"];
  * A driver's scorecard tier, lowest to highest.
  *
  * Each one renders in its own metal — see the bronze, silver, gold and
- * platinum tokens in globals.css — so the bubble on Karim's phone is read by
+ * platinum tokens in globals.css — so the bubble on the closer's phone is read by
  * colour before it is read by word.
  */
 export const SCORECARDS = [
@@ -53,7 +53,7 @@ export type Scorecard = (typeof SCORECARDS)[number]["value"];
 export type MetricTone = (typeof METRICS)[number]["tone"];
 
 /**
- * The handover checks, in the order Karim walks them at the van.
+ * The handover checks, in the order the closer walks them at the van.
  *
  * Defined once, here, because three different things render this list — his
  * phone, the dispatcher's table and the PDF — and an order that drifts between
@@ -62,14 +62,14 @@ export type MetricTone = (typeof METRICS)[number]["tone"];
  * the last of those and every tap on the new tile bounces.
  *
  * Three names each, for three widths, and the difference between them is the
- * job each one is doing. `label` is what Karim reads standing at the van, so it
+ * job each one is doing. `label` is what the closer reads standing at the van, so it
  * names everything he is holding: the charger comes back with the sharpie, the
  * mobile comes back switched off. `short` is the same check the next morning,
  * as a column heading on the PDF a few characters wide, where the reminder has
  * already done its work and only the thing needs naming. `letter` is the
  * dispatcher's table, for a check nobody has made yet.
  *
- * Two halves, laid out the way Karim asked for them on the phone: the van —
+ * Two halves, laid out the way the closer asked for them on the phone: the van —
  * what comes back with it and the walk round it — above the Van issues bar,
  * and what the driver was lent below it. CHECKS is the two end to end, and is
  * what the table and the PDF read, so they keep one order with the phone.
@@ -137,14 +137,14 @@ export function stationDateKey(at: Date = new Date()): string {
 /**
  * Before this hour, we are still on the previous night's sheet.
  *
- * The close runs late. When Karim stamps the last van in at 00:40, that driver
+ * The close runs late. When the closer stamps the last van in at 00:40, that driver
  * belongs to the night that started the evening before — not to a brand new,
  * empty session. Every session id goes through stationNightKey, never through
  * the raw calendar date.
  *
  * Seven rather than four, and the extra three hours are not about the close —
  * that is finished long before either. They are about the morning after one.
- * If Karim forgets to send the EOD sheet, somebody coming in at six has to be
+ * If the closer forgets to send the EOD sheet, somebody coming in at six has to be
  * able to open the app and still find last night on it; at four it had already
  * rolled to an empty session and the only way back was the archive.
  *
@@ -246,7 +246,7 @@ function stationOffsetMinutes(at: Date): number {
 /**
  * The real instant behind a wall-clock time typed on a given night.
  *
- * Karim corrects a clock-out by typing `00:14`, and that has to land fourteen
+ * The closer corrects a clock-out by typing `00:14`, and that has to land fourteen
  * minutes after midnight on the night that *started* the evening before — the
  * same rollover stationNightKey uses. Resolved twice because the offset
  * depends on the instant and the instant depends on the offset.

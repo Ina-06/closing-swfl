@@ -7,7 +7,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
  *
  * The one message that travels the other way down this app. It has to survive
  * a phone in a pocket, so it makes a noise, buzzes, and then stays on screen
- * until Karim says he has seen it — a notification he can miss is not a
+ * until the closer says he has seen it — a notification he can miss is not a
  * notification.
  *
  * But it waits. Nothing about this appears while he has a driver open: see

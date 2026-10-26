@@ -7,7 +7,7 @@ export const metadata = { title: "Past nights — Closing SWFL" };
  * The closer's archive.
  *
  * No returns file here: that one is the dispatcher's, and the route would turn
- * it down anyway. What Karim comes back for is last night's sheet, usually
+ * it down anyway. What the closer comes back for is last night's sheet, usually
  * because the group chat lost it.
  */
 export default function CloserArchivePage() {

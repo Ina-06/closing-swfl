@@ -8,7 +8,7 @@ import type { BreakdownLine } from "@/lib/totals";
  * Whose they are, hanging off the figure that counts them.
  *
  * A menu rather than a section of the page, because it answers a question
- * Karim asks two or three times a night and never wants on screen the rest of
+ * the closer asks two or three times a night and never wants on screen the rest of
  * it. It comes out of the pill it belongs to — the little notch is what says
  * which figure this is a breakdown of — and the first tap anywhere else takes
  * it away again.
@@ -130,8 +130,8 @@ export function Breakdown({
       {/* Hangs to the right from the pill's left edge rather than centred
           under it. The Returns pill is the first thing on its row, hard
           against the left of the phone, and centring a 236px panel under a
-          70px pill pushed half of it off the screen — the names came out as
-          "an Sanders". Growing rightwards keeps it on screen from either
+          70px pill pushed half of it off the screen — the names came out with
+          their first letters cut off. Growing rightwards keeps it on screen from either
           pill, since both sit in the left half of the row. The Rescues pill
           is further across and passes align="right" to hang the other way. */}
       <div

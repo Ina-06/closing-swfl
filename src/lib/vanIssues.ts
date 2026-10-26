@@ -32,7 +32,7 @@ const KEY_NOTE = "No key";
  * Sentences this file has written at one time or another.
  *
  * Only the first three are ever written now. The rest are here so a note left
- * behind by an older version takes itself off the next time Karim touches that
+ * behind by an older version takes itself off the next time the closer touches that
  * driver, rather than sitting there as text nobody typed and nobody can
  * explain. That includes the siren: a van grounded last week still reads
  * "🚨Grounded", and the moment anyone touches it, it becomes the new wording
@@ -62,7 +62,7 @@ export type VanFlags = {
 };
 
 /**
- * Van issues, with our own sentences in front of whatever Karim typed.
+ * Van issues, with our own sentences in front of whatever the closer typed.
  *
  * Ground the van and "GROUNDED" appears; cross the fuel and "No fuel" appears;
  * cross the key and "No key" appears. Undo any of them and it goes. He should
@@ -91,7 +91,7 @@ export function withNotes(current: string, flags: VanFlags): string {
  *
  * Only from the front, and only when the phrase ends where a phrase should —
  * at a separator or at the end of the text. "No fuel card in the holder" is
- * something Karim typed about a fuel card, not something this file wrote, and
+ * something the closer typed about a fuel card, not something this file wrote, and
  * the naive version of this turned it into "card in the holder".
  *
  * Case-insensitive, so a note he has re-typed in his own capitalisation is

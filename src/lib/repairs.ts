@@ -115,7 +115,7 @@ export function manualRepair(title: string): NewRepair {
  * van number and then the whole van issues column rather than a sentence out
  * of it. The column is written by three controls and a free-text box joined
  * with full stops — "GROUNDED. No fuel. Nearside mirror is hanging off" — and
- * splitting on those stops would cut the sentence Karim typed in half the
+ * splitting on those stops would cut the sentence the closer typed in half the
  * moment he used one himself. What the mechanic gets is what is on the sheet,
  * with the van in front of it.
  *

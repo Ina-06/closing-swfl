@@ -36,7 +36,7 @@ export function vanKey(van: string): string {
  * The van's number — the last run of digits in it: RT.112 is 112, BR.03 is
  * 3, EC-RT.82 is 82.
  *
- * Karim and Sam often write a van by its number alone — "112 left mirror
+ * Closers often write a van by its number alone — "112 left mirror
  * side out" — when the database has it as RT.112. "" for a van with no digits.
  */
 export function vanNumber(key: string): string {

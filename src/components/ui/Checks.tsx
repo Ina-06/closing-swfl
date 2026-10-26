@@ -63,7 +63,7 @@ export function CheckCycle({
         {GLYPH[state]}
       </span>
       {/* Names, at a size that can be read at arm's length in a dark yard.
-          They were 10px and Karim could not pick "Bungees" out from "Lights"
+          They were 10px and the closer could not pick "Bungees" out from "Lights"
           without stopping to look, which is the whole job of the label.
           Barely tracked and allowed two lines instead, because some of these
           run to two words — "Mobile + Off", "Ankle Boots" — and have to break

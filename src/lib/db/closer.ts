@@ -32,7 +32,7 @@ function entryRef(nightKey: string, entryId: string) {
  * The van pulled in and the driver is standing there.
  *
  * No time is written here. Arriving and being finished with are two different
- * moments — Karim still has the fuel, the key, the charger, the phone, the
+ * moments — the closer still has the fuel, the key, the charger, the phone, the
  * snack, the lights and whatever is wrong with the van to get through — and
  * stamping on the first of them would put a clock-out on the record several
  * minutes before the handover it is supposed to be recording.
@@ -110,7 +110,7 @@ export type YardFields = Partial<
 >;
 
 /**
- * What Karim found when the van came in.
+ * What the closer found when the van came in.
  *
  * Saved a field at a time as he works, not behind a Save button: he is holding
  * a phone in one hand and a set of keys in the other, and a form he has to
@@ -138,7 +138,7 @@ export async function saveYard(
  * could show one while hiding the other.
  *
  * Sharing it does mean either side can write over the other, so the editor
- * opens with whatever is already there rather than empty: what Karim adds goes
+ * opens with whatever is already there rather than empty: what the closer adds goes
  * underneath what dispatch said, and nothing has to be remembered to keep it.
  */
 export async function saveNote(
@@ -159,7 +159,7 @@ export async function saveNote(
  *
  * He lands arrived, not waiting, because by the time this is reached the
  * arrival is the thing that just happened: a name picked out of Add a driver is
- * a van standing in front of Karim, and a name off the roster has had Arrived
+ * a van standing in front of the closer, and a name off the roster has had Arrived
  * pressed on it. Landing him waiting would be asking him to confirm it twice.
  * The clock-out is still his to make at the end of the handover, same as
  * everyone else's.
@@ -175,7 +175,7 @@ export async function saveNote(
  * again gets a row of his own rather than overwriting the first one, and that
  * row's time is typed instead of stamped — see the sheet.
  *
- * `notes` is the other, and it is only ever a note Karim already wrote. A
+ * `notes` is the other, and it is only ever a note the closer already wrote. A
  * driver he made a note about before anyone had heard from him has it stored on
  * the session, and this is where it moves onto the row — see rosterNotes. It is
  * never a fresh note: creating a row is how a driver arrives, and nothing about
@@ -243,7 +243,7 @@ export async function addCloserEntry(
      *
      * Read off the roster, not off which button made the row. A driver on
      * tonight's roster *was* announced — his name is on the list the dispatcher
-     * is working down — and flagging him Unannounced because Karim got to him
+     * is working down — and flagging him Unannounced because the closer got to him
      * first said the opposite of what happened. It put a warning on the one
      * screen where the roster is the reason his name is there at all.
      *

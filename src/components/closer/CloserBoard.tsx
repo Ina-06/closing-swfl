@@ -37,7 +37,7 @@ import {
 import type { Entry, RosterEntry, Session } from "@/lib/types";
 
 /**
- * Karim's screen for the night.
+ * The closer's screen for the night.
  *
  * Four lists, in the order a driver moves through them: returning, still
  * delivering, in the yard, clocked out. The split at the top is the one that
@@ -150,7 +150,7 @@ export function CloserBoard({
    * Folded to begin with.
    *
    * Early in a wave this is the longest list on the screen and every name on it
-   * is a driver Karim can do nothing about — he has no time for them and no van
+   * is a driver the closer can do nothing about — he has no time for them and no van
    * to watch the gate for. Open, it pushed the vans that *are* coming in, and
    * the yard, and the clocked-out list, off the bottom of the phone. The count
    * beside the heading is the part he actually reads, and that is still there
@@ -162,7 +162,7 @@ export function CloserBoard({
    *
    * Closed by default and closed again on the way out of anything else: it is
    * an answer to a question, not a panel, and it sits over the top of the list
-   * Karim works down.
+   * the closer works down.
    *
    * One value rather than a flag each, because the two pills sit side by side
    * and two panels open at once would overlap. Tapping one closes the other,
@@ -182,14 +182,14 @@ export function CloserBoard({
       /**
        * An ETA is dispatch saying he has turned round and is on his way in.
        * That is the whole difference between these two lists: one is drivers
-       * Karim is waiting for, the other is drivers still working, and until now
+       * the closer is waiting for, the other is drivers still working, and until now
        * they were one pile called "still out" that told him nothing about which
        * van to expect next.
        */
       returning: out.filter((entry) => entry.eta.trim() !== "").sort(compare),
       // No ETA, so there is nothing to sort them by but their names — which is
       // what byEta falls back to anyway. Merged with the roster names further
-      // down, since to Karim those are the same thing.
+      // down, since to the closer those are the same thing.
       deliveringEntries: out.filter((entry) => entry.eta.trim() === "").sort(compare),
       inYard: entries
         .filter((entry) => entry.status === "arrived")
@@ -199,7 +199,7 @@ export function CloserBoard({
        * set — except by name, which means by name everywhere.
        *
        * An ETA has stopped meaning anything to a man who is already home. It is
-       * the time he clocked out that Karim is looking for down here, because
+       * the time he clocked out that the closer is looking for down here, because
        * the one he wants is nearly always the one he has just done.
        */
       done: entries
@@ -212,7 +212,7 @@ export function CloserBoard({
    * Anyone whose night is not finished — out on the road or stood at the van.
    *
    * Names off the roster that were never entered are deliberately not in this.
-   * Karim cannot clock out a driver who has no row, so counting them here would
+   * The closer cannot clock out a driver who has no row, so counting them here would
    * hide End Day behind something he has no way of clearing. They get a soft
    * warning on that panel instead, which is the dispatcher's problem to fix.
    */
@@ -224,7 +224,7 @@ export function CloserBoard({
    *
    * Entries are created as drivers call in, so until then a name exists only on
    * the session roster. Without this the count and the list disagreed — "5/6
-   * arrived, 0 still out" is arithmetic Karim cannot act on, because the sixth
+   * arrived, 0 still out" is arithmetic the closer cannot act on, because the sixth
    * man was nowhere on his screen.
    */
   const notEntered = useMemo(() => {
@@ -235,7 +235,7 @@ export function CloserBoard({
   /**
    * Everyone still out with no time against him, whether he has a row or not.
    *
-   * The two halves look identical from where Karim is standing — a driver on
+   * The two halves look identical from where the closer is standing — a driver on
    * tonight's roster that dispatch has not entered is a driver out delivering,
    * exactly like one who has been entered but has not phoned a time in. So they
    * are one list, in one alphabet, rather than a list and a footnote.
@@ -293,7 +293,7 @@ export function CloserBoard({
   const { drivers } = useDrivers();
 
   /**
-   * Today's available vans and fuel cards, as Issam typed them on the repairs
+   * Today's available vans and fuel cards, as fleet/repairs typed them on the repairs
    * board. Live, so a line he adds mid-evening is here without a refresh, and
    * gone with the rest of the list once the day is ended.
    */
@@ -316,7 +316,7 @@ export function CloserBoard({
     adding || noting !== null || openRoster !== null || open !== null;
 
   /**
-   * A roster name becomes a real driver — but only once Karim has said so.
+   * A roster name becomes a real driver — but only once the closer has said so.
    *
    * This is the Arrived button on his dashed card's sheet, not the tap that
    * opened it. Tapping the card writes nothing: it is as often a thumb on the
@@ -552,7 +552,7 @@ export function CloserBoard({
           {/* All three live in the sticky header rather than under the list. A
               van turns up unannounced, something worth writing down about a
               driver occurs to him, the gate code turns out to have changed —
-              all at moments when there are still twenty names between Karim and
+              all at moments when there are still twenty names between the closer and
               the bottom of the screen. */}
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <button
@@ -682,13 +682,13 @@ export function CloserBoard({
           )}
 
           {/* Underneath, because they are further away. A driver with no time
-              against him is one Karim can do nothing about yet — he is still
+              against him is one the closer can do nothing about yet — he is still
               on the road, and the van he should be watching for is in the list
               above this one. */}
           {delivering.length > 0 ? (
             <section className="space-y-2 pt-2">
               {/* Foldable, because early on it is the longest list on the
-                  screen and every name on it is a driver Karim can do nothing
+                  screen and every name on it is a driver the closer can do nothing
                   about. Folded, the count is still there — he has not lost the
                   number, only the twenty rows between it and the vans that are
                   actually coming in. */}
@@ -895,7 +895,7 @@ export function CloserBoard({
  * A span until it is given something to do, and a real button the moment it is.
  * A figure that opens something has to look like it does — the caret is the
  * only thing on this row saying there is more behind it — and a figure with
- * nothing behind it must not be pressable at all, or Karim taps a nought and
+ * nothing behind it must not be pressable at all, or the closer taps a nought and
  * learns the control does nothing.
  */
 function Total({

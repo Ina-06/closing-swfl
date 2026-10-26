@@ -22,11 +22,11 @@ If anything in this spec is ambiguous when you reach it, ask me before guessing.
 
 ## What this app is for
 
-I dispatch Amazon delivery drivers (DAs) at a delivery station. Right now, when a driver finishes his route he texts me his ETA and whether he has returns. I then post him in a WhatsApp group called "closing" so that the closer at the station (Karim) knows who is coming back and when.
+I dispatch Amazon delivery drivers (DAs) at a delivery station. Right now, when a driver finishes his route he texts me his ETA and whether he has returns. I then post him in a WhatsApp group called "closing" so that the closer at the station (The closer) knows who is coming back and when.
 
-When the driver physically arrives at the station, Karim writes his details by hand on a paper grid — name, clock-out time, van number, van issues, and checkmarks for cell phone / key / fuel — then photographs the paper at the end of the night and posts the photo to the group.
+When the driver physically arrives at the station, the closer writes his details by hand on a paper grid — name, clock-out time, van number, van issues, and checkmarks for cell phone / key / fuel — then photographs the paper at the end of the night and posts the photo to the group.
 
-**This app replaces both halves of that: my WhatsApp posts, and Karim's paper sheet.**
+**This app replaces both halves of that: my WhatsApp posts, and the closer's paper sheet.**
 
 There is a photo of the current paper sheet as the reference for the final PDF layout. Columns on the paper are: `# | Name | Time | Van | Cell | Key | Fuel | Infra | Rtr | Res | Brk | Van Issues`. We are **dropping the Brk (breaks) column** — it is not needed.
 
@@ -35,9 +35,9 @@ There is a photo of the current paper sheet as the reference for the final PDF l
 **Dispatcher (me) — laptop/desktop.**
 - At the start of the wave I enter the full roster of drivers on shift today (I copy the names out of Cortex). Some drivers are "BUDs" who only work a few hours and leave early.
 - As each driver texts me that he is finishing, I enter him one at a time: ETA, returns, performance arrow, metric, infractions, rescues.
-- When every driver has told me he is heading back, I hit **All Returning**, which notifies Karim and generates a returns spreadsheet.
+- When every driver has told me he is heading back, I hit **All Returning**, which notifies the closer and generates a returns spreadsheet.
 
-**Closer (Karim) — phone. Mobile UX is the priority, not an afterthought.**
+**Closer — phone. Mobile UX is the priority, not an afterthought.**
 - He sees every driver I have sent, live, sorted by ETA.
 - When a driver walks up to him, he taps that driver, taps **Arrived**, and that timestamp becomes the clock-out time.
 - He then types the van number and any van issues, and toggles Cell / Key / Fuel to ✓ or ✗.
@@ -51,8 +51,8 @@ There is a photo of the current paper sheet as the reference for the final PDF l
 - **Metric** — one of `O.I.`, `A`, `JA`, `JB`, `B`, `WB` (on it, above, just above, just below, below, well below) — how early or late the driver finished his route.
 - **Infractions** — any infractions the driver picked up.
 - **Rescues** — a signed number. `+2` means he gave two rescues, `-1` means he received one.
-- **Cell / Key / Fuel** — Karim's checks, each ✓ or ✗.
-- **Van issues** — free text typed by Karim, e.g. `Right passenger blinker out`, `Cargo door does not open/close`, `Rear right needs air`.
+- **Cell / Key / Fuel** — the closer's checks, each ✓ or ✗.
+- **Van issues** — free text typed by the closer, e.g. `Right passenger blinker out`, `Cargo door does not open/close`, `Rear right needs air`.
 
 ---
 
@@ -110,7 +110,7 @@ Flow — do it this way, not by checking the key in the browser:
 
 This keeps the single-field experience I asked for while making it impossible for someone with the Firebase project ID to read or write my data directly.
 
-**One-time closer keys.** For nights when someone other than Karim closes once. On my dispatcher screen there is a **Generate closer key** button. It opens a modal showing a **6-digit code with a copy button** so I can paste it into WhatsApp. The code is stored hashed with `expiresAt = now + 12 hours`, is single-use, and can be revoked from the same modal. A one-time closer has exactly the same permissions as the closer, and their token stops working after 12 hours.
+**One-time closer keys.** For nights when someone other than the closer closes once. On my dispatcher screen there is a **Generate closer key** button. It opens a modal showing a **6-digit code with a copy button** so I can paste it into WhatsApp. The code is stored hashed with `expiresAt = now + 12 hours`, is single-use, and can be revoked from the same modal. A one-time closer has exactly the same permissions as the closer, and their token stops working after 12 hours.
 
 Sessions for Dispatcher and Closer should be long-lived — neither of us should be re-entering a key mid-wave.
 
@@ -206,7 +206,7 @@ Gate: I enter several drivers at realistic speed, edit an ETA, and confirm the r
 
 The mobile screen. Full-width cards sorted by ETA, live via `onSnapshot`. Overdue drivers tinted. Header shows progress as `12/28 arrived`. Sort menu offering ETA (default), name, and arrival time.
 
-Tapping a card opens a sheet with a large **Arrived** button that stamps the clock-out time; tapping the stamped time lets Karim correct it. Arrived drivers move to a completed group.
+Tapping a card opens a sheet with a large **Arrived** button that stamps the clock-out time; tapping the stamped time lets the closer correct it. Arrived drivers move to a completed group.
 
 This must be tested on a real phone, not a desktop browser at narrow width — thumb reach, tap target sizes, and one-handed use in a parking lot are the actual requirements.
 
@@ -214,19 +214,19 @@ Gate: I enter a driver on the laptop and it appears on the phone within a second
 
 ## Phase 5 — Closer detail sheet
 
-Inside the same sheet: van number input, van issues free-text field, and three toggles for Cell / Key / Fuel cycling ✓ → ✗. Read-only display of the returns, infractions, and rescues I entered, so Karim can see them but cannot change them.
+Inside the same sheet: van number input, van issues free-text field, and three toggles for Cell / Key / Fuel cycling ✓ → ✗. Read-only display of the returns, infractions, and rescues I entered, so the closer can see them but cannot change them.
 
 Also the closer-side **Add driver** button, for a driver who arrives unannounced — same autocomplete and create-new behaviour, flagged `addedByCloser` so I can fill in the dispatch fields afterwards.
 
 **This is the first point where the app is usable in parallel with paper. I will run a real night on it after this phase before we continue.**
 
-Gate: Karim completes a full driver record on his phone and I see the van number and issues update live on my laptop.
+Gate: the closer completes a full driver record on his phone and I see the van number and issues update live on my laptop.
 
 ## Phase 6 — All Returning and the returns spreadsheet
 
 The dispatcher's **All Returning** button. Two effects:
 
-1. A banner pushed to Karim's phone — *"All DAs returning — 28 expected"* — with a sound and vibration, staying at the top until he dismisses it.
+1. A banner pushed to the closer's phone — *"All DAs returning — 28 expected"* — with a sound and vibration, staying at the top until he dismisses it.
 2. A returns spreadsheet generated server-side with `exceljs`, three columns:
 
 | DA Name | Returns | Reason |
@@ -236,11 +236,11 @@ The dispatcher's **All Returning** button. Two effects:
 
 **Only include drivers with returns.** A driver with `0R` does not appear in the file at all. Full names, not initials. The file downloads immediately on my end and is also saved to Storage against the session.
 
-Gate: I hit the button, Karim's phone alerts, and the spreadsheet downloads containing only the drivers with returns.
+Gate: I hit the button, the closer's phone alerts, and the spreadsheet downloads containing only the drivers with returns.
 
 ## Phase 7 — End Day, PDF, archive
 
-**End Day** appears on Karim's phone once every entry is `arrived`, with a "close anyway" override that first lists who is still out. It sets the session to `closed` and generates the PDF.
+**End Day** appears on the closer's phone once every entry is `arrived`, with a "close anyway" override that first lists who is still out. It sets the session to `closed` and generates the PDF.
 
 The PDF reproduces the paper sheet: numbered rows, header with the date, "Managed by", wave, and shift label, then columns `# | Name | Time | Van | Cell | Key | Fuel | Infra | Rtr | Res | Van Issues`. Cell/Key/Fuel render as ✓ or ✗. Full names. Saved to Storage, `pdfUrl` written back to the session.
 
@@ -256,7 +256,7 @@ Gate: I generate a code, log in with it in a private window on another device, c
 
 ## Phase 9 — Offline and polish
 
-Firestore offline persistence enabled, with a sync indicator dot in the closer's header so Karim can see when writes are queued. Duplicate-entry guards. Loading and empty states. Error boundaries. A pass over the phone UI for tap targets and one-handed reach.
+Firestore offline persistence enabled, with a sync indicator dot in the closer's header so the closer can see when writes are queued. Duplicate-entry guards. Loading and empty states. Error boundaries. A pass over the phone UI for tap targets and one-handed reach.
 
 Gate: I put the phone in airplane mode mid-shift, mark two drivers arrived, turn it back on, and confirm both sync.
 
@@ -271,7 +271,7 @@ the upload fails every time and the screen shows an amber warning saying so.
 Nothing is lost by this today. The archive screen **rebuilds** both files on
 demand from the night's entries in Firestore, so a night from three months ago
 still downloads. The only thing missing is a frozen copy of what was actually
-sent, and Karim may decide the WhatsApp group is that copy already.
+sent, and the closer may decide the WhatsApp group is that copy already.
 
 Three ways this can go, to be decided at the end:
 

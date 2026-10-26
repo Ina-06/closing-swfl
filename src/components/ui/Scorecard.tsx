@@ -5,7 +5,7 @@ import { SCORECARDS, type Scorecard } from "@/lib/constants";
 /**
  * A scorecard tier in its own metal.
  *
- * Colour first, word second. Karim reads it across a van bonnet in the dark,
+ * Colour first, word second. The closer reads it across a van bonnet in the dark,
  * and a bronze bubble beside a platinum one is a different conversation
  * before he has read either label. The face is a soft diagonal sheen from
  * the light shade to the edge shade, which is what makes it read as metal

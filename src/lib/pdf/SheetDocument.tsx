@@ -15,7 +15,7 @@ import type { Mark, SheetRow } from "@/lib/sheet";
  *
  * This is the artefact the whole app exists to produce: the thing that gets
  * photographed and posted to the group at the end of the night. It is not
- * trying to look like the app. It is trying to look like the grid Karim has
+ * trying to look like the app. It is trying to look like the grid the closer has
  * been drawing by hand, so nobody reading it has to learn anything.
  *
  * Landscape, because the handover checks each need a column wide enough to
@@ -217,7 +217,7 @@ export function SheetDocument({
             <Head label="#" width={COLUMNS.number} centre />
             <Head label="NAME" width={COLUMNS.name} />
             <Head label="TIME" width={COLUMNS.time} centre />
-            {/* Straight after the time, where Karim asked for it: the two
+            {/* Straight after the time, where the closer asked for it: the two
                 numbers that say how a driver's night ended. */}
             <Head label="RESCUES" width={COLUMNS.rescues} centre />
             <Head label="VAN" width={COLUMNS.van} centre />

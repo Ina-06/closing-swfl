@@ -13,7 +13,7 @@ import type { FleetItem, FleetKind } from "@/lib/types";
 /**
  * Available vans and fuel cards — today's spares, as two to-do lists.
  *
- * Issam types them in one by one. Whoever uses one — Issam after launch, or
+ * Fleet/repairs types them in one by one. Whoever uses one — fleet/repairs after launch, or
  * the closer on a van switch at nine o'clock — ticks it off, and it sinks
  * under "Used today", struck through, still there to un-tick if the wrong one
  * was caught. What is left on top is what is still in the yard and in the
@@ -24,7 +24,7 @@ import type { FleetItem, FleetKind } from "@/lib/types";
  * van should not have to read past the cards to find one. Nothing here is
  * linked to the vans database.
  *
- * The lists belong to the session. When Karim ends the day they empty on
+ * The lists belong to the session. When the closer ends the day they empty on
  * their own — or when the dispatcher starts the next day, if End Day never
  * happened — so there is no "clear" button to forget to press. See
  * lib/fleetRound.
@@ -62,7 +62,7 @@ export function AvailableList({
   /** The current round, or null until it is known — see useAvailable. */
   round: string | null;
   /**
-   * May add and remove, not just tick. The Repairs login only — Karim
+   * May add and remove, not just tick. The Repairs login only — the closer
    * crossing over from the close ticks them off and that is all.
    */
   canManage: boolean;
@@ -187,7 +187,7 @@ function KindList({
         ) : null}
       </div>
 
-      {/* Above the rows, so the field stays put under the thumb while Issam
+      {/* Above the rows, so the field stays put under the thumb while fleet/repairs
           types the list in one after another, and the keyboard never covers
           what he has just added. */}
       {canManage ? (

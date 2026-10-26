@@ -7,7 +7,7 @@
  * that will exist in one of them by next month.
  *
  * Under the note, always, on every screen that shows both. The note is a job
- * Karim has to do at the van; this is background for a conversation he might
+ * the closer has to do at the van; this is background for a conversation he might
  * have there. Ordering them the other way round would put the thing he must
  * act on second.
  */

@@ -87,7 +87,7 @@ export function TimeEditBoard({
           </h1>
           <p className="mt-1 max-w-md text-[13px] leading-relaxed text-ink-muted">
             Paste what changed about a driver&rsquo;s hours. It shows on the
-            dispatcher&rsquo;s sheet and on Karim&rsquo;s phone straight away.
+            dispatcher&rsquo;s sheet and on the closer&rsquo;s phone straight away.
           </p>
         </div>
 
@@ -189,7 +189,7 @@ function DriverRow({
           {row.roster?.isTrainer ? <FlagTag flag="trn" /> : null}
           {row.roster?.isRescuer ? <FlagTag flag="res" /> : null}
 
-          {/* Not on the roster at all — he turned up and Karim put him on the
+          {/* Not on the roster at all — he turned up and the closer put him on the
               sheet. Worth saying, because HR is reconciling against a roster
               this name is not on. */}
           {!row.roster ? (

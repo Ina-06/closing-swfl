@@ -48,7 +48,7 @@ service cloud.firestore {
 
     // Ordered so the two permanent roles never touch the lookup above. A
     // mistake in it can cost a stand-in their session; it must never be able
-    // to cost Karim his.
+    // to cost the closer his.
     function signedIn() {
       return role() == 'dispatcher'
              || role() == 'closer'
@@ -64,7 +64,7 @@ service cloud.firestore {
       return role() == 'closer' || (role() == 'onetime' && onetimeLive());
     }
 
-    // Karim's own phone, and not a borrowed one.
+    // The closer's own phone, and not a borrowed one.
     //
     // Everywhere else in this file a stand-in is a closer, because a stand-in
     // covering the close does the close: the entries, the vans, the
@@ -253,7 +253,7 @@ service cloud.firestore {
     // one job written by whoever is holding it, and both roles hold it.
     //
     // With one line drawn inside the closer, which is the only place in this
-    // file that tells a stand-in apart from Karim. Reading the board and
+    // file that tells a stand-in apart from the closer. Reading the board and
     // posting to it are what End Day does, so they stay with isCloser() and a
     // borrowed code keeps them. Ticking a job off, correcting it and removing
     // it are the board's own work on a list that outlives the night, so they
@@ -314,10 +314,10 @@ service cloud.firestore {
       allow delete: if isRepairs() || isPermanentCloser();
     }
 
-    // Today's available vans and gas cards — a list Issam types each day.
+    // Today's available vans and gas cards — a list fleet/repairs types each day.
     //
     // Written by the Repairs login only: adding a line and removing one typed
-    // by mistake. Ticked off by whoever uses one — Issam, or the closer on a
+    // by mistake. Ticked off by whoever uses one — fleet/repairs, or the closer on a
     // van switch, a one-time stand-in included, because a stand-in holding the
     // close tonight is exactly who needs a spare van tonight. A tick is the
     // only thing a closer can change.
@@ -350,7 +350,7 @@ service cloud.firestore {
     //
     // Permanent, and the Repairs login's alone to write. Read wherever the
     // repairs board is read — every job card looks its van up here — so the
-    // closer crossing over sees the same VINs Issam does.
+    // closer crossing over sees the same VINs fleet/repairs does.
     match /vans/{vanId} {
       function vanFields() {
         return [

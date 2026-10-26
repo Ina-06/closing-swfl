@@ -45,7 +45,7 @@ function hasSignals(entry: Entry) {
  * it. It used to be three near-copies of the same handful of pills and they had
  * already drifted apart: the clocked-out row carried no flags at all, no
  * returns, and no Unannounced badge, so a driver stopped being a trainee and
- * stopped having eleven returns against him the moment Karim finished with him.
+ * stopped having eleven returns against him the moment the closer finished with him.
  * He is the same man on all four lists, and after End Day this row is the only
  * place the night is still readable without tapping forty sheets.
  *
@@ -130,7 +130,7 @@ export function WaitingCard({
             {entry.fullName}
           </span>
           {/* Everything that changes how the conversation opens, before he
-              walks over rather than after. Karim gets one look at this row
+              walks over rather than after. The closer gets one look at this row
               while the van is still rolling in; finding out from the sheet
               that he is meeting a man who lost eleven packages is finding out
               too late. */}
@@ -151,16 +151,16 @@ export function WaitingCard({
  *
  * He is out delivering — that is what being on the roster with no ETA against
  * you means — so he belongs in that list rather than in a footnote of grey
- * chips at the bottom of the screen, which is where these used to sit. Karim
+ * chips at the bottom of the screen, which is where these used to sit. The closer
  * counts vans, and a driver he cannot see is a driver he cannot count.
  *
  * Dashed, because there is almost nothing behind it: no ETA, no returns, no row
  * in the database. Tapping it makes one — the same thing picking his name in
- * Add a driver does, which is what Karim wants when the van he was never told
+ * Add a driver does, which is what the closer wants when the van he was never told
  * about is standing in front of him.
  *
  * The one thing there can be is a note he left himself, and it does not undash
- * the card. A note is Karim writing something down; it is not dispatch having
+ * the card. A note is the closer writing something down; it is not dispatch having
  * heard from the driver, and letting it read as though it were would take the
  * name off the list the dispatcher is working through.
  */
@@ -220,7 +220,7 @@ export function RosterCard({
  * A van standing in the yard, part-way through the handover.
  *
  * Its own card because it is its own state: he is not out on the road and he
- * is not finished, and reading either of those off this row would send Karim
+ * is not finished, and reading either of those off this row would send the closer
  * to the wrong place. The ETA is gone — he is here, so it has stopped meaning
  * anything — and the van number takes its place as the sign of how far in he
  * has got.
@@ -286,7 +286,7 @@ export function DoneCard({
   timeEdit: string;
   onOpen: () => void;
 }) {
-  // Stamped when Karim clocked him out, or relayed to the dispatcher over the
+  // Stamped when the closer clocked him out, or relayed to the dispatcher over the
   // phone. Different sources, so they read differently on the card.
   const stamped = entry.clockOut;
 
@@ -336,7 +336,7 @@ export function DoneCard({
       {/* The same signals the returning card carries, in the same order and
           from the same component, because a driver does not stop being a
           trainee, or the man who lost eleven packages, the moment he is clocked
-          out. Karim reads this list back at the end of the night and after End
+          out. The closer reads this list back at the end of the night and after End
           Day, and having to open every sheet to find out who the conversation
           is with is the reason they are here.
 
@@ -351,7 +351,7 @@ export function DoneCard({
       <Signals entry={entry} className="mt-1.5 pl-[80px]" />
 
       {/* Deliberately still here after he has gone home. A time edit is a
-          record rather than a reminder, and this list is what Karim reads back
+          record rather than a reminder, and this list is what the closer reads back
           before End Day — an edit that vanished the moment the man was clocked
           out would disappear at exactly the point somebody checks the night
           against the hours. */}
@@ -415,7 +415,7 @@ function ReturnsCount({ count }: { count: number }) {
  * Which way this driver's week is going, as the arrow and nothing else.
  *
  * The metric that sits beside it inside the sheet does not come out here. It
- * needs its own scale of five colours to mean anything, and a row Karim reads
+ * needs its own scale of five colours to mean anything, and a row the closer reads
  * in the half-second a van takes to park has room for one signal, not two.
  */
 function Trend({ direction }: { direction: Entry["performance"] }) {
@@ -470,7 +470,7 @@ function RescueCount({ count }: { count: number }) {
  *
  * A count rather than the word, because the difference between one and three is
  * the difference between a mention and a conversation, and these rows are the
- * last place Karim sees the driver's name before the sheet goes up. "Infraction"
+ * last place the closer sees the driver's name before the sheet goes up. "Infraction"
  * on its own told him there was at least one and nothing else, which on a driver
  * who has had three is the wrong half of the fact.
  *
@@ -505,7 +505,7 @@ function InfractionTag({ raw }: { raw: string }) {
 }
 
 /**
- * Anything anybody needed Karim to know when this driver turns up.
+ * Anything anybody needed the closer to know when this driver turns up.
  *
  * Written from the laptop or from his own phone — it is one note either way,
  * and it reads the same however it got there. That is the point of it being one
@@ -526,10 +526,10 @@ function NoteStrip({ children }: { children: React.ReactNode }) {
  * What HR changed about this driver's hours tonight.
  *
  * Under the note rather than folded into it, and in a different colour,
- * because they are different kinds of fact and only one of them is Karim's to
+ * because they are different kinds of fact and only one of them is the closer's to
  * act on. The amber strip is a job — take his badge, ask him about Tuesday.
  * This one is not: it is the answer to a question the driver is about to ask
- * him, and the worst outcome is Karim saying he does not know.
+ * him, and the worst outcome is the closer saying he does not know.
  *
  * Purple, the same family as the BUD flag, which is the app's existing word
  * for a fact about somebody's hours. Amber is attention and green is done, and

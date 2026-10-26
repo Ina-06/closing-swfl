@@ -136,7 +136,7 @@ export function useEntries(nightKey: string | null) {
              * A clock-out is written as serverTimestamp(), which has no value
              * until the server has seen it. Offline that is null, and the card
              * would show a driver as clocked out with no time against him —
-             * exactly the moment Karim most needs to trust the screen. The
+             * exactly the moment the closer most needs to trust the screen. The
              * estimate is the phone's clock, replaced by the real one the
              * instant it syncs.
              */
@@ -216,7 +216,7 @@ export async function addEntry(
 
     // The closer's half, initialised so their list has something to sort and
     // render before anyone has arrived. A driver the dispatcher already clocked
-    // out arrives here as 'clockedOut' — Karim sees him done, not waiting.
+    // out arrives here as 'clockedOut' — the closer sees him done, not waiting.
     status: input.status,
     clockOut: null,
     van: "",

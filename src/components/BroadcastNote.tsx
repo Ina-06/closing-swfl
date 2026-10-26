@@ -5,11 +5,11 @@
  * did something — an infraction, a note about him, a returns line that does not
  * add up. This is not about a driver at all: the gate code changed, the fuel
  * card is in the office, nobody parks on the north side. Reading it in the same
- * colour as an infraction would have Karim looking for whose it was.
+ * colour as an infraction would have the closer looking for whose it was.
  *
  * Named as well as coloured, because a colour is a hint and a strip that says
  * "Broadcast note" is a fact. It is the same words on both screens, so when the
- * dispatcher says "it's on the broadcast" there is something on Karim's phone
+ * dispatcher says "it's on the broadcast" there is something on the closer's phone
  * with that name on it.
  *
  * Shared rather than closer-only for exactly that reason. One note, one strip,

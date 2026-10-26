@@ -195,7 +195,7 @@ export function RepairsBoard({ uid }: { uid: string }) {
   const [view, setView] = useState<View>("jobs");
   /**
    * Today's available vans and fuel cards. Read live, so the list empties
-   * itself the moment Karim ends the day.
+   * itself the moment the closer ends the day.
    */
   const available = useAvailable();
   /** The vans database, for its own tab and for every job card's van. */
@@ -206,7 +206,7 @@ export function RepairsBoard({ uid }: { uid: string }) {
       ? { status: "loading" }
       : { status: "ready", byKey: vanDb.byKey, byNumber: vanDb.byNumber };
   /**
-   * Writing the list and the database is the Repairs login's job. Karim,
+   * Writing the list and the database is the Repairs login's job. The closer,
    * signed in as the closer and crossed over, ticks spares off and reads the
    * database, and nothing more — the rules hold the same line.
    */

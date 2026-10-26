@@ -10,11 +10,11 @@ import { pendingNote } from "@/lib/notes";
 import type { Entry, RosterEntry, Session } from "@/lib/types";
 
 /**
- * A driver nobody told Karim about.
+ * A driver nobody told the closer about.
  *
  * It happens most nights — someone swaps a route, or the dispatcher was on the
  * other line when he called. The van is already in the yard, which is the only
- * reason Karim knows to add him, so picking a name puts him straight in the
+ * reason the closer knows to add him, so picking a name puts him straight in the
  * yard and opens his sheet on the van. The clock-out is at the bottom of it,
  * exactly where it is for everyone else.
  *

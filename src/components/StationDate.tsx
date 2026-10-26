@@ -8,7 +8,7 @@ import { stationDateLabel } from "@/lib/constants";
  *
  * These pages prerender as static, so computing the date on the server would
  * freeze it at build time. We resolve it after mount instead, and refresh on
- * focus — Karim's phone sits in his pocket across midnight and needs to roll
+ * focus — the closer's phone sits in his pocket across midnight and needs to roll
  * over without a reload.
  *
  * The device clock decides *which day it is*; the station timezone decides how

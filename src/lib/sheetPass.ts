@@ -5,7 +5,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  *
  * Every other route in this app is reached by fetch, with the id token in a
  * header. A link cannot carry a header — and on an iPhone a link is the only
- * thing that reaches Safari's own PDF viewer, which is the one place Karim has
+ * thing that reaches Safari's own PDF viewer, which is the one place the closer has
  * a share button that is not ours. So the permission has to travel in the URL.
  *
  * What travels is a signature, not a key. It says one thing — "this night's

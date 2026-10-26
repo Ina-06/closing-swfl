@@ -48,7 +48,7 @@ import type { Entry } from "@/lib/types";
  * The sheet behind a card — one driver's whole record.
  *
  * Ordered the way the conversation goes. What dispatch already knows is at the
- * top, because Karim reads it before he says a word: three returns and an
+ * top, because the closer reads it before he says a word: three returns and an
  * infraction is a different hello. Then the arrival, then the van in front of
  * him, then the clock-out at the bottom, which is the last thing that happens
  * and the thing that finishes the record.
@@ -81,7 +81,7 @@ export function ArrivalSheet({
    * Passed in rather than read off the entry, for the same reason as the time
    * edit above: it was never written onto a row. It is a fact about the night,
    * so it lives on the night — see lib/types. Here as well as at the top of the
-   * board because this sheet is the ninety seconds Karim is stood at a van with
+   * board because this sheet is the ninety seconds the closer is stood at a van with
    * a driver in front of him, which is when he has to remember to say it.
    */
   broadcast: string;
@@ -114,7 +114,7 @@ export function ArrivalSheet({
    *
    * Separate from `editingTime`, which is the correction made afterwards on a
    * driver who is already clocked out. This one happens instead of the stamp,
-   * with the driver still stood at the van — Karim wants him out at ten past
+   * with the driver still stood at the van — the closer wants him out at ten past
    * eleven when it is ten past midnight, because that is when the handover
    * actually finished and he only got to the phone now.
    */
@@ -152,7 +152,7 @@ export function ArrivalSheet({
    *
    * This used to list `onClose` as a dependency, which looked harmless and was
    * not: a new function identity every render meant this ran again on every
-   * render, and `panel.focus()` took the caret out of whatever Karim was typing
+   * render, and `panel.focus()` took the caret out of whatever the closer was typing
    * in and closed his keyboard. In the yard that is the van number — he presses
    * Arrived, the caret lands in the box, Firestore echoes the write back a
    * moment later, the board re-renders, and the keyboard he was about to type
@@ -282,7 +282,7 @@ export function ArrivalSheet({
   }
 
   /**
-   * Clocked out at a time Karim chose rather than at this moment.
+   * Clocked out at a time the closer chose rather than at this moment.
    *
    * Goes through correctClockOut rather than clockOut, because that is exactly
    * what this is: a real instant on tonight's clock, built by stationInstant so
@@ -382,7 +382,7 @@ export function ArrivalSheet({
           {/* First, because it is what he reads before he opens his mouth.
               The note, HR's time edit and the broadcast used to be three
               strips above this; they are the last three rows of it now, in
-              the order Karim asked for, so the whole picture is one list. */}
+              the order the closer asked for, so the whole picture is one list. */}
           <FromDispatch
             entry={entry}
             scorecard={scorecard}
@@ -402,7 +402,7 @@ export function ArrivalSheet({
 
             {entry.secondTrip ? (
               /* His second turn of the night. There is no Arrived to press —
-                 by the time Karim is filling this in the trip is already over
+                 by the time the closer is filling this in the trip is already over
                  — so the whole state block collapses to the one thing that is
                  still missing, which is what time it was. */
               <TripTimePanel
@@ -466,7 +466,7 @@ export function ArrivalSheet({
               /* Only on the tap that put him in the yard, whether that tap was
                  the Arrived button in here or the one that opened the sheet.
                  Opening it on a driver who was already in the yard must not
-                 throw a keyboard over the record Karim came to read. */
+                 throw a keyboard over the record the closer came to read. */
               focusVan={arrivingNow || openOnVan}
             />
           ) : null}
@@ -487,7 +487,7 @@ export function ArrivalSheet({
                     most of the width it always had.
 
                     The green one is the exception: the handover finished a
-                    while ago and Karim is only getting to his phone about it
+                    while ago and the closer is only getting to his phone about it
                     now, or the driver is owed a time he did not sit and wait
                     for. Narrow and quiet, so it is there when it is wanted and
                     never in the way of the press that happens forty times a
@@ -549,7 +549,7 @@ export function ArrivalSheet({
     </div>
 
     {/* Over the sheet rather than inside it. Opening it must not move the
-        record underneath, because the blue button Karim might press instead is
+        record underneath, because the blue button the closer might press instead is
         part of that record's layout. */}
     {pickingClockOut ? (
       <ClockPickerDialog
@@ -574,7 +574,7 @@ export function ArrivalSheet({
  * Worth the special case because of how this one fails. The write lands on the
  * device first, so the control moves — a check goes green, a van number
  * appears — and only then does the server turn it down and Firestore roll it
- * back. From where Karim is standing that is not an error, it is a button that
+ * back. From where the closer is standing that is not an error, it is a button that
  * un-presses itself, and no amount of it being technically correct makes that
  * readable.
  *
@@ -614,7 +614,7 @@ function describeWriteError(error: unknown, fallback: string): string {
  * The figure beside it is signed, and the sign is doing the reading: green and
  * a `+` is minutes early, red and a `-` is minutes late. It used to say "14m
  * late" and say nothing at all about a driver who came in ahead of himself,
- * which is half the sheet and the better half — the number Karim wants at the
+ * which is half the sheet and the better half — the number the closer wants at the
  * top of a shift review is the one he can say out loud either way round.
  */
 function EtaPanel({ eta, offset }: { eta: string; offset: number | null }) {
@@ -680,7 +680,7 @@ function ArrowRight() {
 }
 
 /**
- * He is here, and Karim is part-way through the handover.
+ * He is here, and the closer is part-way through the handover.
  *
  * Deliberately small. The work is underneath it and the clock-out is at the
  * bottom; this is only here so a driver in this state never looks the same as
@@ -715,7 +715,7 @@ function InYardPanel({ onReopen }: { onReopen: () => void }) {
 }
 
 /**
- * What Karim fills in at the van.
+ * What the closer fills in at the van.
  *
  * Nothing here has a Save button. A field writes itself the moment he is done
  * with it — Enter, a tap elsewhere, or leaving the sheet — so there is no state
@@ -748,7 +748,7 @@ function VanPanel({
    * The caret in the van number was only half of it. Everything above this
    * panel — the note, what dispatch typed, the Arrived button he has just
    * pressed — is read before the van pulls in, and once it has pulled in it is
-   * nothing but the distance between Karim's thumb and the box he needs. With
+   * nothing but the distance between the closer's thumb and the box he needs. With
    * the keyboard up that left the van issues field off the bottom of the
    * screen, and the whole handover stalled on a scroll he had to do one-handed.
    *
@@ -796,7 +796,7 @@ function VanPanel({
    * Crossing the van opens it, which is the whole point of the control. The
    * other three are there so nothing already recorded can be hidden by it: text
    * on the record, or a grounded van, means there is something to read, and a
-   * field Karim cannot see is a field he cannot correct.
+   * field the closer cannot see is a field he cannot correct.
    */
   const issuesOpen =
     crossedNow ||
@@ -846,7 +846,7 @@ function VanPanel({
    * into the box, and it opens the box to say so: the sentence is no use
    * sitting in a field that is folded away, and a van with a written issue
    * against it that still shows a grey van-issues tick is the sheet
-   * contradicting itself. So the gate is crossed too, and Karim can see both.
+   * contradicting itself. So the gate is crossed too, and the closer can see both.
    *
    * Un-crossing takes the sentence back out but leaves the gate where it is.
    * Whether there is still something else wrong with the van is his answer to
@@ -944,7 +944,7 @@ function VanPanel({
 
       {/* A rule, not a heading. "Van issues" was written twice here — once in
           grey above the bar and once inside it, where it is the instruction the
-          control is waiting on — and the one on top was the one Karim read
+          control is waiting on — and the one on top was the one the closer read
           past. What the gap was actually for is separating the seven things
           that came back with the van from the one decision about the van, and a
           line does that without saying anything. */}
@@ -962,7 +962,7 @@ function VanPanel({
           label="Van issues"
           /* Grey says what the control is, not what state it is in. It is the
              one check on this screen that reads as an instruction — a bar
-             saying "Not checked yet" was a status Karim scrolled past, and the
+             saying "Not checked yet" was a status the closer scrolled past, and the
              thing it was waiting for went unasked. */
           words={{
             null: "Van issues",
@@ -1092,13 +1092,13 @@ function checkPatch(field: CheckField, value: Check): YardFields {
 /**
  * Everything known about him before the van stops, read-only.
  *
- * Karim needs to see it — a driver with three returns is a driver he is about
+ * The closer needs to see it — a driver with three returns is a driver he is about
  * to have a conversation with — but it is not his to change here, and the
  * rules would refuse the write anyway. Showing it flat rather than as disabled
  * inputs is the honest rendering: these are facts, not controls someone
  * switched off.
  *
- * In Karim's order, which is the order the conversation goes: how the route
+ * In the closer's order, which is the order the conversation goes: how the route
  * went (productivity), anything he did wrong (infractions, quality), what came
  * back and who helped (returns, rescues), where he stands overall (last
  * scorecard), then the three pieces of prose — the note about him, HR's edit
@@ -1154,7 +1154,7 @@ function FromDispatch({
           term="Infractions"
           value={
             infraction ? (
-              /* An infraction is the one thing on this sheet Karim has to
+              /* An infraction is the one thing on this sheet the closer has to
                  act on, so it does not sit in the list looking like the
                  rest of it. */
               <Tinted tone="border-warn-line bg-warn-soft font-semibold text-warn">
@@ -1195,7 +1195,7 @@ function FromDispatch({
           term="Notes"
           value={
             note ? (
-              /* Karim's and the dispatcher's, one field — see lib/notes. */
+              /* The closer's and the dispatcher's, one field — see lib/notes. */
               <Tinted tone="border-warn-line bg-warn-soft text-warn">{note}</Tinted>
             ) : (
               <None />
@@ -1294,12 +1294,12 @@ const METRIC_TONE: Record<MetricTone, string> = {
 /**
  * Which way the driver's week is going, and where he sits on the scale.
  *
- * For Karim's eyes only — it is not a column on the paper sheet, so it will not
+ * For the closer's eyes only — it is not a column on the paper sheet, so it will not
  * appear on the PDF. He is about to talk to this person; the arrow and the
  * colour are the part of that conversation he wants before he opens his mouth.
  *
  * And the scale said out loud, in grey, beside the code. The codes are the
- * dispatcher's shorthand: they type them all night and know them cold. Karim
+ * dispatcher's shorthand: they type them all night and know them cold. The closer
  * reads one every few minutes, nine of them exist, and four begin with a J or a
  * W — O.I. against J.A. against J.B. is three letters apart and the whole
  * difference between a driver who is fine and one who is not. A tooltip is not
@@ -1430,7 +1430,7 @@ function useSavedField(initial: string, save: (next: string) => void) {
  * corrected, and a second trip being recorded after the fact.
  *
  * The same wheel the Custom clock-out button opens — see ClockPicker. It used
- * to be an `<input type="time">`, which is a proper wheel on Karim's phone and
+ * to be an `<input type="time">`, which is a proper wheel on the closer's phone and
  * a pair of spinner arrows on the laptop somebody checks the night from, and
  * two controls for one job is one of them being learned twice.
  *
@@ -1484,7 +1484,7 @@ function TimeEditor({
 }
 
 /**
- * The second trip's time, which Karim types.
+ * The second trip's time, which the closer types.
  *
  * Nothing on this panel is stamped, and that is the honest rendering of what it
  * is: he is writing down a van that came and went, often after it has gone. So
@@ -1566,7 +1566,7 @@ function TripTimePanel({
  * What the sheet becomes once he is clocked out.
  *
  * The time is a button because it is the thing most likely to be wrong — the
- * handover ran on while Karim was pulled away and he tapped it four minutes
+ * handover ran on while the closer was pulled away and he tapped it four minutes
  * later. Correcting it should not need a menu.
  */
 function ClockedOutPanel({

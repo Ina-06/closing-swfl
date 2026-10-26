@@ -22,12 +22,12 @@ import type { Entry, RosterEntry, Session } from "@/lib/types";
  * A note about a driver, for when the van pulls in.
  *
  * Opened from both screens, which is why it lives out here rather than under
- * closer/. One note per driver, one amber strip, whoever wrote it — Karim in
+ * closer/. One note per driver, one amber strip, whoever wrote it — the closer in
  * the yard at eleven at night, or the dispatcher at the desk hours before the
  * wave goes out. The editor opens with what is already there, so a second
  * writer adds to the note rather than over it.
  *
- * Each side reaches it from a different direction. Karim's is what he has just
+ * Each side reaches it from a different direction. The closer's is what he has just
  * been told at the van — take his badge off him, the ramp is jammed. Dispatch's
  * is what they already know and will not be awake to say: this one is on his
  * last warning, this one needs his route looked at. Both end up on the same
@@ -149,7 +149,7 @@ export function NoteSheet({
    * Write it, whether or not there is a row to write it on.
    *
    * A name off tonight's roster that dispatch has not entered has no document
-   * behind it, and that is exactly the driver Karim most wants to leave himself
+   * behind it, and that is exactly the driver the closer most wants to leave himself
    * a note about — nobody has heard from him yet.
    *
    * It does *not* make him a row. A row is what "dispatch has heard from him"
@@ -191,7 +191,7 @@ export function NoteSheet({
    * itself a containing block, and `backdrop-filter` does exactly that. The
    * dispatcher's Note button lives in the top bar, which is
    * `backdrop-blur-md`, so the sheet was being trapped inside a 56px-tall
-   * header and there was nothing to see. Karim's copy was fine purely because
+   * header and there was nothing to see. The closer's copy was fine purely because
    * CloserBoard renders it from `<main>`, well away from the blur.
    *
    * Fixed here rather than by moving the button or dropping the blur, because
@@ -387,7 +387,7 @@ export function NoteSheet({
  * Somebody he can write a note about — a row on the sheet, or a name on the
  * roster that has not become one yet.
  *
- * Both are on this list because from where Karim is standing they are the same
+ * Both are on this list because from where the closer is standing they are the same
  * thing: a driver who is out and coming back. Whether dispatch has typed him in
  * yet is not something he should have to know before he can leave himself a
  * note.

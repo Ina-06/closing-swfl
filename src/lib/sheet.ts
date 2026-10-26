@@ -52,7 +52,7 @@ function mark(value: boolean | null): Mark {
  * Deliberately narrow. It is the emoji planes and the symbol block they get
  * picked from, plus the invisible selectors and joiners that hang off them —
  * not "anything unusual". Accents, curly quotes and dashes are all in the
- * fonts and all things Karim actually types, and losing an accent off a name
+ * fonts and all things the closer actually types, and losing an accent off a name
  * would be a worse bug than the one this fixes.
  */
 const NOT_IN_THE_FONT =

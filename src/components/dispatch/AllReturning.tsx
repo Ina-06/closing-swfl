@@ -11,7 +11,7 @@ import type { Entry, Session } from "@/lib/types";
 /**
  * All Returning — the moment the wave stops being a stream of phone calls.
  *
- * Two things happen, and they are deliberately not one thing. Karim's phone is
+ * Two things happen, and they are deliberately not one thing. The closer's phone is
  * told first, through the listener he already has open. The spreadsheet is
  * generated second, because a workbook is not worth making anyone wait for a
  * notification behind.
@@ -64,15 +64,15 @@ export function AllReturning({
     setError(null);
     setNote(null);
     try {
-      // Announce first. If the spreadsheet fails after this, Karim has still
+      // Announce first. If the spreadsheet fails after this, the closer has still
       // been told, which is the half that cannot wait.
       await markAllReturning(nightKey, uid);
       const rows = await download();
       setConfirming(false);
       setNote(
         rows === 0
-          ? "Karim's phone has been alerted. Nobody had returns tonight, so the spreadsheet is empty."
-          : `Karim's phone has been alerted. Spreadsheet downloaded — ${rows} ${
+          ? "The closer's phone has been alerted. Nobody had returns tonight, so the spreadsheet is empty."
+          : `The closer's phone has been alerted. Spreadsheet downloaded — ${rows} ${
               rows === 1 ? "driver" : "drivers"
             } with returns.`,
       );
@@ -112,8 +112,8 @@ export function AllReturning({
           </h2>
           <p className="mt-0.5 text-[13px] text-ink-muted">
             {called
-              ? "Karim has the banner. You can pull the spreadsheet again any time."
-              : `Alerts Karim's phone and builds the returns spreadsheet — ${withReturns} ${
+              ? "The closer has the banner. You can pull the spreadsheet again any time."
+              : `Alerts the closer's phone and builds the returns spreadsheet — ${withReturns} ${
                   withReturns === 1 ? "driver" : "drivers"
                 } with returns so far.`}
           </p>
@@ -131,7 +131,7 @@ export function AllReturning({
               loading={busy}
               onClick={() => void call()}
             >
-              Yes — alert Karim
+              Yes — alert the closer
             </Button>
             <Button
               variant="ghost"
@@ -163,7 +163,7 @@ export function AllReturning({
               calling it while drivers are still out — that is what it means. */}
           <SoftWarning>
             {stillOut} {stillOut === 1 ? "driver is" : "drivers are"} still out.
-            That is normal — this tells Karim they are all on the way in.
+            That is normal — this tells the closer they are all on the way in.
           </SoftWarning>
         </div>
       ) : null}

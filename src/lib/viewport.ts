@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
  * viewport — the page as it was before the keyboard appeared. The keyboard is
  * then drawn on top of it. So a sheet anchored to the bottom of the screen is
  * anchored to a strip of glass that is now underneath a keyboard, and anything
- * in the lower half of it is simply gone: Karim types three letters of a name,
+ * in the lower half of it is simply gone: the closer types three letters of a name,
  * the one match he wanted renders below the box, and the only way to see it is
  * to dismiss the keyboard he is still typing into.
  *

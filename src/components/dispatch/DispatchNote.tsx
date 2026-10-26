@@ -7,9 +7,9 @@ import { useEntries } from "@/lib/db/entries";
 import { useTonightSession } from "@/lib/db/sessions";
 
 /**
- * The dispatcher's way into the same note sheet Karim has.
+ * The dispatcher's way into the same note sheet the closer has.
  *
- * Karim's version is for what he has just been handed at the van. This one is
+ * The closer's version is for what he has just been handed at the van. This one is
  * for the other half, which is everything dispatch knows hours earlier and will
  * not be awake to say: this one is on his last warning, ask this one why he was
  * an hour over on Tuesday, do not let this one leave without his key. Until now
