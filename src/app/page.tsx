@@ -261,7 +261,7 @@ export default function LoginPage() {
               <RoleButton
                 accent="caution"
                 label="MT"
-                hint="Count the MT inventory · own code"
+                hint="Count the inventory"
                 device="Phone"
                 pending={pending === "mt"}
                 disabled={pending !== null}
