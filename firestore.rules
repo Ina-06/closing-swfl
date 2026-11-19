@@ -102,6 +102,15 @@ service cloud.firestore {
       return role() == 'repairs';
     }
 
+    // The MT team. Its own code, minted in /api/login against MT_ACCESS_KEY.
+    //
+    // Like repairs, deliberately absent from signedIn(): it reads the MT
+    // inventory and nothing else, and the one thing it can write there is a
+    // count.
+    function isMt() {
+      return role() == 'mt';
+    }
+
     function changedKeys() {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
@@ -382,6 +391,57 @@ service cloud.firestore {
       allow create, update: if (isCloser() || isDispatcher())
                             && request.resource.data.keys().hasOnly(['round', 'night', 'updatedAt', 'updatedBy']);
       allow delete: if false;
+    }
+
+    // Which week the scorecards on the driver database are for. One document,
+    // one number, set by the dispatcher at the top of the drivers page and
+    // shown inside every scorecard bubble on the closer's phone.
+    match /scorecardMeta/{docId} {
+      allow read: if signedIn();
+      allow create, update: if isDispatcher()
+                            && request.resource.data.keys().hasOnly(['week', 'updatedAt', 'updatedBy'])
+                            && (request.resource.data.week == null
+                                || (request.resource.data.week is int
+                                    && request.resource.data.week >= 1
+                                    && request.resource.data.week <= 53));
+      allow delete: if false;
+    }
+
+    // The MT inventory: parts on site, how many, and the fewest there should be.
+    //
+    // The Repairs login and the closer run the list — add, rename, set the minimum,
+    // remove. A one-time stand-in is not on that line, for the same reason as
+    // the repairs board: the list outlives the night. The MT team counts, and
+    // a count is the only field they can change.
+    match /inventory/{itemId} {
+      function inventoryFields() {
+        return ['name', 'quantity', 'minQuantity', 'createdAt', 'updatedAt', 'updatedBy'];
+      }
+
+      function ownsInventory() {
+        return isRepairs() || isPermanentCloser();
+      }
+
+      function validCount(value) {
+        return value is int && value >= 0;
+      }
+
+      allow read: if ownsInventory() || isMt();
+      allow create: if ownsInventory()
+                    && request.resource.data.keys().hasOnly(inventoryFields())
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0
+                    && validCount(request.resource.data.quantity)
+                    && validCount(request.resource.data.minQuantity);
+      allow update: if validCount(request.resource.data.quantity)
+                    && ((ownsInventory()
+                         && changedKeys().hasOnly(inventoryFields())
+                         && request.resource.data.name is string
+                         && request.resource.data.name.size() > 0
+                         && validCount(request.resource.data.minQuantity))
+                        || (isMt()
+                         && changedKeys().hasOnly(['quantity', 'updatedAt', 'updatedBy'])));
+      allow delete: if ownsInventory();
     }
 
     // One-time closer codes. Written and verified only by the Admin SDK, which

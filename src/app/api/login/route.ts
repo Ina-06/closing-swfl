@@ -206,9 +206,15 @@ export async function POST(request: Request) {
     return redeemOneTime(key);
   }
 
-  const expected = process.env.APP_ACCESS_KEY;
+  /**
+   * The MT team has its own code, not the station key. Each role checks
+   * against exactly one secret, so the station key cannot open the MT portal
+   * and the MT code cannot open anything else.
+   */
+  const envName = role === "mt" ? "MT_ACCESS_KEY" : "APP_ACCESS_KEY";
+  const expected = process.env[envName];
   if (!expected) {
-    console.error("APP_ACCESS_KEY is not set — no one can log in.");
+    console.error(`${envName} is not set — no one can log in as ${role}.`);
     return fail("The server is missing its access key. Tell the dispatcher.", 500);
   }
 

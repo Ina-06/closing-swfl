@@ -10,8 +10,11 @@ import {
   deleteDriver,
   renameDriver,
   setScorecard,
+  setScorecardWeek,
   useDrivers,
+  useScorecardWeek,
 } from "@/lib/db/drivers";
+import { useAuth } from "@/lib/auth/AuthProvider";
 import { nameKey } from "@/lib/names";
 import type { Driver } from "@/lib/types";
 
@@ -82,6 +85,8 @@ export default function DriversPage() {
           {drivers?.length ?? 0} drivers
         </p>
       </div>
+
+      <ScorecardWeek onError={setActionError} />
 
       <section className="rounded-xl border border-line bg-surface p-5">
         <Label htmlFor="new-driver">Add a driver</Label>
@@ -251,5 +256,86 @@ function DriverRow({
         </Button>
       )}
     </li>
+  );
+}
+
+/**
+ * The week the scorecards below are for. One number for the whole database —
+ * the closer's phone shows it inside every bubble ("Bronze · Wk 43").
+ *
+ * Saves on blur or Enter, like a driver's name. Empty clears it.
+ */
+function ScorecardWeek({ onError }: { onError: (message: string) => void }) {
+  const auth = useAuth();
+  const uid = auth.status === "signedIn" ? auth.uid : "";
+  const { week, loading, error } = useScorecardWeek();
+  const [draft, setDraft] = useState("");
+  const [seen, setSeen] = useState<number | null | undefined>(undefined);
+
+  // Follow the saved value whenever it changes (here or on another laptop).
+  if (!loading && seen !== week) {
+    setSeen(week);
+    setDraft(week === null ? "" : String(week));
+  }
+
+  const saved = week === null ? "" : String(week);
+  const dirty = draft.trim() !== saved;
+
+  function save() {
+    const trimmed = draft.trim();
+    if (trimmed === saved) return;
+    const next = trimmed === "" ? null : Number(trimmed);
+    if (next !== null && (!Number.isInteger(next) || next < 1 || next > 53)) {
+      onError("The week is a number from 1 to 53.");
+      setDraft(saved);
+      return;
+    }
+    setScorecardWeek(next, uid).catch((err: unknown) =>
+      onError(err instanceof Error ? err.message : "The week did not save."),
+    );
+  }
+
+  return (
+    <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-5">
+      <div>
+        <Label htmlFor="scorecard-week">Scorecard week</Label>
+        <p className="mt-1 text-[13px] text-ink-muted">
+          The week these scorecards are for. Shows in every bubble on the
+          closer&rsquo;s phone.
+        </p>
+        {error ? (
+          <p className="mt-1 text-[12px] text-overdue">
+            Could not read the week: {error}
+          </p>
+        ) : null}
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-[15px] font-bold text-ink-muted">Week</span>
+        <input
+          id="scorecard-week"
+          inputMode="numeric"
+          value={draft}
+          disabled={loading}
+          onChange={(event) =>
+            setDraft(event.target.value.replace(/\D/g, "").slice(0, 2))
+          }
+          onBlur={save}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+            if (event.key === "Escape") {
+              setDraft(saved);
+              event.currentTarget.blur();
+            }
+          }}
+          placeholder="—"
+          className="tnum h-12 w-20 rounded-lg border border-line-strong bg-surface text-center font-mono text-[20px] font-bold text-ink outline-none transition-colors focus:border-brand disabled:opacity-60"
+        />
+        {dirty ? (
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-warn">
+            Unsaved
+          </span>
+        ) : null}
+      </div>
+    </section>
   );
 }

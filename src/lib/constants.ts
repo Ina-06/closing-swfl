@@ -123,7 +123,7 @@ export type CheckField = (typeof CHECKS)[number]["field"];
  * restriction that had to be argued for; it is simply everything they need and
  * nothing they do not.
  */
-export const ROLES = ["dispatcher", "closer", "hr", "repairs", "onetime"] as const;
+export const ROLES = ["dispatcher", "closer", "hr", "repairs", "mt", "onetime"] as const;
 export type Role = (typeof ROLES)[number];
 
 /** Today's date in the station timezone, as the `YYYY-MM-DD` session id. */

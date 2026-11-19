@@ -218,9 +218,9 @@ export async function addCloserEntry(
     notes: driver.notes ?? "",
     clockOutManual: "",
 
-    // In the yard, exactly as tapping Arrived would leave him. His sheet opens
-    // straight after this, on the van.
-    status: "arrived",
+    // Open, like every other row: there is no in-the-yard step any more. His
+    // sheet opens straight after this on the van, and Clock out finishes it.
+    status: "enroute",
     clockOut: null,
     van: "",
     vanOk: null,

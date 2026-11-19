@@ -10,6 +10,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
 } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
@@ -121,3 +122,51 @@ export async function deleteDriver(id: string) {
   await deleteDoc(doc(getDb(), COLLECTION, id));
 }
 
+
+/**
+ * Which week the scorecards on the driver database are for.
+ *
+ * One number for the whole database, not one per driver: the cards come out
+ * together, so the dispatcher sets the week once at the top of the page and
+ * every bubble on the closer's phone says which week it is from.
+ */
+function weekRef() {
+  return doc(getDb(), "scorecardMeta", "current");
+}
+
+export function useScorecardWeek() {
+  const [week, setWeek] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    return onSnapshot(
+      weekRef(),
+      (snapshot) => {
+        const value = snapshot.data()?.week;
+        setWeek(
+          typeof value === "number" && Number.isInteger(value) && value > 0
+            ? value
+            : null,
+        );
+        setLoading(false);
+        setError(null);
+      },
+      (snapshotError) => {
+        setLoading(false);
+        setError(snapshotError.message);
+      },
+    );
+  }, []);
+
+  return { week, loading, error };
+}
+
+/** Set the scorecard week, or clear it with null. Dispatcher only. */
+export async function setScorecardWeek(week: number | null, updatedBy: string) {
+  await setDoc(
+    weekRef(),
+    { week, updatedAt: serverTimestamp(), updatedBy },
+    { merge: true },
+  );
+}

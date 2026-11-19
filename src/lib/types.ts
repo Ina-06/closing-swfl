@@ -279,6 +279,20 @@ export type FleetItem = {
  * up here by the number at the front of the line, live, so correcting a VIN
  * here corrects every job card on that van.
  */
+/**
+ * One line of the MT inventory: a part kept on site, how many are on the
+ * shelf, and the fewest there should ever be. Below the minimum is "low".
+ */
+export type InventoryItem = {
+  id: string;
+  name: string;
+  quantity: number;
+  minQuantity: number;
+  createdAt: Timestamp | null;
+  updatedAt: Timestamp | null;
+  updatedBy: string;
+};
+
 export type VanRecord = {
   id: string;
   /** "BR.03", as written. */

@@ -24,7 +24,6 @@ import { flagsOn } from "@/components/closer/DriverCard";
 import {
   clockOut,
   correctClockOut,
-  markArrived,
   reopenEntry,
   saveYard,
   type YardFields,
@@ -59,6 +58,7 @@ export function ArrivalSheet({
   timeEdit,
   broadcast,
   scorecard,
+  scorecardWeek,
   now,
   uid,
   openOnVan = false,
@@ -92,6 +92,8 @@ export function ArrivalSheet({
    * row, so it lives on the driver and is looked up by the board.
    */
   scorecard: Scorecard | null;
+  /** The week the scorecards are for, set on the driver database, or null. */
+  scorecardWeek: number | null;
   /** Where we are on tonight's timeline, or null before the client hydrates. */
   now: number | null;
   uid: string;
@@ -119,20 +121,6 @@ export function ArrivalSheet({
    * actually finished and he only got to the phone now.
    */
   const [pickingClockOut, setPickingClockOut] = useState(false);
-  /**
-   * That Arrived was pressed on this tap, before the write has come back.
-   *
-   * The van panel does not exist until the driver is in the yard, and the yard
-   * is a field on a record that has to go to Firestore and come back. Waiting
-   * for that would put the van number box on screen a frame or two after the
-   * finger left the glass — and on iOS a field focused outside the gesture that
-   * asked for it gets no keyboard, which is the whole point of the jump.
-   *
-   * So the arrival is believed here first and confirmed by the record after. If
-   * the write is refused it is taken back, and the button he pressed comes back
-   * with the reason underneath it.
-   */
-  const [arrivedNow, setArrivedNow] = useState(false);
 
   /**
    * The latest way out, without the effect below having to watch for it.
@@ -162,7 +150,12 @@ export function ArrivalSheet({
    * current one is while this effect never has a reason to run twice.
    */
   useEffect(() => {
-    panel.current?.focus();
+    // Unless the van number already has the caret: it puts it there itself
+    // when the sheet opens on a row just made, and taking it back to the panel
+    // would leave the closer typing into nothing.
+    if (!panel.current?.contains(document.activeElement)) {
+      panel.current?.focus();
+    }
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") closer.current();
@@ -206,10 +199,13 @@ export function ArrivalSheet({
     [write, nightKey, entry.id, uid],
   );
 
-  /** Only while the record still says he is out — see arrivedNow. */
-  const arrivingNow = arrivedNow && entry.status === "enroute";
-  const inYard = entry.status === "arrived" || arrivingNow;
   const done = entry.status === "clockedOut";
+  /**
+   * The handover is open: one form, top to bottom — what dispatch knows, the
+   * van, then the clock-out. There is no Arrived step any more; a driver goes
+   * straight from on the road to clocked out, whatever the record said before.
+   */
+  const handover = !done;
   const stamped = entry.clockOut;
 
   /**
@@ -228,25 +224,6 @@ export function ArrivalSheet({
     entry.eta,
     stamped ? stationNowMinutes(stamped.toDate()) : done ? null : now,
   );
-
-  /**
-   * He is here. Straight into the van number, which is the next thing he types.
-   *
-   * The whole handover is one pass down this sheet, and it used to break at the
-   * top of it: press Arrived, then scroll, then find the box, then tap it, then
-   * wait for the keyboard. Now the keyboard is up with the caret in the box by
-   * the time he has looked back at the phone.
-   */
-  function arrive() {
-    setArrivedNow(true);
-    write(
-      markArrived(nightKey, entry.id, uid).catch((err: unknown) => {
-        setArrivedNow(false);
-        throw err;
-      }),
-      "That did not go through.",
-    );
-  }
 
   function startEditing() {
     setDraft(
@@ -386,17 +363,17 @@ export function ArrivalSheet({
           <FromDispatch
             entry={entry}
             scorecard={scorecard}
+            scorecardWeek={scorecardWeek}
             timeEdit={timeEdit}
             broadcast={broadcast}
           />
 
+          {entry.secondTrip || done ? (
           <div className="mt-6 space-y-3">
-            {/* Against the clock, wherever the clock is. For a driver still on
-                the road that is the Arrived button; for one already finished it
-                is the stamped time directly beneath this. In the yard the clock
-                is the Clock out at the foot of the sheet, so it travels down
-                there with it — see below. */}
-            {entry.eta && !inYard ? (
+            {/* For a driver already finished the ETA sits over the stamped
+                time beneath it. While the handover is open it lives down by
+                the Clock out instead — see below. */}
+            {entry.eta && done ? (
               <EtaPanel eta={entry.eta} offset={offset} />
             ) : null}
 
@@ -436,50 +413,29 @@ export function ArrivalSheet({
                   )
                 }
               />
-            ) : inYard ? (
-              <InYardPanel
-                onReopen={() =>
-                  write(
-                    reopenEntry(nightKey, entry.id, uid),
-                    "That did not go through.",
-                  )
-                }
-              />
-            ) : (
-              <Button
-                variant="arrived"
-                size="lg"
-                onClick={arrive}
-                className="min-h-14 w-full text-[17px]"
-              >
-                Arrived
-              </Button>
-            )}
+            ) : null}
           </div>
+          ) : null}
 
-          {/* Only once he is in. On a driver still out these are eight controls
-              he cannot use standing between him and the one he can. */}
-          {inYard || done ? (
-            <VanPanel
+          {/* Straight under what dispatch knows: one form, no Arrived step. */}
+          <VanPanel
               entry={entry}
               onSave={writeYard}
-              /* Only on the tap that put him in the yard, whether that tap was
-                 the Arrived button in here or the one that opened the sheet.
-                 Opening it on a driver who was already in the yard must not
-                 throw a keyboard over the record the closer came to read. */
-              focusVan={arrivingNow || openOnVan}
+              /* Only for a row just made from the roster or Add driver.
+                 Opening an existing driver must not throw a keyboard over the
+                 record the closer came to read. */
+              focusVan={openOnVan}
             />
-          ) : null}
 
           <div className="mt-6 space-y-3">
             {/* Directly above the button that stamps the real time, and set in
                 the same figures at the same size, because the only thing this
                 number is for now is being read against that one. */}
-            {entry.eta && inYard && !entry.secondTrip ? (
+            {entry.eta && handover && !entry.secondTrip ? (
               <EtaPanel eta={entry.eta} offset={offset} />
             ) : null}
 
-            {inYard && !entry.secondTrip ? (
+            {handover && !entry.secondTrip ? (
               <>
                 {/* Two ways to finish, and they are not equals. The blue one is
                     every handover — the driver is stood here, the time is now,
@@ -676,41 +632,6 @@ function ArrowRight() {
     >
       <path d="M5 12h13M13 6l6 6-6 6" />
     </svg>
-  );
-}
-
-/**
- * He is here, and the closer is part-way through the handover.
- *
- * Deliberately small. The work is underneath it and the clock-out is at the
- * bottom; this is only here so a driver in this state never looks the same as
- * one still out on the road.
- */
-function InYardPanel({ onReopen }: { onReopen: () => void }) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-arrived-line bg-arrived-soft px-3.5 py-3">
-      <span
-        aria-hidden="true"
-        className="grid size-8 shrink-0 place-items-center rounded-full bg-arrived text-[16px] font-bold text-ink-inverse"
-      >
-        ✓
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-bold leading-tight text-arrived">
-          In the yard
-        </span>
-        <span className="mt-0.5 block text-[12px] leading-snug text-arrived/80">
-          Go through the van, then clock him out.
-        </span>
-      </span>
-      <button
-        type="button"
-        onClick={onReopen}
-        className="min-h-11 shrink-0 rounded-lg px-2.5 text-[13px] font-semibold text-arrived/90 active:bg-arrived-soft"
-      >
-        Undo
-      </button>
-    </div>
   );
 }
 
@@ -1112,11 +1033,13 @@ function checkPatch(field: CheckField, value: Check): YardFields {
 function FromDispatch({
   entry,
   scorecard,
+  scorecardWeek,
   timeEdit,
   broadcast,
 }: {
   entry: Entry;
   scorecard: Scorecard | null;
+  scorecardWeek: number | null;
   timeEdit: string;
   broadcast: string;
 }) {
@@ -1185,7 +1108,7 @@ function FromDispatch({
           term="Last scorecard"
           value={
             scorecard ? (
-              <ScorecardBubble value={scorecard} />
+              <ScorecardBubble value={scorecard} week={scorecardWeek} />
             ) : (
               <None>Not set</None>
             )

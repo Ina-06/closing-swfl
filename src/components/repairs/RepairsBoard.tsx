@@ -12,6 +12,8 @@ import { useAddJob } from "@/components/repairs/AddJob";
 import { AvailableList, splitFleet } from "@/components/repairs/Fleet";
 import { TaskSheet } from "@/components/repairs/TaskSheet";
 import { VansDatabase } from "@/components/repairs/VansDatabase";
+import { Inventory } from "@/components/repairs/Inventory";
+import { isLow, useInventory } from "@/lib/db/inventory";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import { useAvailable } from "@/lib/db/fleet";
 import { useVans } from "@/lib/db/vans";
@@ -112,7 +114,7 @@ function matches(task: RepairTask, words: string[]): boolean {
 const LINGER_MS = 2200;
 
 /** The board's three views, one tab each — on a phone and a laptop alike. */
-type View = "jobs" | "available" | "vans";
+type View = "jobs" | "available" | "vans" | "inventory";
 
 /**
  * What a job card can say about its van.
@@ -212,6 +214,16 @@ export function RepairsBoard({ uid }: { uid: string }) {
    */
   const auth = useAuth();
   const canManage = auth.status === "signedIn" && auth.role === "repairs";
+  /**
+   * The MT inventory is the one list the closer runs as fully as fleet/repairs: add, rename,
+   * set the minimum, remove. A one-time stand-in never gets this far — the
+   * portal turns them away at the door.
+   */
+  const canManageInventory =
+    auth.status === "signedIn" &&
+    (auth.role === "repairs" || auth.role === "closer");
+  const inventory = useInventory();
+  const lowStock = inventory.items.filter(isLow).length;
   /** Click the words to edit them — laptop only, see lib/pointer. */
   const inline = useFinePointer();
 
@@ -319,6 +331,13 @@ export function RepairsBoard({ uid }: { uid: string }) {
           available.loading ? null : splitFleet(available.items).spare.length
         }
         vans={vanDb.loading ? null : vanDb.vans.length}
+        inventory={
+          inventory.loading
+            ? null
+            : lowStock > 0
+              ? `${lowStock} low`
+              : `${inventory.items.length} ${inventory.items.length === 1 ? "item" : "items"}`
+        }
       />
 
       {failure ? <ErrorNote>{failure}</ErrorNote> : null}
@@ -356,6 +375,24 @@ export function RepairsBoard({ uid }: { uid: string }) {
             vans={vanDb.vans}
             loading={vanDb.loading}
             canManage={canManage}
+            uid={uid}
+            onError={setFailure}
+          />
+        </>
+      ) : null}
+
+      {view === "inventory" ? (
+        <>
+          {inventory.error ? (
+            <ErrorNote>
+              Could not read the MT inventory: {inventory.error}. If this says
+              permission denied, the Firestore rules may not be published yet.
+            </ErrorNote>
+          ) : null}
+          <Inventory
+            items={inventory.items}
+            loading={inventory.loading}
+            mode={canManageInventory ? "full" : "countOnly"}
             uid={uid}
             onError={setFailure}
           />
@@ -932,7 +969,8 @@ function VanFact({
 }
 
 /**
- * Jobs, Available Vans & Fuel Cards, Vans Database — the board's three views.
+ * Jobs, Available Vans & Fuel Cards, Vans Database, MT Inventory — the
+ * board's four views.
  *
  * The same switch on a phone and a laptop. Each option carries the number its
  * list is read for: jobs still to do, spares not yet used today, and vans in
@@ -945,12 +983,15 @@ function ViewSwitch({
   jobs,
   available,
   vans,
+  inventory,
 }: {
   view: View;
   onChange: (view: View) => void;
   jobs: number | null;
   available: number | null;
   vans: number | null;
+  /** Already worded — "3 low" or "12 items". */
+  inventory: string | null;
 }) {
   const options: {
     key: View;
@@ -976,13 +1017,19 @@ function ViewSwitch({
       short: "Vans DB",
       count: vans === null ? null : `${vans} ${vans === 1 ? "van" : "vans"}`,
     },
+    {
+      key: "inventory",
+      label: "MT Inventory",
+      short: "MT Inv.",
+      count: inventory,
+    },
   ];
 
   return (
     <div
       role="tablist"
-      aria-label="Jobs, available vans and fuel cards, or the vans database"
-      className="grid grid-cols-3 gap-1 rounded-xl border border-line bg-surface p-1"
+      aria-label="Jobs, available vans and fuel cards, the vans database, or the MT inventory"
+      className="grid grid-cols-4 gap-1 rounded-xl border border-line bg-surface p-1"
     >
       {options.map((option) => {
         const active = view === option.key;

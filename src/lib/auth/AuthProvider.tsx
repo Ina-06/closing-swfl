@@ -140,5 +140,6 @@ export const HOME_FOR_ROLE: Record<Role, string> = {
   closer: "/closer",
   hr: "/hr",
   repairs: "/repairs",
+  mt: "/mt",
   onetime: "/closer",
 };

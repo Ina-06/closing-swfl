@@ -15,6 +15,7 @@ const ROLE_LABEL: Record<string, string> = {
   closer: "Closer",
   hr: "HR",
   repairs: "Repairs",
+  mt: "MT",
 };
 
 /**
@@ -32,7 +33,8 @@ function useLastRole(): Role | null {
   return stored === "dispatcher" ||
     stored === "closer" ||
     stored === "hr" ||
-    stored === "repairs"
+    stored === "repairs" ||
+    stored === "mt"
     ? stored
     : null;
 }
@@ -108,7 +110,8 @@ export default function LoginPage() {
           Tonight&rsquo;s closing sheet
         </h1>
         <p className="mt-2 text-[14px] leading-relaxed text-ink-muted">
-          Enter the station key, then pick the screen you need.
+          Enter the station key, then pick the screen you need. The MT team
+          enters its own code and picks MT.
         </p>
 
         {auth.status === "unconfigured" ? (
@@ -250,6 +253,23 @@ export default function LoginPage() {
                   <>
                     <path d="M14.5 5.5a4 4 0 015.2 5.2l-8 8a4 4 0 01-5.2-5.2z" />
                     <path d="M5.5 15.5l3 3" />
+                  </>
+                }
+              />
+              {/* Its own code rather than the station key — the MT team
+                  counts the parts shelf and sees nothing else. */}
+              <RoleButton
+                accent="caution"
+                label="MT"
+                hint="Count the MT inventory · own code"
+                device="Phone"
+                pending={pending === "mt"}
+                disabled={pending !== null}
+                onClick={() => submit("mt")}
+                icon={
+                  <>
+                    <path d="M4 8l8-4 8 4v8l-8 4-8-4z" />
+                    <path d="M4 8l8 4 8-4M12 12v8" />
                   </>
                 }
               />

@@ -30,9 +30,12 @@ export function scorecardLabel(value: Scorecard): string {
 
 export function ScorecardBubble({
   value,
+  week = null,
   size = "md",
 }: {
   value: Scorecard;
+  /** Which week the card is for, set once on the driver database. */
+  week?: number | null;
   size?: "sm" | "md";
 }) {
   return (
@@ -46,6 +49,9 @@ export function ScorecardBubble({
         className="size-2 rounded-full bg-current opacity-70"
       />
       {scorecardLabel(value)}
+      {week !== null ? (
+        <span className="tnum font-semibold opacity-80">· Week {week}</span>
+      ) : null}
     </span>
   );
 }

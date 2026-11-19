@@ -159,11 +159,11 @@ export function RosterSheet({
               onClick={onArrived}
               className="min-h-14 w-full text-[17px]"
             >
-              Arrived
+              Open form
             </Button>
             <p className="text-center text-[12px] leading-relaxed text-ink-faint">
-              Puts him in the yard and opens his van. Nothing is written until
-              you press it.
+              Adds him to tonight&rsquo;s sheet and opens his van form. Nothing
+              is written until you press it.
             </p>
 
             <Button

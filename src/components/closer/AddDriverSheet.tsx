@@ -217,8 +217,8 @@ export function AddDriverSheet({
                 Add a driver
               </h2>
               <p className="mt-1 text-[13px] text-ink-muted">
-                Someone dispatch hasn&rsquo;t entered. Picking a name puts him
-                in the yard and opens his van.
+                Someone dispatch hasn&rsquo;t entered. Picking a name adds him
+                to tonight&rsquo;s sheet and opens his van form.
               </p>
             </div>
 

@@ -21,7 +21,7 @@ import { BroadcastNote } from "@/components/BroadcastNote";
 import { NoteSheet } from "@/components/NoteSheet";
 import { ErrorNote } from "@/components/ui/Field";
 import { addCloserEntry } from "@/lib/db/closer";
-import { useDrivers } from "@/lib/db/drivers";
+import { useDrivers, useScorecardWeek } from "@/lib/db/drivers";
 import { useAvailable } from "@/lib/db/fleet";
 import { useEntries } from "@/lib/db/entries";
 import { etaMinutes, minutesLate, stationNowMinutes } from "@/lib/eta";
@@ -291,6 +291,8 @@ export function CloserBoard({
    * than waiting on it.
    */
   const { drivers } = useDrivers();
+  /** Which week those scorecards are for — shown inside the bubble. */
+  const { week: scorecardWeek } = useScorecardWeek();
 
   /**
    * Today's available vans and fuel cards, as fleet/repairs typed them on the repairs
@@ -866,6 +868,7 @@ export function CloserBoard({
           timeEdit={timeEditFor(session, open.driverId)}
           broadcast={session.broadcastNote}
           scorecard={scorecards.get(open.driverId) ?? null}
+          scorecardWeek={scorecardWeek}
           /* The clock itself, not a lateness worked out from it. The sheet
              needs to compare the ETA against a different moment in each state —
              now while he is on the road or stood at the van, the stamp once he
