@@ -14,7 +14,7 @@ import type { DocumentData } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
 import { vanKey, vanNumber } from "@/lib/vans";
 import { isRegistrationDate } from "@/lib/registration";
-import type { VanRecord } from "@/lib/types";
+import type { RegistrationDoc, VanRecord } from "@/lib/types";
 
 /**
  * The station's vans database: van number, vendor, VIN, vendor number and
@@ -52,10 +52,34 @@ function toVan(data: DocumentData, id: string): VanRecord {
     qrPath: typeof data.qrPath === "string" && data.qrPath ? data.qrPath : null,
     qrText: typeof data.qrText === "string" && data.qrText ? data.qrText : null,
     qrUpdatedAt: data.qrUpdatedAt ?? null,
+    registrationDocs: toRegistrationDocs(data.registrationDocs),
     createdAt: data.createdAt ?? null,
     updatedAt: data.updatedAt ?? null,
     updatedBy: string(data.updatedBy),
   };
+}
+
+/** The registration documents, keeping only entries that are whole. */
+function toRegistrationDocs(value: unknown): RegistrationDoc[] {
+  if (!Array.isArray(value)) return [];
+  const string = (input: unknown) => (typeof input === "string" ? input : "");
+  return value.flatMap((entry): RegistrationDoc[] => {
+    if (!entry || typeof entry !== "object") return [];
+    const data = entry as DocumentData;
+    if (!string(data.id) || !string(data.storagePath)) return [];
+    return [
+      {
+        id: string(data.id),
+        type: "registration",
+        storagePath: string(data.storagePath),
+        contentType: string(data.contentType),
+        fileName: string(data.fileName),
+        uploadedAt: data.uploadedAt ?? null,
+        uploadedBy: string(data.uploadedBy),
+        active: data.active === true,
+      },
+    ];
+  });
 }
 
 /** Natural order, so BR.7 comes before BR.214. */

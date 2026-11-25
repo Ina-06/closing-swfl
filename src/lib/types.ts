@@ -324,9 +324,32 @@ export type VanRecord = {
   /** What the QR says, when it could be read on upload; null otherwise. */
   qrText: string | null;
   qrUpdatedAt: Timestamp | null;
+  /**
+   * Every registration document uploaded for the van, oldest first. At most
+   * one is active — the one drivers are shown on reg.swfl.app. Older ones are
+   * kept, inactive, rather than deleted. Written only by
+   * /api/vans/registration — see lib/regDocs.ts.
+   */
+  registrationDocs: RegistrationDoc[];
   createdAt: Timestamp | null;
   updatedAt: Timestamp | null;
   updatedBy: string;
+};
+
+export type RegistrationDoc = {
+  /** Also the file's name in Storage: registrations/{vanId}/{id}.{ext}. */
+  id: string;
+  /** Only "registration" for now; the field leaves room for a lease or insurance card. */
+  type: "registration";
+  storagePath: string;
+  /** What is stored — a HEIC upload is stored as image/jpeg. */
+  contentType: string;
+  /** What it was called on the computer it came from. */
+  fileName: string;
+  uploadedAt: Timestamp | null;
+  /** The uploader's uid: role-repairs or role-dispatcher. */
+  uploadedBy: string;
+  active: boolean;
 };
 
 export type Session = {

@@ -3,6 +3,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { addVan, editVan, removeVan, setVanActive, type VanFields } from "@/lib/db/vans";
 import { removeVanQr, uploadVanQr } from "@/lib/db/vanQr";
+import { removeAllRegistrations } from "@/lib/db/vanRegistration";
+import { RegIcon, RegistrationModal } from "@/components/repairs/VanRegistration";
+import { EXPIRING_DAYS, activeRegistration } from "@/lib/regDocs";
 import { shrinkForUpload } from "@/lib/qrImage";
 import {
   BulkQrButton,
@@ -54,8 +57,8 @@ const EMPTY: VanFields = {
  * One grid for the heading, the rows and the form, so the columns line up.
  * The Repairs login gets one more column at the end, for the With us switch.
  */
-const COLUMNS = "md:grid md:grid-cols-[110px_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,0.9fr)_160px_56px_132px] md:items-center md:gap-3";
-const COLUMNS_MANAGED = "md:grid md:grid-cols-[110px_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,0.9fr)_160px_56px_88px_96px] md:items-center md:gap-3";
+const COLUMNS = "md:grid md:grid-cols-[110px_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,0.9fr)_160px_56px_56px_132px] md:items-center md:gap-3";
+const COLUMNS_MANAGED = "md:grid md:grid-cols-[110px_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,0.9fr)_160px_56px_56px_88px_96px] md:items-center md:gap-3";
 
 const FIELDS: {
   key: keyof VanFields;
@@ -109,6 +112,12 @@ export function VansDatabase({
   const [viewingId, setViewingId] = useState<string | null>(null);
   const viewing = viewingId ? (vans.find((van) => van.id === viewingId) ?? null) : null;
   const closeViewer = useCallback(() => setViewingId(null), []);
+  /** The van whose registration modal is open. */
+  const [regId, setRegId] = useState<string | null>(null);
+  const regVan = regId ? (vans.find((van) => van.id === regId) ?? null) : null;
+  const closeReg = useCallback(() => setRegId(null), []);
+  /** The two quick filters over the vans still with us. */
+  const [filter, setFilter] = useState<"missing" | "expiring" | null>(null);
   /** Vans whose QR is uploading or being removed right now. */
   const [qrBusy, setQrBusy] = useState<ReadonlySet<string>>(new Set());
   /** The vans still with us. A returned van's QR and registration no longer matter. */
@@ -118,6 +127,22 @@ export function VansDatabase({
   const columns = canManage ? COLUMNS_MANAGED : COLUMNS;
   /** Today at the station, for how close each registration is. */
   const today = stationDateKey();
+
+  /** Vans with us and no registration document on file for drivers. */
+  const missingDoc = useMemo(
+    () => new Set(inService.filter((van) => !activeRegistration(van.registrationDocs)).map((van) => van.id)),
+    [inService],
+  );
+  /** Vans with us whose registration has run out or runs out inside 30 days. */
+  const expiring = useMemo(
+    () =>
+      new Set(
+        inService
+          .filter((van) => van.registrationExpires && daysUntil(van.registrationExpires, today) <= EXPIRING_DAYS)
+          .map((van) => van.id),
+      ),
+    [inService, today],
+  );
 
   /** Registrations run out or inside the reminder window, soonest first. */
   const due = useMemo(
@@ -134,10 +159,18 @@ export function VansDatabase({
   /** What the search leaves, split: vans with us first, returned ones under them. */
   const showing = useMemo(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const pool =
+      filter === "missing"
+        ? vans.filter((van) => missingDoc.has(van.id))
+        : filter === "expiring"
+          ? vans
+              .filter((van) => expiring.has(van.id))
+              .sort((a, b) => a.registrationExpires.localeCompare(b.registrationExpires))
+          : vans;
     const found =
       words.length === 0
-        ? vans
-        : vans.filter((van) => {
+        ? pool
+        : pool.filter((van) => {
             const haystack =
               `${van.van} ${van.key} ${van.vendor} ${van.vin} ${van.vendorNumber} ${registrationLabel(van.registrationExpires)} ${van.qrText ?? ""} ${van.active ? "" : "returned"}`.toLowerCase();
             return words.every((word) => haystack.includes(word));
@@ -146,7 +179,7 @@ export function VansDatabase({
       active: found.filter((van) => van.active),
       returned: found.filter((van) => !van.active),
     };
-  }, [vans, query]);
+  }, [vans, query, filter, missingDoc, expiring]);
   const showingCount = showing.active.length + showing.returned.length;
 
   /** Same shape as the board's run(): local at once, loud if refused. */
@@ -182,11 +215,13 @@ export function VansDatabase({
     );
   }
 
-  /** A van with a QR loses the image too — nothing in Storage outlives its van. */
+  /** A van with a QR or registrations loses the files too — nothing in Storage outlives its van. */
   function deleteVan(van: VanRecord) {
     run(
       "Removing that van",
-      (van.qrPath ? removeVanQr(van.id) : Promise.resolve()).then(() => removeVan(van.id)),
+      (van.qrPath ? removeVanQr(van.id) : Promise.resolve())
+        .then(() => (van.registrationDocs.length > 0 ? removeAllRegistrations(van.id) : undefined))
+        .then(() => removeVan(van.id)),
     );
   }
 
@@ -255,6 +290,25 @@ export function VansDatabase({
         </p>
       </div>
 
+      {!loading && inService.length > 0 ? (
+        <div role="group" aria-label="Filter the vans" className="-mt-1 flex flex-wrap gap-2">
+          <FilterChip
+            on={filter === "missing"}
+            count={missingDoc.size}
+            onClick={() => setFilter((was) => (was === "missing" ? null : "missing"))}
+          >
+            Missing doc
+          </FilterChip>
+          <FilterChip
+            on={filter === "expiring"}
+            count={expiring.size}
+            onClick={() => setFilter((was) => (was === "expiring" ? null : "expiring"))}
+          >
+            Expiring ≤{EXPIRING_DAYS} days
+          </FilterChip>
+        </div>
+      ) : null}
+
       {!loading && due.length > 0 ? (
         <div
           role="status"
@@ -296,7 +350,11 @@ export function VansDatabase({
         </p>
       ) : showingCount === 0 ? (
         <p className="rounded-xl border border-dashed border-line-strong bg-surface/60 px-5 py-12 text-center text-[13px] text-ink-faint">
-          No van matches &ldquo;{query.trim()}&rdquo;
+          {filter === "missing" && !query.trim()
+            ? "Every van with us has a registration on file."
+            : filter === "expiring" && !query.trim()
+              ? `No registration runs out in the next ${EXPIRING_DAYS} days.`
+              : `No van matches “${query.trim()}”${filter ? " under this filter" : ""}`}
         </p>
       ) : (
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
@@ -308,6 +366,7 @@ export function VansDatabase({
               <span key={field.key}>{field.heading ?? field.label}</span>
             ))}
             <span className="text-center">QR</span>
+            <span className="text-center">Reg</span>
             <span className="sr-only">Actions</span>
             {canManage ? <span className="text-right">With us</span> : null}
           </div>
@@ -373,6 +432,8 @@ export function VansDatabase({
                     }
                     qrBusy={qrBusy.has(van.id)}
                     onView={() => setViewingId(van.id)}
+                    onReg={() => setRegId(van.id)}
+                    canManageReg={canManageQr}
                     onAddQr={
                       canManageQr && van.active ? () => setEditing({ id: van.id, qrFirst: true }) : undefined
                     }
@@ -390,6 +451,7 @@ export function VansDatabase({
       )}
 
       {viewing?.qrPath ? <QrModal van={viewing} onClose={closeViewer} /> : null}
+      {regVan ? <RegistrationModal van={regVan} canManage={canManageQr} onClose={closeReg} /> : null}
     </section>
   );
 }
@@ -401,6 +463,8 @@ function VanRow({
   columns,
   qrBusy,
   onView,
+  onReg,
+  canManageReg,
   onAddQr,
   onEdit,
   onActive,
@@ -414,6 +478,10 @@ function VanRow({
   /** Its QR is uploading or being removed. */
   qrBusy: boolean;
   onView: () => void;
+  /** Opens the registration modal. */
+  onReg: () => void;
+  /** May upload a registration: an empty one reads "Add" rather than "—". */
+  canManageReg: boolean;
   /** Opens Edit on the QR field; absent for whoever cannot add one. */
   onAddQr?: () => void;
   onEdit?: () => void;
@@ -474,6 +542,33 @@ function VanRow({
             <span className="text-ink-faint">—</span>
           )}
         </dd>
+        <dt className="text-ink-faint md:sr-only">Reg doc</dt>
+        <dd className="min-w-0 md:flex md:justify-center">
+          {!van.active ? (
+            <span className="text-ink-faint">—</span>
+          ) : activeRegistration(van.registrationDocs) ? (
+            <button
+              type="button"
+              onClick={onReg}
+              aria-label={`Registration for ${van.van}`}
+              title="Registration"
+              className="-my-1 inline-grid size-9 place-items-center rounded-lg border border-line text-ink transition-colors hover:border-line-strong hover:bg-sunken active:bg-sunken"
+            >
+              <RegIcon className="size-[18px]" />
+            </button>
+          ) : canManageReg ? (
+            <button
+              type="button"
+              onClick={onReg}
+              aria-label={`Add a registration for ${van.van}`}
+              className="-my-1 -ml-1.5 min-h-9 rounded-md px-1.5 text-[12px] font-semibold text-overdue underline decoration-overdue-line underline-offset-2 transition-colors hover:decoration-overdue md:ml-0"
+            >
+              Add
+            </button>
+          ) : (
+            <span className="text-ink-faint">—</span>
+          )}
+        </dd>
       </dl>
       {onEdit ? (
         <div className="absolute right-2 top-2 md:static md:flex md:justify-end">
@@ -496,6 +591,37 @@ function VanRow({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** A quick filter: pressed or not, with how many vans it would show. */
+function FilterChip({
+  on,
+  count,
+  onClick,
+  children,
+}: {
+  on: boolean;
+  count: number;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      onClick={onClick}
+      className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-[12px] font-semibold transition-colors ${
+        on
+          ? "border-ink bg-ink text-ink-inverse"
+          : "border-line-strong bg-surface text-ink-muted hover:border-ink-faint hover:text-ink"
+      }`}
+    >
+      {children}
+      <span className={`tnum font-mono ${on ? "text-ink-inverse/80" : count > 0 ? "text-overdue" : "text-ink-faint"}`}>
+        {count}
+      </span>
+    </button>
   );
 }
 
@@ -685,7 +811,8 @@ function VanForm({
           </div>
         ))}
 
-        {/* The QR column, kept so the buttons stay under Edit. */}
+        {/* The QR and Reg columns, kept so the buttons stay under Edit. */}
+        <span aria-hidden="true" className="hidden md:block" />
         <span aria-hidden="true" className="hidden md:block" />
 
         <div className="col-span-2 flex items-center justify-end gap-1.5">

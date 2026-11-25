@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
    * that one still failed on the first real request. Loading it from
    * node_modules keeps the workbook route out of that class of failure.
    */
-  serverExternalPackages: ["firebase-admin", "exceljs"],
+  serverExternalPackages: ["firebase-admin", "exceljs", "heic-convert"],
 
   /**
    * When this build was made, in the station's timezone.

@@ -405,6 +405,10 @@ service cloud.firestore {
     // Permanent, and the Repairs login's alone to write. Read wherever the
     // repairs board is read — every job card looks its van up here — so the
     // closer crossing over sees the same VINs fleet/repairs does.
+    // `registrationDocs` (the registration files drivers see on
+    // reg.swfl.app), like the qr* fields, is deliberately not in vanFields():
+    // only /api/vans/registration writes it, with the service account, in
+    // step with the files in Storage.
     match /vans/{vanId} {
       function vanFields() {
         return [

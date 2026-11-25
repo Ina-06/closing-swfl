@@ -2,7 +2,7 @@ rules_version = '2';
 
 // Closing — SWFL, Storage
 //
-// Storage holds two things, both written and read only on the server, with
+// Storage holds three things, all written and read only on the server, with
 // the service account, which these rules do not apply to:
 //
 //   sheets/{night}/      The closing sheet PDF filed for every night when it
@@ -18,6 +18,17 @@ rules_version = '2';
 //                        a signed URL that the route mints for a signed-in
 //                        reader and that stops working after ten minutes.
 //                        Nothing about a QR is public.
+//
+//   registrations/{vanId}/{docId}.{ext}
+//                        Each van's registration documents, old versions
+//                        kept. Put up by /api/vans/registration after a role
+//                        check (a file over 4 MB lands first as
+//                        registrations/{vanId}/incoming-{docId} through a
+//                        15-minute signed upload URL, and is checked and moved
+//                        from there). Drivers on reg.swfl.app get the bytes
+//                        through /api/reg/doc, which wants the driver PIN
+//                        cookie and a ten-minute token — never a URL to the
+//                        file itself.
 //
 // So no client reads or writes anything here directly, ever, and this file
 // says so.

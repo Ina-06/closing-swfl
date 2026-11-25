@@ -86,6 +86,17 @@
   --color-platinum-face: #e4f1f7;
   --color-platinum-edge: #8fb3c7;
 
+  /* reg.swfl.app — the driver's registration lookup. SWFL blue, red and
+     black, solid and dark enough to read in morning sun; the three status
+     faces each clear 4.5:1 with the text set on them. */
+  --color-reg-blue: #1b3f7a;
+  --color-reg-red: #c8102e;
+  --color-reg-black: #121417;
+  --color-reg-ok: #1b6b3a;
+  --color-reg-soon: #e3a21a;
+  --color-reg-none: #5b6470;
+  --color-reg-line: #c9ced6;
+
   /* Radii */
   --radius-xs: 0.25rem;
   --radius-sm: 0.375rem;
@@ -96,6 +107,8 @@
   /* Type */
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace;
+  /* The phone's own font: nothing to download before the page can be read. */
+  --font-system: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
 }
 
 @layer base {

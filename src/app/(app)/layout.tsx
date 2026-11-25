@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
-import "./globals.css";
+import "../globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
