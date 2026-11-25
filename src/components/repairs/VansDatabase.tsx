@@ -5,6 +5,7 @@ import { addVan, editVan, removeVan, setVanActive, type VanFields } from "@/lib/
 import { removeVanQr, uploadVanQr } from "@/lib/db/vanQr";
 import { removeAllRegistrations } from "@/lib/db/vanRegistration";
 import { RegIcon, RegistrationModal } from "@/components/repairs/VanRegistration";
+import { BulkRegButton } from "@/components/repairs/BulkRegistration";
 import { EXPIRING_DAYS, activeRegistration } from "@/lib/regDocs";
 import { shrinkForUpload } from "@/lib/qrImage";
 import {
@@ -240,7 +241,10 @@ export function VansDatabase({
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
               Add a van
             </h2>
-            <BulkQrButton vans={inService} onError={onError} />
+            <div className="flex flex-wrap justify-end gap-2">
+              <BulkRegButton vans={inService} onError={onError} />
+              <BulkQrButton vans={inService} onError={onError} />
+            </div>
           </div>
           <VanForm
             idPrefix="van-add"
@@ -257,7 +261,8 @@ export function VansDatabase({
 
       {/* The dispatcher has no Add a van card to hang it on. */}
       {!canManage && canManageQr && inService.length > 0 ? (
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          <BulkRegButton vans={inService} onError={onError} />
           <BulkQrButton vans={inService} onError={onError} />
         </div>
       ) : null}
