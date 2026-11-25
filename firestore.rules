@@ -418,6 +418,34 @@ service cloud.firestore {
       allow delete: if isRepairs();
     }
 
+    // Who the registration reminders go to: each vendor's addresses, typed in
+    // the vans database by the Repairs login. Read by the daily job through
+    // the service account; no other role needs to see a vendor's inbox.
+    match /vendorContacts/{contactId} {
+      function contactOk() {
+        let data = request.resource.data;
+        return data.keys().hasOnly(['name', 'key', 'emails', 'createdAt', 'updatedAt', 'updatedBy'])
+               && data.name is string && data.name.size() > 0
+               && data.emails is list && data.emails.size() > 0 && data.emails.size() <= 20;
+      }
+
+      allow read: if isRepairs();
+      allow create, update: if isRepairs() && contactOk();
+      allow delete: if isRepairs();
+    }
+
+    // The SWFL team's addresses for the same reminders. One document,
+    // `registration`, holding one list.
+    match /emailSettings/{docId} {
+      allow read: if isRepairs();
+      allow create, update: if isRepairs()
+                            && docId == 'registration'
+                            && request.resource.data.keys().hasOnly(['team', 'updatedAt', 'updatedBy'])
+                            && request.resource.data.team is list
+                            && request.resource.data.team.size() <= 30;
+      allow delete: if false;
+    }
+
     // Which round of available vans and gas cards is current. One document.
     //
     // The session moves it, so the two roles that start and end a session

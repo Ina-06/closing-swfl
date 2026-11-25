@@ -1,12 +1,14 @@
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { stationDateKey } from "@/lib/constants";
 import {
   daysUntil,
   dueReminder,
+  isEmail,
   isRegistrationDate,
   markSent,
   registrationLabel,
+  vendorKey,
 } from "@/lib/registration";
 import { emailList, escapeHtml, sendEmail } from "@/lib/server/email";
 
@@ -14,13 +16,13 @@ import { emailList, escapeHtml, sendEmail } from "@/lib/server/email";
  * The daily registration reminders: 7, 5, 3 and 1 day before a van's
  * registration expires, one email to the office and one to that van's vendor.
  *
- * Who gets them is configuration, not code, so no address sits in the repo:
+ * Who gets them is typed in the app by the Repairs login — Vans database →
+ * Registration emails — so no address sits in the repo:
  *
- *   REGISTRATION_EMAIL_TO   the office, comma-separated.
- *   VENDOR_EMAILS           JSON, vendor name → addresses:
- *                           {"Vendor A": "a@x.com", "Vendor B": "b@y.com, c@y.com"}
- *                           Names match the vans database's Vendor column,
- *                           ignoring case and extra spaces.
+ *   emailSettings/registration   `team`: the SWFL addresses, every reminder.
+ *   vendorContacts/{id}          a vendor's name and addresses. Matched to the
+ *                                vans database's Vendor column, ignoring case
+ *                                and extra spaces.
  *
  * What has been sent is kept in vanRegistrationNotices, one document per van
  * per expiry date, with the office's and the vendor's steps apart — a vendor
@@ -45,27 +47,23 @@ export type ReminderSummary = {
   config: string[];
 };
 
-/** "  Vendor  A " and "vendor a" are the same vendor. */
-function vendorName(name: string): string {
-  return name.trim().replace(/\s+/g, " ").toLowerCase();
+function addresses(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && isEmail(item))
+    : [];
 }
 
-function vendorEmails(): { map: Map<string, string[]>; problem: string | null } {
-  const raw = process.env.VENDOR_EMAILS?.trim();
+/** Each vendor's addresses, by vendorKey of its name. */
+async function vendorEmails(db: Firestore): Promise<Map<string, string[]>> {
+  const snapshot = await db.collection("vendorContacts").get();
   const map = new Map<string, string[]>();
-  if (!raw) return { map, problem: "VENDOR_EMAILS is not set — no vendor will be emailed." };
-  try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    for (const [name, value] of Object.entries(parsed)) {
-      const list = Array.isArray(value)
-        ? value.filter((item): item is string => typeof item === "string" && item.includes("@"))
-        : emailList(typeof value === "string" ? value : "");
-      if (list.length > 0) map.set(vendorName(name), list);
-    }
-    return { map, problem: null };
-  } catch {
-    return { map, problem: "VENDOR_EMAILS is not valid JSON — no vendor will be emailed." };
+  for (const doc of snapshot.docs) {
+    const data = doc.data();
+    const key = vendorKey(typeof data.name === "string" ? data.name : "");
+    const list = addresses(data.emails);
+    if (key && list.length > 0) map.set(key, [...new Set([...(map.get(key) ?? []), ...list])]);
   }
+  return map;
 }
 
 function numbers(value: unknown): number[] {
@@ -145,16 +143,21 @@ export async function sendRegistrationReminders({
     config: [],
   };
 
-  const office = emailList(process.env.REGISTRATION_EMAIL_TO);
-  if (office.length === 0) {
-    summary.config.push("REGISTRATION_EMAIL_TO is not set — the office will not be emailed.");
-  }
-  const vendors = vendorEmails();
-  if (vendors.problem) summary.config.push(vendors.problem);
-  const replyTo = emailList(process.env.REGISTRATION_EMAIL_REPLY_TO);
-
   const db = getAdminDb();
-  const snapshot = await db.collection("vans").get();
+  const [settings, vendorMap, snapshot] = await Promise.all([
+    db.collection("emailSettings").doc("registration").get(),
+    vendorEmails(db),
+    db.collection("vans").get(),
+  ]);
+
+  const office = addresses(settings.data()?.team);
+  if (office.length === 0) {
+    summary.config.push("No SWFL team addresses — the team will not be emailed.");
+  }
+  if (vendorMap.size === 0) {
+    summary.config.push("No vendor addresses — no vendor will be emailed.");
+  }
+  const replyTo = emailList(process.env.REGISTRATION_EMAIL_REPLY_TO);
 
   for (const doc of snapshot.docs) {
     const data = doc.data();
@@ -181,7 +184,7 @@ export async function sendRegistrationReminders({
         vendor: numbers(noticeData.vendor),
       };
 
-      const vendorTo = van.vendor ? (vendors.map.get(vendorName(van.vendor)) ?? []) : [];
+      const vendorTo = van.vendor ? (vendorMap.get(vendorKey(van.vendor)) ?? []) : [];
       const officeDue = office.length > 0 && dueReminder(daysLeft, notice.office) !== null;
       const vendorDue = dueReminder(daysLeft, notice.vendor) !== null;
 

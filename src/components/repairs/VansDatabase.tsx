@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { addVan, editVan, removeVan, type VanFields } from "@/lib/db/vans";
 import { vanKey } from "@/lib/vans";
+import { RegistrationEmails } from "@/components/repairs/RegistrationEmails";
 import { stationDateKey } from "@/lib/constants";
 import {
   daysLeftPhrase,
@@ -133,6 +134,8 @@ export function VansDatabase({
           />
         </div>
       ) : null}
+
+      {canManage ? <RegistrationEmails vans={vans} uid={uid} onError={onError} /> : null}
 
       <div className="flex items-center gap-3">
         <div className="relative min-w-0 flex-1">

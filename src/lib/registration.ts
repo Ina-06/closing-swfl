@@ -74,6 +74,33 @@ export function registrationLabel(expires: string): string {
   }).format(new Date(`${expires}T12:00:00Z`));
 }
 
+/** Looks like an address: something@something.something, no spaces. */
+export function isEmail(value: string): boolean {
+  return /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/.test(value);
+}
+
+/**
+ * Addresses typed in one box — commas, semicolons, spaces or new lines
+ * between them — lower-cased, de-duplicated, in the order typed. Anything that
+ * is not an address comes back in `invalid` so the form can say so.
+ */
+export function parseEmails(raw: string): { emails: string[]; invalid: string[] } {
+  const emails: string[] = [];
+  const invalid: string[] = [];
+  for (const part of raw.split(/[,;\s]+/)) {
+    const address = part.trim().toLowerCase();
+    if (!address) continue;
+    if (!isEmail(address)) invalid.push(part.trim());
+    else if (!emails.includes(address)) emails.push(address);
+  }
+  return { emails, invalid };
+}
+
+/** "  Vendor  A " and "vendor a" are the same vendor. */
+export function vendorKey(name: string): string {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 /** "in 7 days", "tomorrow", "today", "3 days ago". */
 export function daysLeftPhrase(daysLeft: number): string {
   if (daysLeft === 0) return "today";
