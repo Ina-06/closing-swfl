@@ -1,17 +1,15 @@
-import { renderToBuffer } from "@react-pdf/renderer";
-import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
-import { SheetDocument } from "@/lib/pdf/SheetDocument";
-import { sheetRows } from "@/lib/sheet";
+import { fail, requireStaff } from "@/lib/server/auth";
+import { renderSheet } from "@/lib/server/renderSheet";
 import { mintPass, passIsGood } from "@/lib/sheetPass";
-import type { Entry } from "@/lib/types";
 
 /**
  * The closing sheet, as the PDF that gets posted to the group.
  *
  * Either role can ask for it. The closer generates it at End Day and sends it to the
  * group; the dispatcher pulls the same night again from the archive weeks
- * later. It is rendered fresh from the entries every time — the entries are the
- * record, the PDF is only a view of them — so both are read-only operations
+ * later. This route renders it fresh from the entries every time — Rebuild, in
+ * Past nights — and the copy filed at close lives in Storage, served by
+ * /api/sheet/archived. Both are read-only operations
  * against a night that already exists, and there is nothing here that needs the
  * stricter of the two roles.
  *
@@ -23,73 +21,6 @@ import type { Entry } from "@/lib/types";
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function fail(message: string, status: number) {
-  return Response.json({ error: message }, { status });
-}
-
-async function requireStaff(request: Request) {
-  const header = request.headers.get("authorization") ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  if (!token) return null;
-
-  try {
-    const decoded = await getAdminAuth().verifyIdToken(token);
-    const role = decoded.role;
-    return role === "dispatcher" || role === "closer" || role === "onetime"
-      ? decoded
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-type Sheet = { bytes: Uint8Array<ArrayBuffer>; filename: string; rows: number };
-
-/**
- * Read the night and draw it.
- *
- * Returns either the finished file or the Response explaining why there isn't
- * one, so both handlers report the same failures in the same words.
- */
-async function renderSheet(nightKey: string): Promise<Sheet | Response> {
-  const db = getAdminDb();
-  const sessionRef = db.collection("sessions").doc(nightKey);
-
-  let managedBy = "";
-  let rows;
-  try {
-    const [session, entries] = await Promise.all([
-      sessionRef.get(),
-      sessionRef.collection("entries").orderBy("seq").get(),
-    ]);
-
-    if (!session.exists) return fail("There is no sheet for that night.", 404);
-
-    const data = session.data() ?? {};
-    managedBy = typeof data.managedBy === "string" ? data.managedBy : "";
-    rows = sheetRows(entries.docs.map((doc) => doc.data() as Entry));
-  } catch (error) {
-    console.error("Could not read the night:", error);
-    return fail("Could not read that night's sheet.", 500);
-  }
-
-  let buffer: Buffer;
-  try {
-    buffer = await renderToBuffer(
-      <SheetDocument nightKey={nightKey} managedBy={managedBy} rows={rows} />,
-    );
-  } catch (error) {
-    console.error("Could not render the PDF:", error);
-    return fail("The sheet would not render. Nothing has been changed.", 500);
-  }
-
-  return {
-    bytes: new Uint8Array(buffer),
-    filename: `closing-${nightKey}.pdf`,
-    rows: rows.length,
-  };
-}
 
 /**
  * The link that opens this night in the browser's own PDF viewer.

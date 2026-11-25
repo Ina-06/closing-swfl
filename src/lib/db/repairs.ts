@@ -15,9 +15,13 @@ import {
   updateDoc,
   writeBatch,
 } from "firebase/firestore";
-import type { DocumentData } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
-import { matchKeyFor, unseenRepairs, type NewRepair } from "@/lib/repairs";
+import {
+  matchKeyFor,
+  readTask as toTask,
+  unseenRepairs,
+  type NewRepair,
+} from "@/lib/repairs";
 import type { RepairTask } from "@/lib/types";
 
 /**
@@ -47,39 +51,6 @@ const MAX_TASKS = 500;
 
 function repairsCollection() {
   return collection(getDb(), COLLECTION);
-}
-
-/**
- * Read a task defensively, the same way entries and sessions are read.
- *
- * Firestore hands back a local snapshot the instant a write is queued, so a
- * half-written document is something every screen can see. Every field gets a
- * default rather than being trusted.
- *
- * `matchKey` is always computed from the title rather than read off the
- * document, even though it is written alongside it. It is derived data with
- * nothing querying it, and deriving it on the way in means a job written by
- * hand straight into the console, or one written by an older version of this
- * app that keyed on a separate van field, still takes part in de-duplication
- * rather than silently being the one fault that gets posted every night.
- */
-function toTask(data: DocumentData, id: string): RepairTask {
-  const string = (value: unknown) => (typeof value === "string" ? value : "");
-  const title = string(data.title);
-
-  return {
-    id,
-    title,
-    source: data.source === "endDay" ? "endDay" : "manual",
-    nightKey: string(data.nightKey),
-    driverName: string(data.driverName),
-    matchKey: matchKeyFor(title),
-    done: data.done === true,
-    doneAt: data.doneAt ?? null,
-    createdAt: data.createdAt ?? null,
-    updatedAt: data.updatedAt ?? null,
-    updatedBy: string(data.updatedBy),
-  };
 }
 
 /**

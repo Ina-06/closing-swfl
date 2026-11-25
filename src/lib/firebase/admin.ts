@@ -1,6 +1,7 @@
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 
 /**
  * Server-side Firebase, for privileged work only.
@@ -66,4 +67,23 @@ export function getAdminAuth(): Auth {
 
 export function getAdminDb(): Firestore {
   return getFirestore(getAdminApp());
+}
+
+/**
+ * The bucket the closing sheets are filed in.
+ *
+ * Named by FIREBASE_STORAGE_BUCKET rather than guessed from the project, so
+ * the one place the PDFs live is written down in the environment next to the
+ * key that reaches it. Every read and write of it goes through here, with the
+ * service account: storage.rules denies every client outright and stays that
+ * way, and no public or signed URL is ever handed out.
+ */
+export function getAdminBucket() {
+  const name = process.env.FIREBASE_STORAGE_BUCKET?.trim();
+  if (!name) {
+    throw new Error(
+      "FIREBASE_STORAGE_BUCKET is not set. It is the bucket name from Firebase console → Storage, without gs://.",
+    );
+  }
+  return getStorage(getAdminApp()).bucket(name.replace(/^gs:\/\//, ""));
 }

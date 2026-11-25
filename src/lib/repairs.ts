@@ -97,6 +97,50 @@ export type NewRepair = {
   matchKey: string;
 };
 
+/**
+ * Read a task defensively, the same way entries and sessions are read.
+ *
+ * Here rather than beside the listener so that the two things that read the
+ * board — the phones, and the 7 AM job on the server — read it identically.
+ * The server's de-duplication is only the same as End Day's if it is fed the
+ * same tasks, so this is the one reader both of them use.
+ *
+ * Firestore hands back a local snapshot the instant a write is queued, so a
+ * half-written document is something every screen can see. Every field gets a
+ * default rather than being trusted.
+ *
+ * `matchKey` is always computed from the title rather than read off the
+ * document, even though it is written alongside it. It is derived data with
+ * nothing querying it, and deriving it on the way in means a job written by
+ * hand straight into the console, or one written by an older version of this
+ * app that keyed on a separate van field, still takes part in de-duplication
+ * rather than silently being the one fault that gets posted every night.
+ *
+ * The timestamps are passed through as they come. The client SDK's Timestamp
+ * and the Admin SDK's are different classes with the same `toMillis`, which is
+ * all anything here calls on them.
+ */
+export function readTask(data: Record<string, unknown>, id: string): RepairTask {
+  const string = (value: unknown) => (typeof value === "string" ? value : "");
+  const stamp = (value: unknown) =>
+    (value ?? null) as RepairTask["createdAt"];
+  const title = string(data.title);
+
+  return {
+    id,
+    title,
+    source: data.source === "endDay" ? "endDay" : "manual",
+    nightKey: string(data.nightKey),
+    driverName: string(data.driverName),
+    matchKey: matchKeyFor(title),
+    done: data.done === true,
+    doneAt: stamp(data.doneAt),
+    createdAt: stamp(data.createdAt),
+    updatedAt: stamp(data.updatedAt),
+    updatedBy: string(data.updatedBy),
+  };
+}
+
 /** Hand-typed on the board. No night, no driver — just the line. */
 export function manualRepair(title: string): NewRepair {
   return {

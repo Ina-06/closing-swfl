@@ -5,6 +5,7 @@ import {
   collection,
   deleteField,
   doc,
+  getDocFromServer,
   limit,
   onSnapshot,
   orderBy,
@@ -17,7 +18,7 @@ import type { DocumentData } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
 import { endFleetRound, startFleetRound } from "@/lib/db/fleet";
 import { stationNightKey } from "@/lib/constants";
-import type { RosterEntry, Session } from "@/lib/types";
+import type { ArchivedPdf, RosterEntry, Session } from "@/lib/types";
 
 const COLLECTION = "sessions";
 
@@ -77,6 +78,37 @@ function toSession(data: DocumentData, id: string): Session {
     broadcastNote:
       typeof data.broadcastNote === "string" ? data.broadcastNote.trim() : "",
     allReturningAt: data.allReturningAt ?? null,
+    closedAt: data.closedAt ?? null,
+    closedBy:
+      data.closedBy === "auto" || data.closedBy === "manual"
+        ? data.closedBy
+        : null,
+    archivedPdf: toArchivedPdf(data.archivedPdf),
+    pdfVersions: Array.isArray(data.pdfVersions)
+      ? data.pdfVersions
+          .map(toArchivedPdf)
+          .filter((pdf: ArchivedPdf | null): pdf is ArchivedPdf => pdf !== null)
+      : [],
+  };
+}
+
+/**
+ * One filed PDF, or null if what is there is not one.
+ *
+ * The path is the only field that matters — without it there is nothing to
+ * fetch — so a record with no path is treated as no record at all rather than
+ * a button that opens nothing.
+ */
+function toArchivedPdf(raw: unknown): ArchivedPdf | null {
+  if (!raw || typeof raw !== "object") return null;
+  const data = raw as DocumentData;
+  if (typeof data.path !== "string" || data.path === "") return null;
+  return {
+    path: data.path,
+    at: data.at ?? null,
+    by: typeof data.by === "string" ? data.by : "",
+    auto: data.auto === true,
+    rows: typeof data.rows === "number" ? data.rows : 0,
     closedAt: data.closedAt ?? null,
   };
 }
@@ -233,12 +265,23 @@ export async function markAllReturning(nightKey: string, updatedBy: string) {
  * Sets a status and a time; it does not remove anything, here or anywhere.
  * The PDF is generated separately, for the same reason All Returning splits in
  * two — the sheet is closed the moment he says so, and a document being
- * rendered is not a reason to leave him looking at a spinner.
+ * rendered is not a reason to leave him looking at a spinner. Filing the PDF
+ * in Storage is separate again (EndDay calls /api/sheet/archive), and if that
+ * never lands the hourly job files it instead.
+ *
+ * Rejected by the rules if the night is already closed. That is the 7 AM job
+ * having got there first while this write sat queued on a phone with no
+ * signal, and the close it already made — its time, its PDF — is the one that
+ * stands. See isAlreadyClosed.
  */
 export async function closeSession(nightKey: string, updatedBy: string) {
   await updateDoc(doc(getDb(), COLLECTION, nightKey), {
     status: "closed",
     closedAt: serverTimestamp(),
+    // Said out loud, because the server closes nights too now — see
+    // /api/cron/autoclose. "manual" is the only value the rules let a phone
+    // write here; "auto" is the server's alone.
+    closedBy: "manual",
     updatedAt: serverTimestamp(),
     updatedBy,
   });
@@ -254,6 +297,34 @@ export async function closeSession(nightKey: string, updatedBy: string) {
 }
 
 /**
+ * Whether a failed close failed because the night was closed already.
+ *
+ * The rules turn away a close on a closed night, and Firestore reports that as
+ * permission-denied. On End Day that is not an error worth a red box: the night
+ * is closed, which is what he asked for.
+ */
+export async function isAlreadyClosed(
+  nightKey: string,
+  error: unknown,
+): Promise<boolean> {
+  const denied =
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: unknown }).code === "permission-denied";
+  if (!denied) return false;
+
+  // Permission-denied has other causes too — a stand-in's code revoked
+  // mid-night is one — so the night itself is asked, from the server rather
+  // than the cache, before the error is called anything other than an error.
+  try {
+    const fresh = await getDocFromServer(doc(getDb(), COLLECTION, nightKey));
+    return fresh.data()?.status === "closed";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Closed by mistake, or a driver turned up after End Day.
  *
  * The dispatcher's only, because it undoes something the closer did and the two of
@@ -264,6 +335,10 @@ export async function reopenSession(nightKey: string, updatedBy: string) {
   await updateDoc(doc(getDb(), COLLECTION, nightKey), {
     status: "allReturning",
     closedAt: null,
+    // An open night has not been closed by anybody. The filed PDFs stay
+    // exactly where they are — archivedPdf and pdfVersions are not touched,
+    // and the next close files a new version beside them.
+    closedBy: deleteField(),
     updatedAt: serverTimestamp(),
     updatedBy,
   });

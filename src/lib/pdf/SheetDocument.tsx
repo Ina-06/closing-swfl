@@ -183,10 +183,20 @@ export function SheetDocument({
   nightKey,
   managedBy,
   rows,
+  autoClosedAt = null,
 }: {
   nightKey: string;
   managedBy: string;
   rows: SheetRow[];
+  /**
+   * When the server closed this night because nobody pressed End Day, as a
+   * station time ("7:05 AM"), or null for a night somebody closed by hand.
+   *
+   * Said on the sheet itself because the sheet travels on its own — it is
+   * forwarded and printed, and whoever reads the N/A cells on it has to be able
+   * to tell "nobody clocked him out" apart from "the closer left it blank".
+   */
+  autoClosedAt?: string | null;
 }) {
   const date = stationDateLabel(new Date(`${nightKey}T12:00:00Z`));
 
@@ -288,7 +298,12 @@ export function SheetDocument({
         </View>
 
         <View style={styles.footer} fixed>
-          <Text>Closing — {STATION_CODE}</Text>
+          <Text>
+            Closing — {STATION_CODE}
+            {autoClosedAt
+              ? `   ·   Auto-closed at ${autoClosedAt} — End Day was not pressed`
+              : ""}
+          </Text>
           <Text
             render={({ pageNumber, totalPages }) =>
               `${pageNumber} of ${totalPages}`

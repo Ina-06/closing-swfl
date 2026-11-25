@@ -1,5 +1,5 @@
 import { CHECKS, stationTimeLabel, type CheckField } from "@/lib/constants";
-import type { Entry } from "@/lib/types";
+import type { Entry, RosterEntry } from "@/lib/types";
 
 /**
  * One line of the paper sheet.
@@ -70,10 +70,48 @@ export function printable(text: string): string {
  * same column, because on paper they always were. The distinction lives on the
  * two screens, where someone can still act on it.
  */
-function timeLabel(entry: Entry): string {
+function timeLabel(entry: Entry, closed: boolean): string {
   if (entry.clockOut) return stationTimeLabel(entry.clockOut.toDate());
-  return entry.clockOutManual.trim();
+  const typed =
+    typeof entry.clockOutManual === "string" ? entry.clockOutManual.trim() : "";
+  if (typed !== "") return typed;
+  return closed ? NOT_AVAILABLE : "";
 }
+
+/**
+ * What a time cell says when the night is over and there is still no time.
+ *
+ * Only ever printed, never stored. A blank cell on an open night means "not
+ * back yet", which is true and is what the sheet has always said; the same
+ * blank on a closed night reads as somebody forgetting to fill it in, when what
+ * actually happened is that no time was ever recorded. Writing "N/A" into
+ * Firestore would be the app inventing a value, and a time corrected the next
+ * morning would then have to fight it — so it lives here, in the rendering, and
+ * Rebuild picks up the real time the moment anybody enters one.
+ */
+export const NOT_AVAILABLE = "N/A";
+
+/** Every check blank — the row exists, but nobody stood at a van for it. */
+function blankChecks(): Record<CheckField, Mark> {
+  const checks = {} as Record<CheckField, Mark>;
+  for (const check of CHECKS) checks[check.field] = "";
+  return checks;
+}
+
+/** Who the sheet is for, beyond the entries themselves. */
+export type SheetContext = {
+  /** The night is closed: missing times print N/A, and nobody is left off. */
+  closed?: boolean;
+  /**
+   * Tonight's roster, for the drivers dispatch never entered.
+   *
+   * Read only when the night is closed. While it is open they are simply not
+   * in yet — they are on the still-to-call-in list on both screens, which is
+   * where somebody can act on it — and putting them on the sheet early would
+   * make a half-finished night look like a finished one.
+   */
+  roster?: RosterEntry[];
+};
 
 /**
  * Rescues as the paper reads them: the sign kept, because "23" and "-23" are
@@ -90,8 +128,22 @@ function rescueCell(raw: unknown): Pick<SheetRow, "rescues" | "rescueSign"> {
   return { rescues: "", rescueSign: "" };
 }
 
-export function sheetRows(entries: Entry[]): SheetRow[] {
-  return entries.map((entry, index) => {
+/**
+ * The night as rows on the sheet.
+ *
+ * On a closed night two things change, and both are about the same fact: the
+ * night ended with people unaccounted for. A driver with a row but no time gets
+ * N/A in the time cell. A driver on the roster who never got a row at all —
+ * dispatch never heard from him — gets a row of his own at the bottom, marked
+ * "(not entered)", built from the roster alone. No entry is created for him;
+ * the entries are still the record, and this is only the sheet admitting who
+ * is missing from it rather than quietly printing a shorter list.
+ */
+export function sheetRows(
+  entries: Entry[],
+  { closed = false, roster = [] }: SheetContext = {},
+): SheetRow[] {
+  const rows = entries.map((entry, index) => {
     const checks = {} as Record<CheckField, Mark>;
     for (const check of CHECKS) checks[check.field] = mark(entry[check.field]);
 
@@ -108,11 +160,35 @@ export function sheetRows(entries: Entry[]): SheetRow[] {
       name: printable(
         entry.secondTrip ? `${entry.fullName} (2nd)` : entry.fullName,
       ),
-      time: timeLabel(entry),
+      time: timeLabel(entry, closed),
       ...rescueCell(entry.rescues),
-      van: entry.van.trim(),
+      van: typeof entry.van === "string" ? entry.van.trim() : "",
       checks,
-      vanIssues: printable(entry.vanIssues),
+      vanIssues: printable(
+        typeof entry.vanIssues === "string" ? entry.vanIssues : "",
+      ),
     };
   });
+
+  if (!closed) return rows;
+
+  // Matched on driverId, so a driver with two rows (a second trip) is not
+  // added a third time, and a roster line with no id cannot match anything.
+  const entered = new Set(entries.map((entry) => entry.driverId));
+  for (const driver of roster) {
+    if (driver.driverId === "" || entered.has(driver.driverId)) continue;
+    entered.add(driver.driverId);
+    rows.push({
+      number: String(rows.length + 1),
+      name: printable(`${driver.fullName} (not entered)`),
+      time: NOT_AVAILABLE,
+      rescues: "",
+      rescueSign: "",
+      van: "",
+      checks: blankChecks(),
+      vanIssues: "",
+    });
+  }
+
+  return rows;
 }

@@ -12,7 +12,7 @@ import { Button, buttonClass } from "@/components/ui/Button";
 import { ErrorNote, SoftWarning } from "@/components/ui/Field";
 import { postAuthed, shareOrSave } from "@/lib/api";
 import { pushRepairs } from "@/lib/db/repairs";
-import { closeSession } from "@/lib/db/sessions";
+import { closeSession, isAlreadyClosed } from "@/lib/db/sessions";
 import { repairsFromEntries } from "@/lib/repairs";
 import { stationDateLabel } from "@/lib/constants";
 import type { Entry, Session } from "@/lib/types";
@@ -115,10 +115,9 @@ export function EndDay({
   /**
    * Render tonight's sheet and hold on to it.
    *
-   * Nothing is filed anywhere on the way past — the PDF goes to the group chat,
-   * which is where anyone actually looks for it. Any night can be rendered
-   * again from its entries under Past nights, so there is nothing here that
-   * only exists once.
+   * Nothing is filed on the way past — this is the copy for the group chat.
+   * The filed copy is made separately, by the server, once the night closes
+   * (see end()), so a slow upload can never sit between him and Share.
    *
    * The View link rides back on the same response. One round trip gets both,
    * and both are in hand before either button is touched.
@@ -144,9 +143,10 @@ export function EndDay({
   /**
    * Start building the moment the night is closed, however it got closed.
    *
-   * Usually that is End Day on this phone, but the dispatcher can close a night
-   * from their end, and the closer can come back to a closed one after a reload. All
-   * three land on a pair of buttons with the file already behind them.
+   * Usually that is End Day on this phone, but the server closes a night that
+   * nobody ended by 7 AM, and the closer can come back to a closed one after a
+   * reload. All three land on a pair of buttons with the file already behind
+   * them.
    *
    * A failure here is swallowed on purpose. He has not asked for anything yet,
    * the buttons below work either way, and they will say what went wrong if and
@@ -248,11 +248,36 @@ export function EndDay({
       await closeSession(nightKey, uid);
       setConfirming(false);
     } catch (err) {
+      /**
+       * Turned away because the night is already closed — the 7 AM job got
+       * there while this press sat queued on a phone with no signal. That job
+       * has already posted the van issues and filed the sheet, so there is
+       * nothing left for this press to do, and nothing to apologise for.
+       */
+      if (await isAlreadyClosed(nightKey, err)) {
+        setConfirming(false);
+        setNote("This night was already closed at 7 AM. Its sheet is filed in Past nights.");
+        return;
+      }
       setError(err instanceof Error ? err.message : "That did not go through.");
       return;
     } finally {
       setBusy(false);
     }
+
+    /**
+     * File tonight's PDF in Storage, so Past nights has the sheet exactly as
+     * it was when the night closed.
+     *
+     * Fire and forget, like the repairs push below and for the same reason:
+     * nothing the closer can press waits on it. Share and View build their own
+     * copy and never look at this one. If it fails — no signal in the yard is
+     * the usual reason — the hourly job finds a closed night with nothing
+     * filed and files it then, so there is nothing to tell him either way.
+     */
+    postAuthed("/api/sheet/archive", { nightKey }).catch((error: unknown) =>
+      console.warn("Could not file the sheet; the hourly job will:", error),
+    );
 
     /**
      * Only what the board has not already got.
@@ -493,8 +518,8 @@ export function EndDay({
           <div className="mt-3">
             <SoftWarning>
               {pending} {pending === 1 ? "driver is" : "drivers are"} on tonight&rsquo;s
-              roster but never made it onto the sheet. They will not be on the
-              PDF.
+              roster but never made it onto the sheet. They will be on the PDF
+              as &ldquo;not entered&rdquo;, with no time.
             </SoftWarning>
           </div>
         ) : null}

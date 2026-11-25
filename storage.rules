@@ -2,19 +2,18 @@ rules_version = '2';
 
 // Closing — SWFL, Storage
 //
-// This app does not use Storage at all. The spreadsheet is downloaded and
-// pasted into the station's shared workbook; the PDF is shared straight into
-// the WhatsApp group. Both are rendered fresh from the night's entries every
-// time they are asked for, which is what Past nights does — the entries are the
-// record, and a second copy of a file in a bucket is a thing to keep, not an
-// archive.
+// Storage holds one thing: the closing sheet PDF filed for every night when it
+// closes, under sheets/{night}/. It is written by End Day's /api/sheet/archive
+// and by the 7 AM job, and read by /api/sheet/archived — all three on the
+// server, with the service account, which these rules do not apply to.
 //
-// The file stays here as a lock on a door we are not using. If Storage is ever
-// switched on in the console it starts on a default rule that lets any signed-in
-// user read and write, and this app has signed-in users. These files would carry
-// every driver's full name, so the default is not one to leave standing.
+// So no client reads or writes anything here, ever, and this file says so.
+// The PDFs carry every driver's full name and clock-out; the only way to one is
+// through the same signed-in role check as rebuilding the sheet. No public or
+// signed download URL is ever handed out.
 //
-// If Storage is turned on: Firebase console → Storage → Rules → paste → Publish.
+// Firebase console → Storage → Rules → paste → Publish. Storage's default rule
+// lets any signed-in user read and write, and this app has signed-in users.
 
 service firebase.storage {
   match /b/{bucket}/o {

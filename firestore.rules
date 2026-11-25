@@ -136,8 +136,8 @@ service cloud.firestore {
     }
 
     match /sessions/{sessionId} {
-      // The closer's session-level jobs: End Day — flip the status and attach
-      // the PDF — and the notes he leaves himself about drivers who have no row
+      // The closer's session-level jobs: End Day — flip the status and say
+      // who closed it — and the notes he leaves himself about drivers who have no row
       // yet. Everything else about the night is the dispatcher's.
       //
       // `rosterNotes` is his own map and nothing else's. `roster` and
@@ -150,11 +150,38 @@ service cloud.firestore {
       // rules: whoever finds the thing out is the one who should be able to say
       // it, and half of what everybody needs to hear is only discovered once
       // somebody is stood in the yard.
+      //
+      // `closedBy` is here because End Day says who closed the night. What it
+      // may say is checked below in serverOwnedIntact(), for every role.
       function closerSessionFields() {
         return changedKeys().hasOnly([
-          'status', 'closedAt', 'pdfUrl', 'rosterNotes', 'broadcastNote',
+          'status', 'closedAt', 'closedBy', 'rosterNotes', 'broadcastNote',
           'updatedAt', 'updatedBy'
         ]);
+      }
+
+      // What only the server writes on a night, held for every role at once —
+      // including the dispatcher, whose update is otherwise unrestricted.
+      //
+      //   - `archivedPdf` and `pdfVersions` are the record of which PDFs have
+      //     been filed in Storage. They are written by the Admin SDK, which
+      //     these rules do not apply to, and a client that could write them
+      //     could point Past nights at a file that was never this night's.
+      //   - `closedBy` may only ever be "manual" from a phone, or be removed
+      //     (reopening a night removes it). "auto" is the 7 AM job's word, and
+      //     a night that says the server closed it has to mean it.
+      //   - A night that is already closed cannot be closed again. This is the
+      //     closer's End Day, queued on a phone with no signal, landing after
+      //     the 7 AM job has already closed the night and filed its sheet. The
+      //     close that is already there stands; End Day asks the server and
+      //     says "already closed" rather than showing an error.
+      function serverOwnedIntact() {
+        return !changedKeys().hasAny(['archivedPdf', 'pdfVersions'])
+               && (!changedKeys().hasAny(['closedBy'])
+                   || request.resource.data.get('closedBy', null) in [null, 'manual'])
+               && (resource.data.get('status', '') != 'closed'
+                   || !changedKeys().hasAny(['status', 'closedAt', 'closedBy'])
+                   || request.resource.data.get('status', '') != 'closed');
       }
 
       // HR's one write in the whole database.
@@ -171,9 +198,10 @@ service cloud.firestore {
 
       allow read: if signedIn();
       allow create: if isDispatcher();
-      allow update: if isDispatcher()
-                    || (isCloser() && closerSessionFields())
-                    || (isHr() && hrSessionFields());
+      allow update: if serverOwnedIntact()
+                    && (isDispatcher()
+                        || (isCloser() && closerSessionFields())
+                        || (isHr() && hrSessionFields()));
       allow delete: if false;
 
       match /entries/{entryId} {

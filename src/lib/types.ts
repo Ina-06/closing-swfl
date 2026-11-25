@@ -376,4 +376,44 @@ export type Session = {
   broadcastNote: string;
   allReturningAt: Timestamp | null;
   closedAt: Timestamp | null;
+  /**
+   * Who closed the night: the closer pressing End Day, or the server at the
+   * 7 AM rollover because nobody did. Null on an open night and on every night
+   * closed before this field existed — those were all End Day, but the app does
+   * not claim to know it.
+   *
+   * Written by the Admin SDK as "auto" only. A client may write "manual" and
+   * nothing else — see firestore.rules.
+   */
+  closedBy: "manual" | "auto" | null;
+  /** The PDF filed in Storage for the latest close, or null if none yet. */
+  archivedPdf: ArchivedPdf | null;
+  /**
+   * Every PDF ever filed for this night, oldest first.
+   *
+   * A night reopened and closed again files a new one and keeps the old: the
+   * sheet that went to the group at midnight and the corrected one from the
+   * morning are both things somebody may need to see.
+   */
+  pdfVersions: ArchivedPdf[];
+};
+
+/**
+ * One PDF filed in Storage. Written only by the server.
+ *
+ * `closedAt` is the close it was filed for, copied off the session at the time.
+ * It is how anything can tell whether the latest close has its copy yet: a
+ * night reopened and closed again has a new closedAt, its archivedPdf still
+ * carries the old one, and the mismatch is what says "file another".
+ */
+export type ArchivedPdf = {
+  /** Object path in the bucket, `sheets/{night}/closing-{night}-{stamp}.pdf`. */
+  path: string;
+  at: Timestamp | null;
+  /** The uid that asked for it, or "system" for the 7 AM job. */
+  by: string;
+  /** Filed by the 7 AM job rather than by End Day. */
+  auto: boolean;
+  rows: number;
+  closedAt: Timestamp | null;
 };

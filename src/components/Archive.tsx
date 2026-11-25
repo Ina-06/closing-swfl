@@ -5,21 +5,36 @@ import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/Field";
 import { postAuthed, saveBlob, shareOrSave, shareSheetOnly } from "@/lib/api";
 import { useSessions } from "@/lib/db/sessions";
-import { stationDateLabel } from "@/lib/constants";
+import { stationDateLabel, stationTimeLabel } from "@/lib/constants";
 import type { Session, SessionStatus } from "@/lib/types";
 
 /**
  * Every night on record.
  *
- * The files are rebuilt on demand rather than fetched from anywhere, and that
- * is the whole design of this screen. A stored file is one that can go missing,
- * or expire, or be the version from before someone corrected a clock-out. The
- * entries are the record; the PDF is a rendering of them, and it can be
- * rendered again from any night that was ever opened.
+ * Two copies of every closed night's sheet, and they answer two different
+ * questions.
  *
- * On a phone that takes two taps rather than one — see `pull`. Nothing here
- * deletes. There is no control for it and no route behind it.
+ * Saved PDF is the sheet as it was when the night closed — filed in Storage by
+ * End Day, or by the 7 AM job when nobody pressed it. It is what went to the
+ * group, and it does not change when a time is corrected the next morning.
+ * That is the point of keeping it.
+ *
+ * Rebuild is the night as its entries read now, rendered on the spot. A night
+ * corrected after it closed reads differently here, and a night that has no
+ * saved copy yet — closed in the last hour with no signal — can still be had.
+ *
+ * On a phone either one takes two taps rather than one — see `pull`. Nothing
+ * here deletes. There is no control for it and no route behind it.
  */
+
+/** What a button on a night fetches. */
+type Kind = "saved" | "sheet" | "returns";
+
+const ROUTE: Record<Kind, string> = {
+  saved: "/api/sheet/archived",
+  sheet: "/api/sheet",
+  returns: "/api/returns",
+};
 
 const STATUS: Record<SessionStatus, { label: string; tone: string }> = {
   open: { label: "Open", tone: "border-brand-line bg-brand-soft text-brand" },
@@ -52,11 +67,11 @@ export function Archive({ canBuildReturns }: { canBuildReturns: boolean }) {
    * and it has to be a tap that has not just spent itself on a network request.
    * Building inside the gesture is what stopped the share sheet opening at all.
    */
-  async function pull(nightKey: string, kind: "sheet" | "returns") {
+  async function pull(nightKey: string, kind: Kind) {
     const key = `${nightKey}:${kind}`;
     const filename =
-      kind === "sheet" ? `closing-${nightKey}.pdf` : `returns-${nightKey}.xlsx`;
-    const label = `${kind === "sheet" ? "Closing sheet" : "Returns"} — ${stationDateLabel(
+      kind === "returns" ? `returns-${nightKey}.xlsx` : `closing-${nightKey}.pdf`;
+    const label = `${kind === "returns" ? "Returns" : "Closing sheet"} — ${stationDateLabel(
       new Date(`${nightKey}T12:00:00Z`),
     )}`;
 
@@ -76,7 +91,7 @@ export function Archive({ canBuildReturns }: { canBuildReturns: boolean }) {
     setFailure(null);
     setHeld(null);
     try {
-      const response = await postAuthed(`/api/${kind}`, { nightKey });
+      const response = await postAuthed(ROUTE[kind], { nightKey });
       const blob = await response.blob();
       if (shareSheetOnly()) {
         setHeld({ key, blob });
@@ -137,9 +152,10 @@ export function Archive({ canBuildReturns }: { canBuildReturns: boolean }) {
       </ul>
 
       <p className="pt-1 text-[12px] leading-relaxed text-ink-faint">
-        Files are rebuilt from the night&rsquo;s entries each time you ask for
-        one, so they are never out of date and never expire. On a phone that is
-        two taps: one to build it, one to send it.
+        Saved PDF is the sheet exactly as it was when the night closed.
+        Rebuild draws it again from the night&rsquo;s entries, so it includes
+        anything corrected since. On a phone either is two taps: one to fetch
+        it, one to send it.
       </p>
     </div>
   );
@@ -159,9 +175,11 @@ function Night({
   /** The one file already built and waiting to be sent, if it is this one. */
   heldKey: string | null;
   canBuildReturns: boolean;
-  onPull: (nightKey: string, kind: "sheet" | "returns") => void;
+  onPull: (nightKey: string, kind: Kind) => void;
 }) {
   const status = STATUS[session.status];
+  const saved = session.archivedPdf;
+  const autoClosed = session.status === "closed" && session.closedBy === "auto";
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-xl border border-line bg-surface px-4 py-3.5">
@@ -175,17 +193,35 @@ function Night({
           >
             {status.label}
           </span>
+          {/* Its own badge, beside the status rather than instead of it: the
+              night is closed either way, and this says nobody pressed End Day. */}
+          {autoClosed ? (
+            <span className="rounded-full border border-line-strong bg-sunken px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink-muted">
+              Auto-closed
+            </span>
+          ) : null}
         </p>
         <p className="mt-1 text-[12px] text-ink-muted">
           {session.totalExpected}{" "}
           {session.totalExpected === 1 ? "driver" : "drivers"}
           {session.managedBy ? ` · ${session.managedBy}` : ""}
         </p>
+        <SavedLine session={session} />
       </div>
 
       <div className="flex flex-wrap gap-2">
+        {saved ? (
+          <File
+            label="Saved PDF"
+            fileKey={`${nightKey}:saved`}
+            primary
+            busy={busy}
+            heldKey={heldKey}
+            onPull={() => onPull(nightKey, "saved")}
+          />
+        ) : null}
         <File
-          label="Sheet PDF"
+          label="Rebuild"
           fileKey={`${nightKey}:sheet`}
           busy={busy}
           heldKey={heldKey}
@@ -215,12 +251,15 @@ function Night({
 function File({
   label,
   fileKey,
+  primary = false,
   busy,
   heldKey,
   onPull,
 }: {
   label: string;
   fileKey: string;
+  /** The button most people want on this night — the saved copy. */
+  primary?: boolean;
   busy: string | null;
   heldKey: string | null;
   onPull: () => void;
@@ -229,12 +268,39 @@ function File({
 
   return (
     <Button
-      variant={held ? "arrived" : "secondary"}
+      variant={held ? "arrived" : primary ? "primary" : "secondary"}
       loading={busy === fileKey}
       disabled={busy !== null}
       onClick={onPull}
+      className="min-h-11"
     >
       {held ? `Send ${label.toLowerCase()}` : label}
     </Button>
+  );
+}
+
+/**
+ * When this night's sheet was saved, and who closed the night.
+ *
+ * "Saved 7:05 AM · Auto-closed" or "Saved 11:42 PM · End Day". A closed night
+ * with nothing saved yet says so — the hourly job will file it — and an open
+ * night says nothing, because there is nothing it should have yet.
+ */
+function SavedLine({ session }: { session: Session }) {
+  const saved = session.archivedPdf;
+
+  if (!saved) {
+    if (session.status !== "closed") return null;
+    return <p className="mt-0.5 text-[12px] text-ink-faint">Not archived yet</p>;
+  }
+
+  const at = saved.at ? stationTimeLabel(saved.at.toDate()) : null;
+  const versions = session.pdfVersions.length;
+
+  return (
+    <p className="mt-0.5 text-[12px] text-ink-muted">
+      {at ? `Saved ${at}` : "Saved"} · {saved.auto ? "Auto-closed" : "End Day"}
+      {versions > 1 ? ` · ${versions} versions` : ""}
+    </p>
   );
 }
