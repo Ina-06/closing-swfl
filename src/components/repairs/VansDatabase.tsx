@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { addVan, editVan, removeVan, type VanFields } from "@/lib/db/vans";
+import { addVan, editVan, removeVan, setVanActive, type VanFields } from "@/lib/db/vans";
 import { removeVanQr, uploadVanQr } from "@/lib/db/vanQr";
 import { shrinkForUpload } from "@/lib/qrImage";
 import {
@@ -36,6 +36,10 @@ import type { VanRecord } from "@/lib/types";
  *
  * A table on a laptop, because columns are what a table is for. Cards on a
  * phone, because five columns at 390px is a table nobody can read.
+ *
+ * Each van is either with us or returned. The Repairs login flips it with the
+ * Yes / No switch at the end of the row; a returned van is kept for the record
+ * only — no reminders, no QR — and sinks, greyed, under Returned vans.
  */
 
 const EMPTY: VanFields = {
@@ -46,8 +50,12 @@ const EMPTY: VanFields = {
   registrationExpires: "",
 };
 
-/** One grid for the heading, the rows and the form, so the columns line up. */
+/**
+ * One grid for the heading, the rows and the form, so the columns line up.
+ * The Repairs login gets one more column at the end, for the With us switch.
+ */
 const COLUMNS = "md:grid md:grid-cols-[110px_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,0.9fr)_160px_56px_132px] md:items-center md:gap-3";
+const COLUMNS_MANAGED = "md:grid md:grid-cols-[110px_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,0.9fr)_160px_56px_88px_96px] md:items-center md:gap-3";
 
 const FIELDS: {
   key: keyof VanFields;
@@ -103,31 +111,43 @@ export function VansDatabase({
   const closeViewer = useCallback(() => setViewingId(null), []);
   /** Vans whose QR is uploading or being removed right now. */
   const [qrBusy, setQrBusy] = useState<ReadonlySet<string>>(new Set());
-  const missingQr = useMemo(() => vans.filter((van) => !van.qrPath).length, [vans]);
+  /** The vans still with us. A returned van's QR and registration no longer matter. */
+  const inService = useMemo(() => vans.filter((van) => van.active), [vans]);
+  const returnedCount = vans.length - inService.length;
+  const missingQr = useMemo(() => inService.filter((van) => !van.qrPath).length, [inService]);
+  const columns = canManage ? COLUMNS_MANAGED : COLUMNS;
   /** Today at the station, for how close each registration is. */
   const today = stationDateKey();
 
   /** Registrations run out or inside the reminder window, soonest first. */
   const due = useMemo(
     () =>
-      vans
+      inService
         .filter((van) => {
           const state = registrationState(van.registrationExpires, today);
           return state === "soon" || state === "expired";
         })
         .sort((a, b) => a.registrationExpires.localeCompare(b.registrationExpires)),
-    [vans, today],
+    [inService, today],
   );
 
+  /** What the search leaves, split: vans with us first, returned ones under them. */
   const showing = useMemo(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-    if (words.length === 0) return vans;
-    return vans.filter((van) => {
-      const haystack =
-        `${van.van} ${van.key} ${van.vendor} ${van.vin} ${van.vendorNumber} ${registrationLabel(van.registrationExpires)} ${van.qrText ?? ""}`.toLowerCase();
-      return words.every((word) => haystack.includes(word));
-    });
+    const found =
+      words.length === 0
+        ? vans
+        : vans.filter((van) => {
+            const haystack =
+              `${van.van} ${van.key} ${van.vendor} ${van.vin} ${van.vendorNumber} ${registrationLabel(van.registrationExpires)} ${van.qrText ?? ""} ${van.active ? "" : "returned"}`.toLowerCase();
+            return words.every((word) => haystack.includes(word));
+          });
+    return {
+      active: found.filter((van) => van.active),
+      returned: found.filter((van) => !van.active),
+    };
   }, [vans, query]);
+  const showingCount = showing.active.length + showing.returned.length;
 
   /** Same shape as the board's run(): local at once, loud if refused. */
   function run(what: string, write: Promise<unknown>) {
@@ -185,7 +205,7 @@ export function VansDatabase({
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
               Add a van
             </h2>
-            <BulkQrButton vans={vans} onError={onError} />
+            <BulkQrButton vans={inService} onError={onError} />
           </div>
           <VanForm
             idPrefix="van-add"
@@ -198,12 +218,12 @@ export function VansDatabase({
         </div>
       ) : null}
 
-      {canManage ? <RegistrationEmails vans={vans} uid={uid} onError={onError} /> : null}
+      {canManage ? <RegistrationEmails vans={inService} uid={uid} onError={onError} /> : null}
 
       {/* The dispatcher has no Add a van card to hang it on. */}
-      {!canManage && canManageQr && vans.length > 0 ? (
+      {!canManage && canManageQr && inService.length > 0 ? (
         <div className="flex justify-end">
-          <BulkQrButton vans={vans} onError={onError} />
+          <BulkQrButton vans={inService} onError={onError} />
         </div>
       ) : null}
 
@@ -225,9 +245,12 @@ export function VansDatabase({
           />
         </div>
         <p className="tnum shrink-0 font-mono text-[13px] font-semibold text-ink-muted">
-          {loading ? "" : `${vans.length} ${vans.length === 1 ? "van" : "vans"}`}
-          {!loading && vans.length > 0 && missingQr > 0 ? (
+          {loading ? "" : `${inService.length} ${inService.length === 1 ? "van" : "vans"}`}
+          {!loading && inService.length > 0 && missingQr > 0 ? (
             <span className="font-medium text-ink-faint"> · {missingQr} missing QR</span>
+          ) : null}
+          {!loading && returnedCount > 0 ? (
+            <span className="font-medium text-ink-faint"> · {returnedCount} returned</span>
           ) : null}
         </p>
       </div>
@@ -271,7 +294,7 @@ export function VansDatabase({
             ? "No vans in the database yet. Add each one above once — its VIN, vendor and vendor number then show on every job for that van, and its registration date sets off the renewal reminders."
             : "No vans in the database yet. They are added from the Repairs login."}
         </p>
-      ) : showing.length === 0 ? (
+      ) : showingCount === 0 ? (
         <p className="rounded-xl border border-dashed border-line-strong bg-surface/60 px-5 py-12 text-center text-[13px] text-ink-faint">
           No van matches &ldquo;{query.trim()}&rdquo;
         </p>
@@ -279,18 +302,24 @@ export function VansDatabase({
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
           {/* Column headings — laptop only; a phone card labels each value. */}
           <div
-            className={`hidden border-b border-line bg-sunken/50 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint ${COLUMNS}`}
+            className={`hidden border-b border-line bg-sunken/50 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint ${columns}`}
           >
             {FIELDS.map((field) => (
               <span key={field.key}>{field.heading ?? field.label}</span>
             ))}
             <span className="text-center">QR</span>
             <span className="sr-only">Actions</span>
+            {canManage ? <span className="text-right">With us</span> : null}
           </div>
 
           <ul className="divide-y divide-line">
-            {showing.map((van) => (
+            {[...showing.active, ...showing.returned].map((van, index) => (
               <li key={van.id}>
+                {index === showing.active.length ? (
+                  <h3 className="border-b border-line bg-sunken/60 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
+                    Returned vans · {showing.returned.length}
+                  </h3>
+                ) : null}
                 {editingId === van.id && canManage ? (
                   <div className="bg-caution-soft/40 p-3">
                     <VanForm
@@ -298,7 +327,11 @@ export function VansDatabase({
                       initial={van}
                       submitLabel="Save"
                       clash={(fields) => clash(fields, van.id)}
-                      qr={canManageQr ? { van, focus: editing?.qrFirst ?? false } : undefined}
+                      qr={
+                        canManageQr && van.active
+                          ? { van, focus: editing?.qrFirst ?? false }
+                          : undefined
+                      }
                       onSubmit={(fields, qr) => {
                         setEditing(null);
                         run("That change", editVan(van.id, fields, uid));
@@ -326,13 +359,25 @@ export function VansDatabase({
                   <VanRow
                     van={van}
                     today={today}
+                    columns={columns}
+                    onActive={
+                      canManage
+                        ? (active) =>
+                            run(
+                              active
+                                ? `Putting ${van.van} back in service`
+                                : `Marking ${van.van} returned`,
+                              setVanActive(van.id, active, uid),
+                            )
+                        : undefined
+                    }
                     qrBusy={qrBusy.has(van.id)}
                     onView={() => setViewingId(van.id)}
                     onAddQr={
-                      canManageQr ? () => setEditing({ id: van.id, qrFirst: true }) : undefined
+                      canManageQr && van.active ? () => setEditing({ id: van.id, qrFirst: true }) : undefined
                     }
                     onEdit={
-                      canManage || canManageQr
+                      canManage || (canManageQr && van.active)
                         ? () => setEditing({ id: van.id, qrFirst: !canManage })
                         : undefined
                     }
@@ -353,13 +398,19 @@ export function VansDatabase({
 function VanRow({
   van,
   today,
+  columns,
   qrBusy,
   onView,
   onAddQr,
   onEdit,
+  onActive,
 }: {
   van: VanRecord;
   today: string;
+  /** The grid this row sits on — one column wider for the Repairs login. */
+  columns: string;
+  /** Flips With us / Returned; absent for everyone but the Repairs login. */
+  onActive?: (active: boolean) => void;
   /** Its QR is uploading or being removed. */
   qrBusy: boolean;
   onView: () => void;
@@ -367,22 +418,32 @@ function VanRow({
   onAddQr?: () => void;
   onEdit?: () => void;
 }) {
+  /** Greyed, so the eye skips it; the switch and Edit stay full strength. */
+  const faded = van.active ? "" : "opacity-50";
   return (
-    <div className={`relative px-3 py-3 ${COLUMNS}`}>
-      <p className="tnum pr-16 font-mono text-[16px] font-bold text-ink md:pr-0 md:text-[15px]">
+    <div className={`relative px-3 py-3 ${van.active ? "" : "bg-sunken/40"} ${columns}`}>
+      <p className={`tnum pr-16 font-mono text-[16px] font-bold text-ink md:pr-0 md:text-[15px] ${faded}`}>
         {van.van}
       </p>
-      <dl className="mt-1.5 grid grid-cols-[72px_minmax(0,1fr)] gap-x-3 gap-y-1 text-[13px] md:contents">
+      <dl className={`mt-1.5 grid grid-cols-[72px_minmax(0,1fr)] gap-x-3 gap-y-1 text-[13px] md:contents ${faded}`}>
         <Value label="Vendor" value={van.vendor} />
         <Value label="VIN #" value={van.vin} mono />
         <Value label="Vendor #" value={van.vendorNumber} mono />
         <dt className="text-ink-faint md:sr-only">Registration</dt>
         <dd className="min-w-0 md:text-[14px]">
-          <Registration expires={van.registrationExpires} today={today} />
+          {van.active ? (
+            <Registration expires={van.registrationExpires} today={today} />
+          ) : (
+            <span className="tnum text-ink-faint">
+              {van.registrationExpires ? registrationLabel(van.registrationExpires) : "—"}
+            </span>
+          )}
         </dd>
         <dt className="text-ink-faint md:sr-only">QR</dt>
         <dd className="min-w-0 md:flex md:justify-center">
-          {qrBusy ? (
+          {!van.active ? (
+            <span className="text-ink-faint">—</span>
+          ) : qrBusy ? (
             <span className="inline-flex items-center gap-1.5 text-[12px] text-ink-muted" role="status">
               <span
                 aria-hidden="true"
@@ -425,7 +486,63 @@ function VanRow({
             Edit
           </button>
         </div>
+      ) : onActive ? (
+        <span aria-hidden="true" className="hidden md:block" />
       ) : null}
+      {onActive ? (
+        <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-line pt-2.5 md:mt-0 md:justify-end md:border-0 md:pt-0">
+          <span className="text-[13px] text-ink-faint md:sr-only">With us</span>
+          <ActiveSwitch van={van.van} active={van.active} onChange={onActive} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Yes / No, side by side. Yes, tinted green, is a van with us; No is a
+ * returned van. Two plain buttons rather than a slider, so each answer is
+ * written on the thing you press.
+ */
+function ActiveSwitch({
+  van,
+  active,
+  onChange,
+}: {
+  van: string;
+  active: boolean;
+  onChange: (active: boolean) => void;
+}) {
+  const base =
+    "min-h-9 min-w-10 px-2.5 text-[12px] font-bold transition-colors focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink";
+  return (
+    <div
+      role="group"
+      aria-label={`Is ${van} with us?`}
+      className="inline-flex overflow-hidden rounded-lg border border-line-strong bg-surface"
+    >
+      <button
+        type="button"
+        aria-pressed={active}
+        onClick={() => !active && onChange(true)}
+        className={`${base} ${
+          active
+            ? "bg-arrived-soft text-arrived shadow-[inset_0_0_0_1px_var(--color-arrived-line)]"
+            : "text-ink-faint hover:bg-sunken hover:text-ink"
+        }`}
+      >
+        Yes
+      </button>
+      <button
+        type="button"
+        aria-pressed={!active}
+        onClick={() => active && onChange(false)}
+        className={`${base} border-l border-line-strong ${
+          active ? "text-ink-faint hover:bg-sunken hover:text-ink" : "bg-sunken text-ink"
+        }`}
+      >
+        No
+      </button>
     </div>
   );
 }
@@ -537,7 +654,7 @@ function VanForm({
         if (event.key === "Escape" && onCancel) onCancel();
       }}
     >
-      <div className={`grid grid-cols-2 gap-2 ${COLUMNS}`}>
+      <div className={`grid grid-cols-2 gap-2 ${COLUMNS_MANAGED}`}>
         {FIELDS.map((field) => (
           <div
             key={field.key}
@@ -571,7 +688,7 @@ function VanForm({
         {/* The QR column, kept so the buttons stay under Edit. */}
         <span aria-hidden="true" className="hidden md:block" />
 
-        <div className="col-span-2 flex items-center justify-end gap-1.5 md:col-span-1">
+        <div className="col-span-2 flex items-center justify-end gap-1.5">
           {onCancel ? (
             <button
               type="button"

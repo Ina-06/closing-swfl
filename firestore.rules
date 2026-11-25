@@ -398,6 +398,10 @@ service cloud.firestore {
     // /api/vans/qr stores the image in Storage and sets them with the service
     // account, so the file and the fields can only change together.
     //
+    // A van can be marked returned (`active: false`): kept for the record,
+    // skipped by the registration job, and its QR no longer offered. Only the
+    // Repairs login writes it, like everything else here.
+    //
     // Permanent, and the Repairs login's alone to write. Read wherever the
     // repairs board is read — every job card looks its van up here — so the
     // closer crossing over sees the same VINs fleet/repairs does.
@@ -405,8 +409,15 @@ service cloud.firestore {
       function vanFields() {
         return [
           'van', 'vendor', 'vin', 'vendorNumber', 'registrationExpires', 'key',
-          'createdAt', 'updatedAt', 'updatedBy'
+          'active', 'createdAt', 'updatedAt', 'updatedBy'
         ];
+      }
+
+      // `active` is the with-us / returned switch. A bool when present;
+      // absent on older vans, which the app reads as still with us.
+      function activeOk() {
+        return !('active' in request.resource.data)
+               || request.resource.data.active is bool;
       }
 
       // "" or YYYY-MM-DD. Absent on vans added before the field existed.
@@ -421,10 +432,12 @@ service cloud.firestore {
                     && request.resource.data.keys().hasOnly(vanFields())
                     && request.resource.data.van is string
                     && request.resource.data.van.size() > 0
-                    && registrationOk();
+                    && registrationOk()
+                    && activeOk();
       allow update: if isRepairs()
                     && changedKeys().hasOnly(vanFields())
-                    && registrationOk();
+                    && registrationOk()
+                    && activeOk();
       allow delete: if isRepairs();
     }
 

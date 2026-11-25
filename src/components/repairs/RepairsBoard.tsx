@@ -337,7 +337,9 @@ export function RepairsBoard({ uid }: { uid: string }) {
         available={
           available.loading ? null : splitFleet(available.items).spare.length
         }
-        vans={vanDb.loading ? null : vanDb.vans.length}
+        // Vans with us — the same number the database tab shows; returned
+        // vans are counted there on their own.
+        vans={vanDb.loading ? null : vanDb.vans.filter((van) => van.active).length}
         inventory={
           inventory.loading
             ? null

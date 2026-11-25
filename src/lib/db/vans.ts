@@ -47,6 +47,8 @@ function toVan(data: DocumentData, id: string): VanRecord {
     // Recomputed rather than trusted, so a change to what counts as the same
     // van applies to every van already in the database.
     key: vanKey(van),
+    // Only an explicit false is a returned van — see VanRecord.active.
+    active: data.active !== false,
     qrPath: typeof data.qrPath === "string" && data.qrPath ? data.qrPath : null,
     qrText: typeof data.qrText === "string" && data.qrText ? data.qrText : null,
     qrUpdatedAt: data.qrUpdatedAt ?? null,
@@ -150,6 +152,15 @@ export async function addVan(fields: VanFields, updatedBy: string) {
 export async function editVan(id: string, fields: VanFields, updatedBy: string) {
   await updateDoc(doc(vansCollection(), id), {
     ...clean(fields),
+    updatedAt: serverTimestamp(),
+    updatedBy,
+  });
+}
+
+/** With us, or returned. The Repairs login's switch on each row. */
+export async function setVanActive(id: string, active: boolean, updatedBy: string) {
+  await updateDoc(doc(vansCollection(), id), {
+    active,
     updatedAt: serverTimestamp(),
     updatedBy,
   });

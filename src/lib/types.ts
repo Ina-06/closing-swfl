@@ -309,6 +309,14 @@ export type VanRecord = {
   /** `van`, normalised for lookup — see vanKey. */
   key: string;
   /**
+   * Whether the van is still with the station. A returned van (false) is kept
+   * for the record only: no registration reminders go out for it, its QR is
+   * not offered, and the database lists it greyed out under Returned vans.
+   * Absent on vans written before the field existed, which reads as true.
+   * Flipped by the Repairs login only.
+   */
+  active: boolean;
+  /**
    * The van's QR image in Storage, `vans/{id}/qr.{ext}`, or null for none.
    * Written only by /api/vans/qr — see lib/vanQr.ts.
    */

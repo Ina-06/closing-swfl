@@ -221,6 +221,8 @@ export async function sendRegistrationReminders({
 
   for (const doc of snapshot.docs) {
     const data = doc.data();
+    // A returned van is archive only: nobody is renewing its registration.
+    if (data.active === false) continue;
     const string = (value: unknown) => (typeof value === "string" ? value : "");
     const van: Van = {
       id: doc.id,
