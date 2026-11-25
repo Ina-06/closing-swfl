@@ -300,6 +300,12 @@ export type VanRecord = {
   vendor: string;
   vin: string;
   vendorNumber: string;
+  /**
+   * The day the registration expires, `YYYY-MM-DD`, or "" for not typed yet.
+   * The daily registration job emails the office and the vendor 7, 5, 3 and
+   * 1 days before it — see lib/registration.ts.
+   */
+  registrationExpires: string;
   /** `van`, normalised for lookup — see vanKey. */
   key: string;
   createdAt: Timestamp | null;

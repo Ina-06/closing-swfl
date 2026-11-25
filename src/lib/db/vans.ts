@@ -13,10 +13,12 @@ import {
 import type { DocumentData } from "firebase/firestore";
 import { getDb } from "@/lib/firebase/client";
 import { vanKey, vanNumber } from "@/lib/vans";
+import { isRegistrationDate } from "@/lib/registration";
 import type { VanRecord } from "@/lib/types";
 
 /**
- * The station's vans database: van number, vendor, VIN and vendor number.
+ * The station's vans database: van number, vendor, VIN, vendor number and
+ * registration expiry.
  *
  * Top-level and permanent — a van is in it until somebody removes it on
  * purpose. Written from the Repairs login only; read by the repairs board,
@@ -39,6 +41,9 @@ function toVan(data: DocumentData, id: string): VanRecord {
     vendor: string(data.vendor),
     vin: string(data.vin),
     vendorNumber: string(data.vendorNumber),
+    registrationExpires: isRegistrationDate(string(data.registrationExpires))
+      ? string(data.registrationExpires)
+      : "",
     // Recomputed rather than trusted, so a change to what counts as the same
     // van applies to every van already in the database.
     key: vanKey(van),
@@ -105,19 +110,27 @@ export function useVans() {
   return { vans: vans ?? [], byKey, byNumber, loading: vans === null, error };
 }
 
-/** What a van is written as: the four fields, trimmed. */
-export type VanFields = Pick<VanRecord, "van" | "vendor" | "vin" | "vendorNumber">;
+/** What a van is written as: the five fields, trimmed. */
+export type VanFields = Pick<
+  VanRecord,
+  "van" | "vendor" | "vin" | "vendorNumber" | "registrationExpires"
+>;
 
 function clean(fields: VanFields) {
   const tidy = (value: string) => value.trim().replace(/\s+/g, " ");
   const van = tidy(fields.van);
   if (!van) throw new Error("It needs a van number.");
+  const registrationExpires = fields.registrationExpires.trim();
+  if (registrationExpires && !isRegistrationDate(registrationExpires)) {
+    throw new Error("That registration date is not a real date.");
+  }
   return {
     van,
     vendor: tidy(fields.vendor),
     // A VIN has no spaces in it and is always read out in capitals.
     vin: fields.vin.replace(/\s+/g, "").toUpperCase(),
     vendorNumber: tidy(fields.vendorNumber),
+    registrationExpires,
     key: vanKey(van),
   };
 }

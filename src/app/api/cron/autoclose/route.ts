@@ -1,5 +1,5 @@
-import { timingSafeEqual } from "node:crypto";
 import { getAdminDb } from "@/lib/firebase/admin";
+import { cronAuthorised } from "@/lib/server/cronAuth";
 import { stationNightKey } from "@/lib/constants";
 import { archiveSheet, needsArchive } from "@/lib/server/archiveSheet";
 import { autoCloseNight, SYSTEM } from "@/lib/server/autoClose";
@@ -49,22 +49,6 @@ const ARCHIVE_WINDOW = 60;
  */
 const ARCHIVE_PER_RUN = 15;
 
-/**
- * Only Vercel's scheduler gets in.
- *
- * Vercel sends `Authorization: Bearer <CRON_SECRET>` on every scheduled call
- * when that variable is set. Compared in constant time. A missing secret fails
- * closed — a route that closes nights must not be open to anyone who finds it.
- */
-function authorised(request: Request): boolean | null {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return null;
-
-  const given = Buffer.from(request.headers.get("authorization") ?? "");
-  const wanted = Buffer.from(`Bearer ${secret}`);
-  return given.length === wanted.length && timingSafeEqual(given, wanted);
-}
-
 /** The night before a night key, as a key. Calendar arithmetic, in UTC. */
 function nightBefore(nightKey: string): string {
   const day = new Date(`${nightKey}T00:00:00Z`);
@@ -92,7 +76,8 @@ function messageOf(error: unknown): string {
 }
 
 export async function GET(request: Request) {
-  const allowed = authorised(request);
+  // Only Vercel's scheduler — see cronAuthorised.
+  const allowed = cronAuthorised(request);
   if (allowed === null) {
     console.error("CRON_SECRET is not set; refusing to run.");
     return Response.json({ error: "Not configured." }, { status: 500 });

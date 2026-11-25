@@ -383,7 +383,10 @@ service cloud.firestore {
       allow delete: if isRepairs();
     }
 
-    // The vans database: van number, vendor, VIN and vendor number.
+    // The vans database: van number, vendor, VIN, vendor number and the day
+    // its registration expires. The registration reminders the daily job
+    // sends are recorded server-side in vanRegistrationNotices, which no
+    // client reads or writes — the catch-all at the bottom says so.
     //
     // Permanent, and the Repairs login's alone to write. Read wherever the
     // repairs board is read — every job card looks its van up here — so the
@@ -391,18 +394,27 @@ service cloud.firestore {
     match /vans/{vanId} {
       function vanFields() {
         return [
-          'van', 'vendor', 'vin', 'vendorNumber', 'key',
+          'van', 'vendor', 'vin', 'vendorNumber', 'registrationExpires', 'key',
           'createdAt', 'updatedAt', 'updatedBy'
         ];
+      }
+
+      // "" or YYYY-MM-DD. Absent on vans added before the field existed.
+      function registrationOk() {
+        return !('registrationExpires' in request.resource.data)
+               || request.resource.data.registrationExpires == ''
+               || request.resource.data.registrationExpires.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
       }
 
       allow read: if isRepairs() || isCloser();
       allow create: if isRepairs()
                     && request.resource.data.keys().hasOnly(vanFields())
                     && request.resource.data.van is string
-                    && request.resource.data.van.size() > 0;
+                    && request.resource.data.van.size() > 0
+                    && registrationOk();
       allow update: if isRepairs()
-                    && changedKeys().hasOnly(vanFields());
+                    && changedKeys().hasOnly(vanFields())
+                    && registrationOk();
       allow delete: if isRepairs();
     }
 

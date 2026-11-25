@@ -3,35 +3,60 @@
 import { useMemo, useState } from "react";
 import { addVan, editVan, removeVan, type VanFields } from "@/lib/db/vans";
 import { vanKey } from "@/lib/vans";
+import { stationDateKey } from "@/lib/constants";
+import {
+  daysLeftPhrase,
+  daysUntil,
+  registrationLabel,
+  registrationState,
+} from "@/lib/registration";
 import type { VanRecord } from "@/lib/types";
 
 /**
- * The vans database — every van, and the three things the office gets asked
- * for about one: who it is from, its VIN, and the vendor's number for it.
+ * The vans database — every van, and the things the office gets asked for
+ * about one: who it is from, its VIN, the vendor's number for it, and when
+ * its registration runs out. The registration date drives the reminder
+ * emails — see lib/registration.ts and /api/cron/registration.
  *
  * Typed once by fleet/repairs and read on every job card: a job on BR.03 shows BR.03's
  * VIN, vendor and vendor number under it, looked up live, so a correction here
  * shows on every card at once.
  *
- * A table on a laptop, because four columns is what a table is for. Cards on a
- * phone, because four columns at 390px is a table nobody can read.
+ * A table on a laptop, because columns are what a table is for. Cards on a
+ * phone, because five columns at 390px is a table nobody can read.
  */
 
-const EMPTY: VanFields = { van: "", vendor: "", vin: "", vendorNumber: "" };
+const EMPTY: VanFields = {
+  van: "",
+  vendor: "",
+  vin: "",
+  vendorNumber: "",
+  registrationExpires: "",
+};
 
 /** One grid for the heading, the rows and the form, so the columns line up. */
-const COLUMNS = "md:grid md:grid-cols-[120px_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)_132px] md:items-center md:gap-3";
+const COLUMNS = "md:grid md:grid-cols-[110px_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,0.9fr)_160px_132px] md:items-center md:gap-3";
 
 const FIELDS: {
   key: keyof VanFields;
   label: string;
+  /** The column heading, when it is shorter than the label. */
+  heading?: string;
   placeholder: string;
   mono?: boolean;
+  type?: "date";
 }[] = [
   { key: "van", label: "Van #", placeholder: "Van#", mono: true },
   { key: "vendor", label: "Vendor", placeholder: "Vendor" },
   { key: "vin", label: "VIN #", placeholder: "VIN#", mono: true },
   { key: "vendorNumber", label: "Vendor #", placeholder: "Vendor#", mono: true },
+  {
+    key: "registrationExpires",
+    label: "Registration expires",
+    heading: "Registration",
+    placeholder: "Registration",
+    type: "date",
+  },
 ];
 
 export function VansDatabase({
@@ -51,13 +76,27 @@ export function VansDatabase({
   const [query, setQuery] = useState("");
   /** The van whose row is a form right now. */
   const [editingId, setEditingId] = useState<string | null>(null);
+  /** Today at the station, for how close each registration is. */
+  const today = stationDateKey();
+
+  /** Registrations run out or inside the reminder window, soonest first. */
+  const due = useMemo(
+    () =>
+      vans
+        .filter((van) => {
+          const state = registrationState(van.registrationExpires, today);
+          return state === "soon" || state === "expired";
+        })
+        .sort((a, b) => a.registrationExpires.localeCompare(b.registrationExpires)),
+    [vans, today],
+  );
 
   const showing = useMemo(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
     if (words.length === 0) return vans;
     return vans.filter((van) => {
       const haystack =
-        `${van.van} ${van.key} ${van.vendor} ${van.vin} ${van.vendorNumber}`.toLowerCase();
+        `${van.van} ${van.key} ${van.vendor} ${van.vin} ${van.vendorNumber} ${registrationLabel(van.registrationExpires)}`.toLowerCase();
       return words.every((word) => haystack.includes(word));
     });
   }, [vans, query]);
@@ -117,6 +156,33 @@ export function VansDatabase({
         </p>
       </div>
 
+      {!loading && due.length > 0 ? (
+        <div
+          role="status"
+          className="rounded-xl border border-caution-line bg-caution-soft/60 px-3.5 py-2.5 text-[13px] text-ink"
+        >
+          <p className="font-semibold text-caution">
+            {due.length === 1
+              ? "1 registration needs renewing"
+              : `${due.length} registrations need renewing`}
+          </p>
+          <ul className="mt-1 space-y-0.5">
+            {due.map((van) => {
+              const left = daysUntil(van.registrationExpires, today);
+              return (
+                <li key={van.id} className="flex flex-wrap gap-x-2">
+                  <span className="tnum font-mono font-bold">{van.van}</span>
+                  <span className={left < 0 ? "font-semibold text-overdue" : "text-ink-muted"}>
+                    {left < 0 ? "expired" : "expires"} {daysLeftPhrase(left)}
+                  </span>
+                  {van.vendor ? <span className="text-ink-faint">· {van.vendor}</span> : null}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+
       {loading ? (
         <div
           className="h-48 animate-pulse rounded-xl border border-line bg-surface"
@@ -126,7 +192,7 @@ export function VansDatabase({
       ) : vans.length === 0 ? (
         <p className="rounded-xl border border-dashed border-line-strong bg-surface/60 px-5 py-12 text-center text-[13px] leading-relaxed text-ink-faint">
           {canManage
-            ? "No vans in the database yet. Add each one above once — its VIN, vendor and vendor number then show on every job for that van."
+            ? "No vans in the database yet. Add each one above once — its VIN, vendor and vendor number then show on every job for that van, and its registration date sets off the renewal reminders."
             : "No vans in the database yet. They are added from the Repairs login."}
         </p>
       ) : showing.length === 0 ? (
@@ -140,7 +206,7 @@ export function VansDatabase({
             className={`hidden border-b border-line bg-sunken/50 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint ${COLUMNS}`}
           >
             {FIELDS.map((field) => (
-              <span key={field.key}>{field.label}</span>
+              <span key={field.key}>{field.heading ?? field.label}</span>
             ))}
             <span className="sr-only">Actions</span>
           </div>
@@ -169,6 +235,7 @@ export function VansDatabase({
                 ) : (
                   <VanRow
                     van={van}
+                    today={today}
                     onEdit={canManage ? () => setEditingId(van.id) : undefined}
                   />
                 )}
@@ -182,7 +249,15 @@ export function VansDatabase({
 }
 
 /** One van, read-only. */
-function VanRow({ van, onEdit }: { van: VanRecord; onEdit?: () => void }) {
+function VanRow({
+  van,
+  today,
+  onEdit,
+}: {
+  van: VanRecord;
+  today: string;
+  onEdit?: () => void;
+}) {
   return (
     <div className={`relative px-3 py-3 ${COLUMNS}`}>
       <p className="tnum pr-16 font-mono text-[16px] font-bold text-ink md:pr-0 md:text-[15px]">
@@ -192,6 +267,10 @@ function VanRow({ van, onEdit }: { van: VanRecord; onEdit?: () => void }) {
         <Value label="Vendor" value={van.vendor} />
         <Value label="VIN #" value={van.vin} mono />
         <Value label="Vendor #" value={van.vendorNumber} mono />
+        <dt className="text-ink-faint md:sr-only">Registration</dt>
+        <dd className="min-w-0 md:text-[14px]">
+          <Registration expires={van.registrationExpires} today={today} />
+        </dd>
       </dl>
       {onEdit ? (
         <div className="absolute right-2 top-2 md:static md:flex md:justify-end">
@@ -233,7 +312,34 @@ function Value({
 }
 
 /**
- * The four fields, for adding a van or changing one.
+ * The registration date, and how close it is once that matters: amber inside
+ * the reminder window, red once it has run out.
+ */
+function Registration({ expires, today }: { expires: string; today: string }) {
+  const state = registrationState(expires, today);
+  if (state === "none") return <span className="text-ink-faint">—</span>;
+
+  const left = daysUntil(expires, today);
+  return (
+    <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+      <span className={`tnum ${state === "expired" ? "font-semibold text-overdue" : "text-ink"}`}>
+        {registrationLabel(expires)}
+      </span>
+      {state === "soon" ? (
+        <span className="rounded-md border border-caution-line bg-caution-soft px-1.5 py-px text-[11px] font-bold text-caution">
+          {left === 0 ? "Today" : `${left}d left`}
+        </span>
+      ) : state === "expired" ? (
+        <span className="rounded-md border border-overdue-line bg-overdue-soft px-1.5 py-px text-[11px] font-bold text-overdue">
+          Expired
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * The five fields, for adding a van or changing one.
  *
  * Laid on the same grid as the rows on a laptop, so a van being edited stays
  * in its columns. On a phone it is two by two with the buttons underneath.
@@ -263,6 +369,7 @@ function VanForm({
     vendor: initial.vendor,
     vin: initial.vin,
     vendorNumber: initial.vendorNumber,
+    registrationExpires: initial.registrationExpires,
   });
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const taken = clash(fields);
@@ -286,7 +393,10 @@ function VanForm({
     >
       <div className={`grid grid-cols-2 gap-2 ${COLUMNS}`}>
         {FIELDS.map((field) => (
-          <div key={field.key} className="min-w-0">
+          <div
+            key={field.key}
+            className={`min-w-0 ${field.type === "date" ? "col-span-2 md:col-span-1" : ""}`}
+          >
             <label
               htmlFor={`${idPrefix}-${field.key}`}
               className="mb-1 block text-[11px] font-semibold text-ink-faint md:sr-only"
@@ -295,6 +405,7 @@ function VanForm({
             </label>
             <input
               id={`${idPrefix}-${field.key}`}
+              type={field.type ?? "text"}
               value={fields[field.key]}
               onChange={(event) =>
                 setFields((was) => ({ ...was, [field.key]: event.target.value }))
