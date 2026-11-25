@@ -393,6 +393,11 @@ service cloud.firestore {
     // sends are recorded server-side in vanRegistrationNotices, which no
     // client reads or writes — the catch-all at the bottom says so.
     //
+    // Each van may also carry a QR image: `qrPath`, `qrText`, `qrUpdatedAt`.
+    // Those three are deliberately not in vanFields — no client writes them.
+    // /api/vans/qr stores the image in Storage and sets them with the service
+    // account, so the file and the fields can only change together.
+    //
     // Permanent, and the Repairs login's alone to write. Read wherever the
     // repairs board is read — every job card looks its van up here — so the
     // closer crossing over sees the same VINs fleet/repairs does.

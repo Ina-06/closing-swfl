@@ -214,6 +214,10 @@ export function RepairsBoard({ uid }: { uid: string }) {
    */
   const auth = useAuth();
   const canManage = auth.status === "signedIn" && auth.role === "repairs";
+  /** Van QR codes: the Repairs login and the dispatcher — see /api/vans/qr. */
+  const canManageQr =
+    auth.status === "signedIn" &&
+    (auth.role === "repairs" || auth.role === "dispatcher");
   /**
    * The MT inventory is the one list the closer runs as fully as fleet/repairs: add, rename,
    * set the minimum, remove. A one-time stand-in never gets this far — the
@@ -378,6 +382,7 @@ export function RepairsBoard({ uid }: { uid: string }) {
             vans={vanDb.vans}
             loading={vanDb.loading}
             canManage={canManage}
+            canManageQr={canManageQr}
             uid={uid}
             onError={setFailure}
           />

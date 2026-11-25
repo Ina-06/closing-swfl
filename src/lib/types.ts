@@ -308,6 +308,14 @@ export type VanRecord = {
   registrationExpires: string;
   /** `van`, normalised for lookup — see vanKey. */
   key: string;
+  /**
+   * The van's QR image in Storage, `vans/{id}/qr.{ext}`, or null for none.
+   * Written only by /api/vans/qr — see lib/vanQr.ts.
+   */
+  qrPath: string | null;
+  /** What the QR says, when it could be read on upload; null otherwise. */
+  qrText: string | null;
+  qrUpdatedAt: Timestamp | null;
   createdAt: Timestamp | null;
   updatedAt: Timestamp | null;
   updatedBy: string;

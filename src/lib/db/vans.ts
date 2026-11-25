@@ -47,6 +47,9 @@ function toVan(data: DocumentData, id: string): VanRecord {
     // Recomputed rather than trusted, so a change to what counts as the same
     // van applies to every van already in the database.
     key: vanKey(van),
+    qrPath: typeof data.qrPath === "string" && data.qrPath ? data.qrPath : null,
+    qrText: typeof data.qrText === "string" && data.qrText ? data.qrText : null,
+    qrUpdatedAt: data.qrUpdatedAt ?? null,
     createdAt: data.createdAt ?? null,
     updatedAt: data.updatedAt ?? null,
     updatedBy: string(data.updatedBy),

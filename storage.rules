@@ -7,6 +7,9 @@ rules_version = '2';
 // and by the 7 AM job, and read by /api/sheet/archived — all three on the
 // server, with the service account, which these rules do not apply to.
 //
+// It also holds each van's QR image, at vans/{vanId}/qr.{ext}, put up and
+// taken down by /api/vans/qr and read through it as a short-lived signed URL.
+//
 // So no client reads or writes anything here, ever, and this file says so.
 // The PDFs carry every driver's full name and clock-out; the only way to one is
 // through the same signed-in role check as rebuilding the sheet. No public or

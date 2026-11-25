@@ -33,6 +33,17 @@ function untilAborted(signal: AbortSignal): Promise<never> {
  * hanging leaves whatever called this waiting forever.
  */
 export async function postAuthed(path: string, body: unknown): Promise<Response> {
+  return requestAuthed(path, { method: "POST", json: body });
+}
+
+/**
+ * postAuthed, for any method and either body: `json` is sent as JSON, `form`
+ * as multipart (the browser sets the boundary, so no Content-Type here).
+ */
+export async function requestAuthed(
+  path: string,
+  { method, json, form }: { method: string; json?: unknown; form?: FormData },
+): Promise<Response> {
   const user = getClientAuth().currentUser;
   if (!user) throw new Error("Signed out. Sign in again and retry.");
 
@@ -45,13 +56,13 @@ export async function postAuthed(path: string, body: unknown): Promise<Response>
       untilAborted(controller.signal),
     ]);
 
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+    if (!form) headers["Content-Type"] = "application/json";
+
     const response = await fetch(path, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
+      method,
+      headers,
+      body: form ?? (json === undefined ? undefined : JSON.stringify(json)),
       signal: controller.signal,
     });
 

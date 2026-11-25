@@ -38,3 +38,25 @@ export function nightKeyOf(value: unknown): string {
 export function fail(message: string, status: number) {
   return Response.json({ error: message }, { status });
 }
+
+/**
+ * The caller's decoded token if their role is one of `roles`, or null.
+ *
+ * The general form of requireStaff, for routes that are not about a night —
+ * the van QR codes, which belong to the station and follow the vans
+ * database's own lines rather than the sheet's.
+ */
+export async function requireRole(request: Request, roles: readonly string[]) {
+  const header = request.headers.get("authorization") ?? "";
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!token) return null;
+
+  try {
+    const decoded = await getAdminAuth().verifyIdToken(token);
+    return typeof decoded.role === "string" && roles.includes(decoded.role)
+      ? decoded
+      : null;
+  } catch {
+    return null;
+  }
+}

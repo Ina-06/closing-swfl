@@ -184,3 +184,42 @@
     }
   }
 }
+
+/* A van's QR, printed from its viewer: the van number and the code, centred
+   on an otherwise empty page. On screen it is never shown; in print it is the
+   only thing on the page. See QrModal. */
+.qr-print {
+  display: none;
+}
+@media print {
+  @page {
+    margin: 16mm;
+  }
+  body:has(> .qr-print) > *:not(.qr-print) {
+    display: none !important;
+  }
+  .qr-print {
+    display: flex;
+    min-height: calc(100vh - 32mm);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10mm;
+    background: #fff;
+    color: #000;
+  }
+  .qr-print-van {
+    font-family: var(--font-mono);
+    font-size: 32pt;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .qr-print-img {
+    width: 110mm;
+    max-width: 100%;
+    height: auto;
+  }
+  .qr-print-img[data-drawn] {
+    image-rendering: pixelated;
+  }
+}
