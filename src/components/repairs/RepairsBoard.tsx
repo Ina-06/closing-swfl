@@ -221,9 +221,10 @@ export function RepairsBoard({ uid }: { uid: string }) {
    */
   const canManageInventory =
     auth.status === "signedIn" &&
-    (auth.role === "repairs" ||
-      auth.role === "closer" ||
-      auth.role === "dispatcher");
+    (auth.role === "repairs" || auth.role === "closer");
+  /** The dispatcher crossed over sees the inventory and changes nothing. */
+  const inventoryReadOnly =
+    auth.status === "signedIn" && auth.role === "dispatcher";
   const inventory = useInventory();
   const lowStock = inventory.items.filter(isLow).length;
   /** Click the words to edit them — laptop only, see lib/pointer. */
@@ -394,7 +395,13 @@ export function RepairsBoard({ uid }: { uid: string }) {
           <Inventory
             items={inventory.items}
             loading={inventory.loading}
-            mode={canManageInventory ? "full" : "countOnly"}
+            mode={
+              canManageInventory
+                ? "full"
+                : inventoryReadOnly
+                  ? "readOnly"
+                  : "countOnly"
+            }
             uid={uid}
             onError={setFailure}
           />

@@ -19,6 +19,8 @@ import type { InventoryItem } from "@/lib/types";
  * Two ways in, one list. `full` is the Repairs login and the closer: add an item,
  * rename it, change its minimum, remove it. `countOnly` is the MT portal: the
  * team walks the shelves and the only thing they can touch is the number.
+ * `readOnly` is the dispatcher crossed over from their side: they see the
+ * list and the counts and change nothing.
  * firestore.rules draws the same line, so hiding the controls is courtesy and
  * not the boundary.
  *
@@ -38,11 +40,12 @@ export function Inventory({
 }: {
   items: InventoryItem[];
   loading: boolean;
-  mode: "full" | "countOnly";
+  mode: "full" | "countOnly" | "readOnly";
   uid: string;
   onError: (message: string | null) => void;
 }) {
   const full = mode === "full";
+  const canCount = mode !== "readOnly";
   const [query, setQuery] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -154,7 +157,9 @@ export function Inventory({
         <p className="rounded-xl border border-dashed border-line-strong bg-surface/60 px-5 py-12 text-center text-[13px] leading-relaxed text-ink-faint">
           {full
             ? "Nothing in the inventory yet. Press + Item to add the first one — its name, how many are on site, and the minimum there should be."
-            : "Nothing in the inventory yet. Items are added from the Repairs side."}
+            : canCount
+              ? "Nothing in the inventory yet. Items are added from the Repairs side."
+              : "Nothing in the inventory yet."}
         </p>
       ) : showing.length === 0 ? (
         <p className="rounded-xl border border-dashed border-line-strong bg-surface/60 px-5 py-12 text-center text-[13px] text-ink-faint">
@@ -188,11 +193,16 @@ export function Inventory({
                 <ItemRow
                   item={item}
                   onEdit={full ? () => setEditingId(item.id) : undefined}
-                  onStep={(by) =>
-                    run("That count", stepQuantity(item.id, by, uid))
+                  onStep={
+                    canCount
+                      ? (by) => run("That count", stepQuantity(item.id, by, uid))
+                      : undefined
                   }
-                  onSet={(quantity) =>
-                    run("That count", setQuantity(item.id, quantity, uid))
+                  onSet={
+                    canCount
+                      ? (quantity) =>
+                          run("That count", setQuantity(item.id, quantity, uid))
+                      : undefined
                   }
                 />
               )}
@@ -213,8 +223,8 @@ function ItemRow({
 }: {
   item: InventoryItem;
   onEdit?: () => void;
-  onStep: (by: 1 | -1) => void;
-  onSet: (quantity: number) => void;
+  onStep?: (by: 1 | -1) => void;
+  onSet?: (quantity: number) => void;
 }) {
   const low = isLow(item);
 
@@ -250,7 +260,18 @@ function ItemRow({
         </p>
       </div>
 
-      <Counter item={item} low={low} onStep={onStep} onSet={onSet} />
+      {onStep && onSet ? (
+        <Counter item={item} low={low} onStep={onStep} onSet={onSet} />
+      ) : (
+        <span
+          aria-label={`${item.quantity} ${item.name} on site`}
+          className={`tnum grid h-11 min-w-14 shrink-0 place-items-center rounded-lg border bg-sunken px-3 font-mono text-[18px] font-bold ${
+            low ? "border-overdue-line text-overdue" : "border-line text-ink"
+          }`}
+        >
+          {item.quantity}
+        </span>
+      )}
     </div>
   );
 }

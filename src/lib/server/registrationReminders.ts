@@ -80,6 +80,27 @@ type Van = {
 };
 
 /** The email, worded for whoever it is to. */
+/** Where the vendor mails the new decals. */
+const DECAL_ADDRESS = ["3 Waterford Way, Unit 301", "Manchester, NH 03102"];
+
+const NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+
+/** "tomorrow", "in two days" — the vendor letter spells the number out. */
+function spelledWhen(daysLeft: number): string {
+  if (daysLeft === 1) return "tomorrow";
+  return `in ${NUMBER_WORDS[daysLeft] ?? daysLeft} days`;
+}
+
+/** "November 27, 2026" — the full month, for the vendor letter. */
+function registrationLongLabel(expires: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${expires}T12:00:00Z`));
+}
+
 function compose(
   van: Van,
   daysLeft: number,
@@ -100,11 +121,6 @@ function compose(
     ["Registration expires", `${date} — ${when}`],
   ];
 
-  const opening =
-    audience === "vendor"
-      ? `The registration for the van below expires ${when}, on ${date}. Please arrange the renewal and send the updated registration before then.`
-      : `The registration for van ${van.van} expires ${when}, on ${date}.`;
-
   const closing =
     audience === "vendor"
       ? ""
@@ -116,23 +132,58 @@ function compose(
           : `There is no email on file for the vendor "${van.vendor}", so they were not sent this reminder.`
         : "This van has no vendor in the vans database, so no vendor was sent this reminder.";
 
-  const text = [
-    opening,
-    "",
-    ...facts.map(([label, value]) => `${label}: ${value}`),
-    ...(closing ? ["", closing] : []),
-  ].join("\n");
-
   const rows = facts
     .map(
       ([label, value]) =>
         `<tr><td style="padding:4px 16px 4px 0;color:#6b6b6b;white-space:nowrap">${escapeHtml(label)}</td><td style="padding:4px 0;font-weight:600;color:#1a1a1a">${escapeHtml(value)}</td></tr>`,
     )
     .join("");
+  const table = `<table style="border-collapse:collapse;font-size:14px;margin:0 0 16px">${rows}</table>`;
+  const factLines = facts.map(([label, value]) => `${label}: ${value}`);
+
+  if (audience === "vendor") {
+    const opening = `The registration for the van below expires ${spelledWhen(daysLeft)}, on ${registrationLongLabel(van.expires)}. Please arrange for its renewal before the expiration date and:`;
+    const asks = [
+      "Send the updated registration in PDF format by replying to this email.",
+      "Mail the new registration decals to the following address:",
+    ];
+    const thanks = "Thank you for your prompt attention to this matter.";
+
+    const text = [
+      opening,
+      "",
+      ...factLines,
+      "",
+      ...asks.map((ask) => `* ${ask}`),
+      "",
+      ...DECAL_ADDRESS,
+      "",
+      thanks,
+    ].join("\n");
+
+    const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#1a1a1a;max-width:560px">
+<p style="margin:0 0 16px">${escapeHtml(opening)}</p>
+${table}
+<ul style="margin:0 0 16px;padding-left:20px">${asks.map((ask) => `<li style="margin:0 0 4px">${escapeHtml(ask)}</li>`).join("")}</ul>
+<p style="margin:0 0 16px;font-weight:600">${DECAL_ADDRESS.map(escapeHtml).join("<br>")}</p>
+<p style="margin:0">${escapeHtml(thanks)}</p>
+</div>`;
+
+    return { subject, text, html };
+  }
+
+  const opening = `The registration for van ${van.van} expires ${when}, on ${date}.`;
+
+  const text = [
+    opening,
+    "",
+    ...factLines,
+    ...(closing ? ["", closing] : []),
+  ].join("\n");
 
   const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#1a1a1a;max-width:560px">
 <p style="margin:0 0 16px">${escapeHtml(opening)}</p>
-<table style="border-collapse:collapse;font-size:14px;margin:0 0 16px">${rows}</table>
+${table}
 ${closing ? `<p style="margin:0;color:#6b6b6b;font-size:13px">${escapeHtml(closing)}</p>` : ""}
 </div>`;
 

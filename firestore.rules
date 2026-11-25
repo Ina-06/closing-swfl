@@ -492,14 +492,15 @@ service cloud.firestore {
       }
 
       function ownsInventory() {
-        return isRepairs() || crossesToRepairs();
+        return isRepairs() || isPermanentCloser();
       }
 
       function validCount(value) {
         return value is int && value >= 0;
       }
 
-      allow read: if ownsInventory() || isMt();
+      // The dispatcher crossed over sees the list and changes nothing.
+      allow read: if ownsInventory() || isMt() || isDispatcher();
       allow create: if ownsInventory()
                     && request.resource.data.keys().hasOnly(inventoryFields())
                     && request.resource.data.name is string
