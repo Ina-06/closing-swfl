@@ -44,7 +44,7 @@ export function AddJobButton() {
   const { setAdding } = useAddJob();
 
   if (auth.status !== "signedIn") return null;
-  if (auth.role !== "repairs" && auth.role !== "closer") return null;
+  if (auth.role !== "repairs" && auth.role !== "closer" && auth.role !== "dispatcher") return null;
 
   return (
     <button

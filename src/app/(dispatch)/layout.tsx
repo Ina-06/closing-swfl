@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BuildTag } from "@/components/BuildTag";
 import { DispatchNote } from "@/components/dispatch/DispatchNote";
 import { NavLink } from "@/components/dispatch/NavLink";
+import { PortalSwitch } from "@/components/PortalSwitch";
 import { RoleGate } from "@/components/RoleGate";
 import { SignOutButton } from "@/components/SignOutButton";
 import { StationDate } from "@/components/StationDate";
@@ -37,6 +38,9 @@ export default function DispatchLayout({
                 remembers a driver needs a word is not a moment they are
                 looking at tonight's table. */}
             <DispatchNote />
+            {/* The same door the closer has, beside +Note: over to the repairs
+                board and back with one tap each way. */}
+            <PortalSwitch to="repairs" />
             <SignOutButton />
             <span className="rounded-full border border-brand-line bg-brand-soft px-2.5 py-1 text-[11px] font-semibold text-brand">
               Dispatcher

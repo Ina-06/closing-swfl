@@ -58,6 +58,7 @@ export default function RepairsLayout({
 
             <div className="flex items-center gap-1 sm:gap-3">
               <PortalSwitch to="closing" />
+              <PortalSwitch to="dispatch" />
               <SignOutButton />
               <AddJobButton />
             </div>
@@ -77,7 +78,7 @@ export default function RepairsLayout({
               business on a list that outlives every session on it. Turned away
               here rather than shown a board of controls that bounce — the rules
               draw the same line, with isPermanentCloser. */}
-          <RoleGate allow={["repairs", "closer"]}>{children}</RoleGate>
+          <RoleGate allow={["repairs", "closer", "dispatcher"]}>{children}</RoleGate>
           <BuildTag />
         </main>
       </div>

@@ -81,6 +81,13 @@ service cloud.firestore {
       return role() == 'closer';
     }
 
+    // Whoever crosses to the repairs board from their own side: the closer
+    // (not a stand-in) and the dispatcher. Both get exactly the same hand on
+    // the board.
+    function crossesToRepairs() {
+      return isPermanentCloser() || isDispatcher();
+    }
+
     // HR reads tonight and writes one map on it. Every other rule in this file
     // is silent about them, which means no — the catch-all at the bottom and
     // the hasOnly lists above it do the work, and nothing has to remember to
@@ -296,11 +303,9 @@ service cloud.firestore {
     // it are the board's own work on a list that outlives the night, so they
     // need the permanent closer — see isPermanentCloser.
     //
-    // Note which role is *not* here. The dispatcher runs the night and has the
-    // widest hand in this file everywhere else; the board is no part of the
-    // night, so they have nothing on it. HR the same. Neither had to be
-    // excluded — they were simply never included, which is what the catch-all
-    // at the bottom is for.
+    // The dispatcher crosses over the same way the closer does, with the same
+    // hand on the board. HR is not here — never included, which is what the
+    // catch-all at the bottom is for.
     match /repairs/{repairId} {
       // Every field a job is allowed to have. Unlike an entry, this is not a
       // record two roles own half of each — it is one job, written by whoever
@@ -319,10 +324,10 @@ service cloud.firestore {
         ];
       }
 
-      allow read: if isRepairs() || isCloser();
+      allow read: if isRepairs() || isCloser() || isDispatcher();
 
       // A new job has to be the whole shape and nothing more.
-      allow create: if (isRepairs() || isCloser())
+      allow create: if (isRepairs() || isCloser() || isDispatcher())
                     && request.resource.data.keys().hasOnly(repairFields());
 
       // Ticking a job off, and correcting what one says. The closer is on this
@@ -336,7 +341,7 @@ service cloud.firestore {
       // back, and nothing on the board explains why. A rule that can strand a
       // real repair is worse than one that lets an unknown field sit there
       // being ignored.
-      allow update: if (isRepairs() || isPermanentCloser())
+      allow update: if (isRepairs() || crossesToRepairs())
                     && changedKeys().hasOnly(repairFields());
 
       // Only for a job typed by mistake. The board asks twice before it calls
@@ -348,7 +353,7 @@ service cloud.firestore {
       // be removing is on a list that outlives the night it came off, and
       // there is nobody to ask about it afterwards. The portal turns a
       // stand-in away at the door, so nothing on their screen offers this.
-      allow delete: if isRepairs() || isPermanentCloser();
+      allow delete: if isRepairs() || crossesToRepairs();
     }
 
     // Today's available vans and gas cards — a list fleet/repairs types each day.
@@ -367,7 +372,7 @@ service cloud.firestore {
         return ['kind', 'label', 'round', 'used', 'createdAt', 'updatedAt', 'updatedBy'];
       }
 
-      allow read: if isRepairs() || isCloser();
+      allow read: if isRepairs() || isCloser() || isDispatcher();
 
       // `kind` says which of the two lists a line is on — vans or gas cards.
       allow create: if isRepairs()
@@ -378,7 +383,7 @@ service cloud.firestore {
                     && request.resource.data.used is bool;
       allow update: if (isRepairs()
                         && changedKeys().hasOnly(['label', 'used', 'updatedAt', 'updatedBy']))
-                    || (isCloser()
+                    || ((isCloser() || isDispatcher())
                         && changedKeys().hasOnly(['used', 'updatedAt', 'updatedBy']));
       allow delete: if isRepairs();
     }
@@ -406,7 +411,7 @@ service cloud.firestore {
                || request.resource.data.registrationExpires.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
       }
 
-      allow read: if isRepairs() || isCloser();
+      allow read: if isRepairs() || isCloser() || isDispatcher();
       allow create: if isRepairs()
                     && request.resource.data.keys().hasOnly(vanFields())
                     && request.resource.data.van is string
@@ -487,7 +492,7 @@ service cloud.firestore {
       }
 
       function ownsInventory() {
-        return isRepairs() || isPermanentCloser();
+        return isRepairs() || crossesToRepairs();
       }
 
       function validCount(value) {

@@ -221,7 +221,9 @@ export function RepairsBoard({ uid }: { uid: string }) {
    */
   const canManageInventory =
     auth.status === "signedIn" &&
-    (auth.role === "repairs" || auth.role === "closer");
+    (auth.role === "repairs" ||
+      auth.role === "closer" ||
+      auth.role === "dispatcher");
   const inventory = useInventory();
   const lowStock = inventory.items.filter(isLow).length;
   /** Click the words to edit them — laptop only, see lib/pointer. */

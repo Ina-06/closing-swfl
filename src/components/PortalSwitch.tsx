@@ -20,8 +20,8 @@ import { useAuth } from "@/lib/auth/AuthProvider";
  * screen to go back to — the roster, the ETAs and the clock-outs are all
  * somewhere that role cannot go, by design — so showing it the way out would
  * be offering a journey that ends at "wrong screen for this key". The
- * dispatcher is not offered the board for the same reason: it is no part of
- * the night, and the rules say so.
+ * dispatcher crosses the same way the closer does — "Go to Repairs" beside
+ * +Note, and "Go to Dispatch" on the board to come back.
  *
  * A one-time stand-in does not get it either, and that is the one place in
  * this app where a borrowed code is not simply a closer. Everywhere else it
@@ -49,14 +49,29 @@ const DOORS = {
     label: "Closing",
     tone: "border-arrived-line bg-arrived-soft text-arrived",
   },
+  dispatch: {
+    href: "/dispatch",
+    label: "Dispatch",
+    tone: "border-brand-line bg-brand-soft text-brand",
+  },
 } as const;
+
+/**
+ * Who walks through each door. The closer and the dispatcher both cross to the
+ * board and back; each only ever sees the way back to their own side.
+ */
+const WHO: Record<keyof typeof DOORS, readonly string[]> = {
+  repairs: ["closer", "dispatcher"],
+  closing: ["closer"],
+  dispatch: ["dispatcher"],
+};
 
 export function PortalSwitch({ to }: { to: keyof typeof DOORS }) {
   const auth = useAuth();
   const door = DOORS[to];
 
   if (auth.status !== "signedIn") return null;
-  if (auth.role !== "closer") return null;
+  if (!WHO[to].includes(auth.role)) return null;
 
   return (
     /* "Go to" in small grey capitals over the name. On its own the pill read
