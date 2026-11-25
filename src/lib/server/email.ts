@@ -21,12 +21,41 @@ export type Email = {
   idempotencyKey: string;
 };
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Resend allows a couple of requests a second per account. Sends are spaced
+ * at least this far apart, so a day with several vans due never trips it.
+ */
+const SPACING_MS = 600;
+let lastSendAt = 0;
+
 export async function sendEmail(email: Email): Promise<{ id: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.REGISTRATION_EMAIL_FROM;
   if (!apiKey) throw new Error("RESEND_API_KEY is not set.");
   if (!from) throw new Error("REGISTRATION_EMAIL_FROM is not set.");
 
+  // Rate limited anyway: wait and try again, twice. The idempotency key
+  // makes a retry safe even if the first attempt did get through.
+  for (let attempt = 0; ; attempt++) {
+    const gap = lastSendAt + SPACING_MS - Date.now();
+    if (gap > 0) await wait(gap);
+    lastSendAt = Date.now();
+
+    const result = await post(apiKey, from, email);
+    if (result.status === 429 && attempt < 2) {
+      await wait(1500 * (attempt + 1));
+      continue;
+    }
+    if (!result.ok) {
+      throw new Error(`Resend refused the email (${result.status}): ${result.message}`);
+    }
+    return { id: result.id };
+  }
+}
+
+async function post(apiKey: string, from: string, email: Email) {
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -48,10 +77,12 @@ export async function sendEmail(email: Email): Promise<{ id: string }> {
     id?: string;
     message?: string;
   };
-  if (!response.ok) {
-    throw new Error(`Resend refused the email (${response.status}): ${body.message ?? "no reason given"}`);
-  }
-  return { id: body.id ?? "" };
+  return {
+    ok: response.ok,
+    status: response.status,
+    id: body.id ?? "",
+    message: body.message ?? "no reason given",
+  };
 }
 
 /** "a@x.com, b@y.com" → ["a@x.com", "b@y.com"]. Anything without an @ is dropped. */

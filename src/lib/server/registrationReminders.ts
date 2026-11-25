@@ -80,7 +80,14 @@ type Van = {
 };
 
 /** The email, worded for whoever it is to. */
-function compose(van: Van, daysLeft: number, audience: "office" | "vendor", vendorTo: string[]) {
+function compose(
+  van: Van,
+  daysLeft: number,
+  audience: "office" | "vendor",
+  vendorTo: string[],
+  /** The vendor's email was tried this run and refused. */
+  vendorFailed: boolean,
+) {
   const when = daysLeft === 1 ? "tomorrow" : `in ${daysLeft} days`;
   const date = registrationLabel(van.expires);
   const subject = `Registration for van ${van.van} expires ${when} (${date})`;
@@ -102,7 +109,9 @@ function compose(van: Van, daysLeft: number, audience: "office" | "vendor", vend
     audience === "vendor"
       ? ""
       : van.vendor
-        ? vendorTo.length > 0
+        ? vendorFailed
+          ? `The reminder to the vendor (${van.vendor}) at ${vendorTo.join(", ")} did not go through — it will be tried again tomorrow.`
+          : vendorTo.length > 0
           ? `The vendor (${van.vendor}) has been sent the same reminder at ${vendorTo.join(", ")}.`
           : `There is no email on file for the vendor "${van.vendor}", so they were not sent this reminder.`
         : "This van has no vendor in the vans database, so no vendor was sent this reminder.";
@@ -196,6 +205,9 @@ export async function sendRegistrationReminders({
       if (vendorDue && vendorTo.length > 0) sends.push({ to: "vendor", recipients: vendorTo });
       if (officeDue) sends.push({ to: "office", recipients: office });
 
+      // The vendor goes first, so the office email can say truthfully
+      // whether the vendor's went through.
+      let vendorFailed = false;
       for (const send of sends) {
         if (dryRun) {
           summary.sent.push({ van: van.van, daysLeft, ...send });
@@ -205,7 +217,7 @@ export async function sendRegistrationReminders({
           await sendEmail({
             to: send.recipients,
             replyTo,
-            ...compose(van, daysLeft, send.to, vendorTo),
+            ...compose(van, daysLeft, send.to, vendorTo, vendorFailed),
             idempotencyKey: `registration-${van.id}-${van.expires}-${daysLeft}-${send.to}`,
           });
           notice[send.to] = markSent(daysLeft, notice[send.to]);
@@ -220,6 +232,7 @@ export async function sendRegistrationReminders({
           );
           summary.sent.push({ van: van.van, daysLeft, ...send });
         } catch (error) {
+          if (send.to === "vendor") vendorFailed = true;
           summary.errors.push({
             van: van.van,
             to: send.to,
