@@ -2,18 +2,25 @@ rules_version = '2';
 
 // Closing — SWFL, Storage
 //
-// Storage holds one thing: the closing sheet PDF filed for every night when it
-// closes, under sheets/{night}/. It is written by End Day's /api/sheet/archive
-// and by the 7 AM job, and read by /api/sheet/archived — all three on the
-// server, with the service account, which these rules do not apply to.
+// Storage holds two things, both written and read only on the server, with
+// the service account, which these rules do not apply to:
 //
-// It also holds each van's QR image, at vans/{vanId}/qr.{ext}, put up and
-// taken down by /api/vans/qr and read through it as a short-lived signed URL.
+//   sheets/{night}/      The closing sheet PDF filed for every night when it
+//                        closes. Written by End Day's /api/sheet/archive and
+//                        by the 7 AM job, read by /api/sheet/archived. The
+//                        PDFs carry every driver's full name and clock-out;
+//                        the only way to one is through the same signed-in
+//                        role check as rebuilding the sheet. No public or
+//                        signed download URL is ever handed out for a sheet.
 //
-// So no client reads or writes anything here, ever, and this file says so.
-// The PDFs carry every driver's full name and clock-out; the only way to one is
-// through the same signed-in role check as rebuilding the sheet. No public or
-// signed download URL is ever handed out.
+//   vans/{vanId}/qr.*    Each van's QR image. Put up and taken down by
+//                        /api/vans/qr after a role check. It is shown through
+//                        a signed URL that the route mints for a signed-in
+//                        reader and that stops working after ten minutes.
+//                        Nothing about a QR is public.
+//
+// So no client reads or writes anything here directly, ever, and this file
+// says so.
 //
 // Firebase console → Storage → Rules → paste → Publish. Storage's default rule
 // lets any signed-in user read and write, and this app has signed-in users.
