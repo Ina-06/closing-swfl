@@ -530,26 +530,26 @@ function VanRow({
 }) {
   /** Greyed, so the eye skips it; the switch and Edit stay full strength. */
   const faded = van.active ? "" : "opacity-50";
-  /** No was pressed and is waiting on "are you sure". */
-  const [confirmingReturn, setConfirmingReturn] = useState(false);
-  const cancelReturn = useCallback(() => setConfirmingReturn(false), []);
+  /** Yes or No was pressed and is waiting on "are you sure": the answer it asks to switch to. */
+  const [pending, setPending] = useState<boolean | null>(null);
+  const cancelPending = useCallback(() => setPending(null), []);
   // Esc backs out, the same as closing a sheet.
   useEffect(() => {
-    if (!confirmingReturn) return;
+    if (pending === null) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") cancelReturn();
+      if (event.key === "Escape") cancelPending();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [confirmingReturn, cancelReturn]);
-  // Marked returned from another screen while this one was asking: nothing left to ask.
-  const askingReturn = confirmingReturn && van.active;
+  }, [pending, cancelPending]);
+  // Switched from another screen while this one was asking: nothing left to ask.
+  const asking = pending !== null && pending !== van.active ? pending : null;
   return (
     <div className={`relative px-3 py-3 ${van.active ? "" : "bg-sunken/40"} ${columns}`}>
       <p className={`tnum pr-16 font-mono text-[16px] font-bold text-ink md:pr-0 md:text-[15px] ${faded}`}>
         {van.van}
       </p>
-      <dl className={`mt-1.5 grid grid-cols-[72px_minmax(0,1fr)] gap-x-3 gap-y-1 text-[13px] md:contents ${faded}`}>
+      <dl className={`mt-1.5 grid grid-cols-[72px_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 text-[13px] md:contents ${faded}`}>
         <Value label="Vendor" value={van.vendor} />
         <Value label="VIN #" value={van.vin} mono />
         <Value label="Vendor #" value={van.vendorNumber} mono />
@@ -581,7 +581,7 @@ function VanRow({
               onClick={onView}
               aria-label={`Show QR for ${van.van}`}
               title="Show QR"
-              className="-my-1 inline-grid size-9 place-items-center rounded-lg border border-line text-ink transition-colors hover:border-line-strong hover:bg-sunken active:bg-sunken"
+              className="md:-my-1 inline-grid size-9 place-items-center rounded-lg border border-line text-ink transition-colors hover:border-line-strong hover:bg-sunken active:bg-sunken"
             >
               <QrIcon className="size-[18px]" />
             </button>
@@ -590,7 +590,7 @@ function VanRow({
               type="button"
               onClick={onAddQr}
               aria-label={`Add a QR for ${van.van}`}
-              className="-my-1 -ml-1.5 min-h-9 rounded-md px-1.5 text-[12px] md:ml-0 font-semibold text-ink-faint underline decoration-line-strong underline-offset-2 transition-colors hover:text-ink hover:decoration-ink-faint"
+              className="md:-my-1 -ml-1.5 min-h-9 rounded-md px-1.5 text-[12px] md:ml-0 font-semibold text-ink-faint underline decoration-line-strong underline-offset-2 transition-colors hover:text-ink hover:decoration-ink-faint"
             >
               Add
             </button>
@@ -608,7 +608,7 @@ function VanRow({
               onClick={onReg}
               aria-label={`Registration for ${van.van}`}
               title="Registration"
-              className="-my-1 inline-grid size-9 place-items-center rounded-lg border border-line text-ink transition-colors hover:border-line-strong hover:bg-sunken active:bg-sunken"
+              className="md:-my-1 inline-grid size-9 place-items-center rounded-lg border border-line text-ink transition-colors hover:border-line-strong hover:bg-sunken active:bg-sunken"
             >
               <RegIcon className="size-[18px]" />
             </button>
@@ -617,7 +617,7 @@ function VanRow({
               type="button"
               onClick={onReg}
               aria-label={`Add a registration for ${van.van}`}
-              className="-my-1 -ml-1.5 min-h-9 rounded-md px-1.5 text-[12px] font-semibold text-overdue underline decoration-overdue-line underline-offset-2 transition-colors hover:decoration-overdue md:ml-0"
+              className="md:-my-1 -ml-1.5 min-h-9 rounded-md px-1.5 text-[12px] font-semibold text-overdue underline decoration-overdue-line underline-offset-2 transition-colors hover:decoration-overdue md:ml-0"
             >
               Add
             </button>
@@ -641,25 +641,26 @@ function VanRow({
         <span aria-hidden="true" className="hidden md:block" />
       ) : null}
       {onActive ? (
-        <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-line pt-2.5 md:mt-0 md:justify-end md:border-0 md:pt-0">
+        <div className="mt-2 flex items-center justify-between gap-3 md:mt-0 md:justify-end">
           <span className="text-[13px] text-ink-faint md:sr-only">With us</span>
           <ActiveSwitch
             van={van.van}
             active={van.active}
-            pendingNo={askingReturn}
-            onChange={(active) => (active ? onActive(true) : setConfirmingReturn(true))}
+            pending={asking}
+            onChange={setPending}
           />
         </div>
       ) : null}
-      {onActive && askingReturn ? (
-        <ReturnConfirm
-          id={`return-${van.id}`}
+      {onActive && asking !== null ? (
+        <ActiveConfirm
+          id={`active-${van.id}`}
           van={van.van}
+          to={asking}
           onConfirm={() => {
-            setConfirmingReturn(false);
-            onActive(false);
+            setPending(null);
+            onActive(asking);
           }}
-          onCancel={cancelReturn}
+          onCancel={cancelPending}
         />
       ) : null}
     </div>
@@ -667,34 +668,53 @@ function VanRow({
 }
 
 /**
- * "Are you sure?" under the row before a van is marked returned — the same
- * two-step as Remove van. It says what No does, so it is never a slip.
+ * "Are you sure?" under the row before a van switches either way — the same
+ * two-step as Remove van. It says what the switch does, so it is never a slip.
+ * Red for returning a van, green for putting one back with us.
  */
-function ReturnConfirm({
+function ActiveConfirm({
   id,
   van,
+  to,
   onConfirm,
   onCancel,
 }: {
   id: string;
   van: string;
+  /** What it asks to switch to: true is back with us, false is returned. */
+  to: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const copy = to
+    ? {
+        title: "back with us?",
+        body: "It moves back to the vans with us: renewal reminders start again, drivers can pull up its registration, and it can have a QR. You can switch it back to No any time.",
+        keep: "Keep returned",
+        confirm: "Put back with us",
+      }
+    : {
+        title: "as returned?",
+        body: "It moves to Returned vans: no renewal reminders, and drivers can no longer pull up its registration. You can switch it back to Yes any time.",
+        keep: "Keep with us",
+        confirm: "Mark returned",
+      };
   return (
     <div
       role="alertdialog"
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-body`}
-      className="mt-2.5 rounded-lg border border-overdue-line bg-overdue-soft px-3 py-2.5 md:col-span-full md:mt-1 md:flex md:items-center md:justify-between md:gap-4"
+      className={`mt-2.5 rounded-lg border px-3 py-2.5 md:col-span-full md:mt-1 md:flex md:items-center md:justify-between md:gap-4 ${
+        to ? "border-arrived-line bg-arrived-soft" : "border-overdue-line bg-overdue-soft"
+      }`}
     >
       <div className="min-w-0">
         <p id={`${id}-title`} className="text-[13px] font-bold text-ink">
-          Mark <span className="tnum font-mono">{van}</span> as returned?
+          {to ? "Put " : "Mark "}
+          <span className="tnum font-mono">{van}</span> {copy.title}
         </p>
         <p id={`${id}-body`} className="mt-0.5 text-[12px] leading-snug text-ink-muted">
-          It moves to Returned vans: no renewal reminders, and drivers can no longer pull up its registration. You
-          can switch it back to Yes any time.
+          {copy.body}
         </p>
       </div>
       <div className="mt-2.5 flex shrink-0 gap-2 md:mt-0">
@@ -703,15 +723,19 @@ function ReturnConfirm({
           onClick={onCancel}
           className="min-h-10 flex-1 rounded-lg border border-line-strong bg-surface px-3.5 text-[13px] font-semibold text-ink transition-colors hover:bg-sunken md:flex-none"
         >
-          Keep with us
+          {copy.keep}
         </button>
         <button
           type="button"
           autoFocus
           onClick={onConfirm}
-          className="min-h-10 flex-1 rounded-lg border border-overdue-line bg-surface px-3.5 text-[13px] font-bold text-overdue transition-colors hover:bg-overdue-soft md:flex-none"
+          className={`min-h-10 flex-1 rounded-lg border bg-surface px-3.5 text-[13px] font-bold transition-colors md:flex-none ${
+            to
+              ? "border-arrived-line text-arrived hover:bg-arrived-soft"
+              : "border-overdue-line text-overdue hover:bg-overdue-soft"
+          }`}
         >
-          Mark returned
+          {copy.confirm}
         </button>
       </div>
     </div>
@@ -807,17 +831,19 @@ function FilterChip({
 function ActiveSwitch({
   van,
   active,
-  pendingNo = false,
+  pending = null,
   onChange,
 }: {
   van: string;
   active: boolean;
-  /** No was pressed and is waiting on the confirm under the row. */
-  pendingNo?: boolean;
+  /** The answer pressed and waiting on the confirm under the row, if any. */
+  pending?: boolean | null;
   onChange: (active: boolean) => void;
 }) {
   const base =
     "min-h-9 min-w-10 px-2.5 text-[12px] font-bold transition-colors focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink";
+  const pendingYes = pending === true;
+  const pendingNo = pending === false;
   return (
     <div
       role="group"
@@ -827,11 +853,14 @@ function ActiveSwitch({
       <button
         type="button"
         aria-pressed={active}
-        onClick={() => !active && onChange(true)}
+        aria-expanded={active ? undefined : pendingYes}
+        onClick={() => !active && !pendingYes && onChange(true)}
         className={`${base} ${
           active
             ? "bg-arrived-soft text-arrived shadow-[inset_0_0_0_1px_var(--color-arrived-line)]"
-            : "text-ink-faint hover:bg-sunken hover:text-ink"
+            : pendingYes
+              ? "bg-arrived-soft text-arrived shadow-[inset_0_0_0_1px_var(--color-arrived-line)]"
+              : "text-ink-faint hover:bg-sunken hover:text-ink"
         }`}
       >
         Yes
