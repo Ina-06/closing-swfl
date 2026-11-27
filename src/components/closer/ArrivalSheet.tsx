@@ -42,6 +42,7 @@ import {
 import { etaOffset, offsetLabel, stationNowMinutes } from "@/lib/eta";
 import { withNotes, type VanFlags } from "@/lib/vanIssues";
 import type { Entry } from "@/lib/types";
+import { lockScroll } from "@/lib/scrollLock";
 
 /**
  * The sheet behind a card — one driver's whole record.
@@ -163,12 +164,11 @@ export function ArrivalSheet({
     window.addEventListener("keydown", onKeyDown);
 
     // Stop the list behind the sheet from scrolling under his thumb.
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockScroll();
 
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = overflow;
+      unlockScroll();
     };
   }, []);
 

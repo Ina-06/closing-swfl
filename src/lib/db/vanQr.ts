@@ -76,5 +76,7 @@ export async function vanQrUrl(van: Pick<VanRecord, "id" | "qrUpdatedAt">): Prom
  */
 export async function vanQrBlob(vanId: string): Promise<Blob> {
   const response = await requestAuthed(ROUTE, { method: "PUT", json: { vanId, mode: "bytes" } });
-  return response.blob();
+  // Built from bytes in memory, not response.blob(): see readDocBytes in DocViewer.
+  const type = response.headers.get("Content-Type") ?? "";
+  return new Blob([await response.arrayBuffer()], type ? { type } : undefined);
 }

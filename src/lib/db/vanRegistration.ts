@@ -77,9 +77,10 @@ export async function setRegistrationExpiry(vanId: string, registrationExpires: 
 }
 
 /** A document's bytes, for the preview. */
-export async function registrationBlob(vanId: string, docId: string): Promise<Blob> {
+export async function registrationBytes(vanId: string, docId: string): Promise<ArrayBuffer> {
   const response = await requestAuthed(ROUTE, { method: "PUT", json: { vanId, docId } });
-  return response.blob();
+  // Not response.blob(): see readDocBytes in DocViewer.
+  return response.arrayBuffer();
 }
 
 /** Every file and record, for a van being removed for good. */

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/Field";
 import { FlagTag } from "@/components/ui/FlagToggle";
 import type { RosterEntry } from "@/lib/types";
+import { lockScroll } from "@/lib/scrollLock";
 
 /**
  * A name off tonight's roster, opened before anybody has entered him.
@@ -62,12 +63,11 @@ export function RosterSheet({
     };
     window.addEventListener("keydown", onKeyDown);
 
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockScroll();
 
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = overflow;
+      unlockScroll();
     };
   }, [onClose]);
 

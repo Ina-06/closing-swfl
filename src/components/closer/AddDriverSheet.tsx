@@ -8,6 +8,7 @@ import { addDriver, useDrivers } from "@/lib/db/drivers";
 import { nameKey } from "@/lib/names";
 import { pendingNote } from "@/lib/notes";
 import type { Entry, RosterEntry, Session } from "@/lib/types";
+import { lockScroll } from "@/lib/scrollLock";
 
 /**
  * A driver nobody told the closer about.
@@ -61,12 +62,11 @@ export function AddDriverSheet({
     };
     window.addEventListener("keydown", onKeyDown);
 
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockScroll();
 
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = overflow;
+      unlockScroll();
     };
   }, [onClose]);
 

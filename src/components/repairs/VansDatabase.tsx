@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { addVan, editVan, removeVan, setVanActive, type VanFields } from "@/lib/db/vans";
 import { removeVanQr, uploadVanQr } from "@/lib/db/vanQr";
 import { removeAllRegistrations } from "@/lib/db/vanRegistration";
@@ -119,6 +119,8 @@ export function VansDatabase({
   const closeReg = useCallback(() => setRegId(null), []);
   /** The two quick filters over the vans still with us. */
   const [filter, setFilter] = useState<"missing" | "expiring" | null>(null);
+  /** With us or not: All, Yes (with us) or No (returned). */
+  const [status, setStatus] = useState<StatusFilter>("all");
   /** Vans whose QR is uploading or being removed right now. */
   const [qrBusy, setQrBusy] = useState<ReadonlySet<string>>(new Set());
   /** The vans still with us. A returned van's QR and registration no longer matter. */
@@ -168,10 +170,16 @@ export function VansDatabase({
               .filter((van) => expiring.has(van.id))
               .sort((a, b) => a.registrationExpires.localeCompare(b.registrationExpires))
           : vans;
+    const inStatus =
+      status === "yes"
+        ? pool.filter((van) => van.active)
+        : status === "no"
+          ? pool.filter((van) => !van.active)
+          : pool;
     const found =
       words.length === 0
-        ? pool
-        : pool.filter((van) => {
+        ? inStatus
+        : inStatus.filter((van) => {
             const haystack =
               `${van.van} ${van.key} ${van.vendor} ${van.vin} ${van.vendorNumber} ${registrationLabel(van.registrationExpires)} ${van.qrText ?? ""} ${van.active ? "" : "returned"}`.toLowerCase();
             return words.every((word) => haystack.includes(word));
@@ -180,7 +188,7 @@ export function VansDatabase({
       active: found.filter((van) => van.active),
       returned: found.filter((van) => !van.active),
     };
-  }, [vans, query, filter, missingDoc, expiring]);
+  }, [vans, query, filter, status, missingDoc, expiring]);
   const showingCount = showing.active.length + showing.returned.length;
 
   /** Same shape as the board's run(): local at once, loud if refused. */
@@ -267,11 +275,25 @@ export function VansDatabase({
         </div>
       ) : null}
 
-      <div className="flex items-center gap-3">
+      {/* Search gets the full width on a phone, counts underneath; side by side from sm up. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <div className="relative min-w-0 flex-1">
           <label htmlFor="vans-search" className="sr-only">
             Search the vans database
           </label>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-ink-faint"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="M16 16l4.5 4.5" />
+          </svg>
           <input
             id="vans-search"
             type="search"
@@ -281,10 +303,10 @@ export function VansDatabase({
             autoComplete="off"
             spellCheck={false}
             placeholder="Search van, vendor, VIN or QR"
-            className="min-h-11 w-full rounded-xl border border-line-strong bg-surface px-3.5 text-[16px] text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-caution sm:text-[14px]"
+            className="min-h-12 w-full rounded-xl border border-line-strong bg-surface pl-10 pr-3.5 text-[16px] text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-caution sm:min-h-11 sm:text-[14px]"
           />
         </div>
-        <p className="tnum shrink-0 font-mono text-[13px] font-semibold text-ink-muted">
+        <p className="tnum shrink-0 px-0.5 font-mono text-[13px] font-semibold text-ink-muted sm:px-0">
           {loading ? "" : `${inService.length} ${inService.length === 1 ? "van" : "vans"}`}
           {!loading && inService.length > 0 && missingQr > 0 ? (
             <span className="font-medium text-ink-faint"> · {missingQr} missing QR</span>
@@ -295,22 +317,31 @@ export function VansDatabase({
         </p>
       </div>
 
-      {!loading && inService.length > 0 ? (
-        <div role="group" aria-label="Filter the vans" className="-mt-1 flex flex-wrap gap-2">
-          <FilterChip
-            on={filter === "missing"}
-            count={missingDoc.size}
-            onClick={() => setFilter((was) => (was === "missing" ? null : "missing"))}
-          >
-            Missing doc
-          </FilterChip>
-          <FilterChip
-            on={filter === "expiring"}
-            count={expiring.size}
-            onClick={() => setFilter((was) => (was === "expiring" ? null : "expiring"))}
-          >
-            Expiring ≤{EXPIRING_DAYS} days
-          </FilterChip>
+      {!loading && vans.length > 0 ? (
+        <div className="-mt-1 flex flex-wrap items-center gap-2">
+          <StatusFilterGroup
+            value={status}
+            counts={{ all: vans.length, yes: inService.length, no: returnedCount }}
+            onChange={setStatus}
+          />
+          {inService.length > 0 ? (
+            <div role="group" aria-label="Filter by registration" className="flex flex-wrap gap-2">
+              <FilterChip
+                on={filter === "missing"}
+                count={missingDoc.size}
+                onClick={() => setFilter((was) => (was === "missing" ? null : "missing"))}
+              >
+                Missing doc
+              </FilterChip>
+              <FilterChip
+                on={filter === "expiring"}
+                count={expiring.size}
+                onClick={() => setFilter((was) => (was === "expiring" ? null : "expiring"))}
+              >
+                Expiring ≤{EXPIRING_DAYS} days
+              </FilterChip>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -355,11 +386,17 @@ export function VansDatabase({
         </p>
       ) : showingCount === 0 ? (
         <p className="rounded-xl border border-dashed border-line-strong bg-surface/60 px-5 py-12 text-center text-[13px] text-ink-faint">
-          {filter === "missing" && !query.trim()
-            ? "Every van with us has a registration on file."
-            : filter === "expiring" && !query.trim()
-              ? `No registration runs out in the next ${EXPIRING_DAYS} days.`
-              : `No van matches “${query.trim()}”${filter ? " under this filter" : ""}`}
+          {query.trim()
+            ? `No van matches “${query.trim()}”${filter || status !== "all" ? " under these filters" : ""}`
+            : status === "no"
+              ? filter
+                ? "Missing doc and Expiring only look at vans with us — switch With us to All or Yes."
+                : "No returned vans."
+              : filter === "missing"
+                ? "Every van with us has a registration on file."
+                : filter === "expiring"
+                  ? `No registration runs out in the next ${EXPIRING_DAYS} days.`
+                  : "No vans with us right now."}
         </p>
       ) : (
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
@@ -493,6 +530,20 @@ function VanRow({
 }) {
   /** Greyed, so the eye skips it; the switch and Edit stay full strength. */
   const faded = van.active ? "" : "opacity-50";
+  /** No was pressed and is waiting on "are you sure". */
+  const [confirmingReturn, setConfirmingReturn] = useState(false);
+  const cancelReturn = useCallback(() => setConfirmingReturn(false), []);
+  // Esc backs out, the same as closing a sheet.
+  useEffect(() => {
+    if (!confirmingReturn) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") cancelReturn();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [confirmingReturn, cancelReturn]);
+  // Marked returned from another screen while this one was asking: nothing left to ask.
+  const askingReturn = confirmingReturn && van.active;
   return (
     <div className={`relative px-3 py-3 ${van.active ? "" : "bg-sunken/40"} ${columns}`}>
       <p className={`tnum pr-16 font-mono text-[16px] font-bold text-ink md:pr-0 md:text-[15px] ${faded}`}>
@@ -592,9 +643,127 @@ function VanRow({
       {onActive ? (
         <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-line pt-2.5 md:mt-0 md:justify-end md:border-0 md:pt-0">
           <span className="text-[13px] text-ink-faint md:sr-only">With us</span>
-          <ActiveSwitch van={van.van} active={van.active} onChange={onActive} />
+          <ActiveSwitch
+            van={van.van}
+            active={van.active}
+            pendingNo={askingReturn}
+            onChange={(active) => (active ? onActive(true) : setConfirmingReturn(true))}
+          />
         </div>
       ) : null}
+      {onActive && askingReturn ? (
+        <ReturnConfirm
+          id={`return-${van.id}`}
+          van={van.van}
+          onConfirm={() => {
+            setConfirmingReturn(false);
+            onActive(false);
+          }}
+          onCancel={cancelReturn}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * "Are you sure?" under the row before a van is marked returned — the same
+ * two-step as Remove van. It says what No does, so it is never a slip.
+ */
+function ReturnConfirm({
+  id,
+  van,
+  onConfirm,
+  onCancel,
+}: {
+  id: string;
+  van: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      role="alertdialog"
+      aria-labelledby={`${id}-title`}
+      aria-describedby={`${id}-body`}
+      className="mt-2.5 rounded-lg border border-overdue-line bg-overdue-soft px-3 py-2.5 md:col-span-full md:mt-1 md:flex md:items-center md:justify-between md:gap-4"
+    >
+      <div className="min-w-0">
+        <p id={`${id}-title`} className="text-[13px] font-bold text-ink">
+          Mark <span className="tnum font-mono">{van}</span> as returned?
+        </p>
+        <p id={`${id}-body`} className="mt-0.5 text-[12px] leading-snug text-ink-muted">
+          It moves to Returned vans: no renewal reminders, and drivers can no longer pull up its registration. You
+          can switch it back to Yes any time.
+        </p>
+      </div>
+      <div className="mt-2.5 flex shrink-0 gap-2 md:mt-0">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="min-h-10 flex-1 rounded-lg border border-line-strong bg-surface px-3.5 text-[13px] font-semibold text-ink transition-colors hover:bg-sunken md:flex-none"
+        >
+          Keep with us
+        </button>
+        <button
+          type="button"
+          autoFocus
+          onClick={onConfirm}
+          className="min-h-10 flex-1 rounded-lg border border-overdue-line bg-surface px-3.5 text-[13px] font-bold text-overdue transition-colors hover:bg-overdue-soft md:flex-none"
+        >
+          Mark returned
+        </button>
+      </div>
+    </div>
+  );
+}
+
+type StatusFilter = "all" | "yes" | "no";
+
+/** All / Yes / No over "With us": every van, the vans with us, the returned ones. One is always on. */
+function StatusFilterGroup({
+  value,
+  counts,
+  onChange,
+}: {
+  value: StatusFilter;
+  counts: Record<StatusFilter, number>;
+  onChange: (value: StatusFilter) => void;
+}) {
+  const options: { value: StatusFilter; label: string; hint: string }[] = [
+    { value: "all", label: "All", hint: "All vans" },
+    { value: "yes", label: "Yes", hint: "Vans with us" },
+    { value: "no", label: "No", hint: "Returned vans" },
+  ];
+  return (
+    <div
+      role="group"
+      aria-label="Filter by with us"
+      className="inline-flex min-h-9 items-stretch overflow-hidden rounded-full border border-line-strong bg-surface"
+    >
+      <span className="flex items-center pl-3 pr-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">
+        With us
+      </span>
+      {options.map((option) => {
+        const on = value === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={on}
+            aria-label={`${option.hint}: ${counts[option.value]}`}
+            onClick={() => onChange(option.value)}
+            className={`inline-flex min-h-9 items-center gap-1.5 border-l border-line px-3 text-[12px] font-semibold transition-colors focus-visible:relative focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink ${
+              on ? "bg-ink text-ink-inverse" : "text-ink-muted hover:bg-sunken hover:text-ink"
+            }`}
+          >
+            {option.label}
+            <span className={`tnum font-mono ${on ? "text-ink-inverse/80" : "text-ink-faint"}`}>
+              {counts[option.value]}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -638,10 +807,13 @@ function FilterChip({
 function ActiveSwitch({
   van,
   active,
+  pendingNo = false,
   onChange,
 }: {
   van: string;
   active: boolean;
+  /** No was pressed and is waiting on the confirm under the row. */
+  pendingNo?: boolean;
   onChange: (active: boolean) => void;
 }) {
   const base =
@@ -667,9 +839,14 @@ function ActiveSwitch({
       <button
         type="button"
         aria-pressed={!active}
-        onClick={() => active && onChange(false)}
+        aria-expanded={active ? pendingNo : undefined}
+        onClick={() => active && !pendingNo && onChange(false)}
         className={`${base} border-l border-line-strong ${
-          active ? "text-ink-faint hover:bg-sunken hover:text-ink" : "bg-sunken text-ink"
+          pendingNo
+            ? "bg-overdue-soft text-overdue shadow-[inset_0_0_0_1px_var(--color-overdue-line)]"
+            : active
+              ? "text-ink-faint hover:bg-sunken hover:text-ink"
+              : "bg-sunken text-ink"
         }`}
       >
         No

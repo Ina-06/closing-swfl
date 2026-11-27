@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { DocViewer } from "@/components/DocViewer";
 import { STATION_TIMEZONE, stationDateKey } from "@/lib/constants";
 import {
-  registrationBlob,
+  registrationBytes,
   setRegistrationActive,
   setRegistrationExpiry,
   uploadRegistration,
@@ -20,6 +20,7 @@ import {
 } from "@/lib/regDocs";
 import { daysLeftPhrase, daysUntil, registrationLabel } from "@/lib/registration";
 import type { RegistrationDoc, VanRecord } from "@/lib/types";
+import { lockScroll } from "@/lib/scrollLock";
 
 /**
  * Van registrations on the vans database: the icon in the table and the
@@ -123,11 +124,10 @@ export function RegistrationModal({
       if (event.key === "Escape" && !previewing && !busy) onClose();
     };
     window.addEventListener("keydown", onKey);
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockScroll();
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = overflow;
+      unlockScroll();
     };
   }, [mounted, onClose, previewing, busy]);
 
@@ -365,7 +365,7 @@ export function RegistrationModal({
           key={previewing.id}
           label={`Registration for ${van.van}`}
           expiredOn={expired ? registrationLabel(van.registrationExpires) : null}
-          load={() => registrationBlob(van.id, previewing.id)}
+          load={() => registrationBytes(van.id, previewing.id)}
           onClose={closePreview}
         />
       ) : null}

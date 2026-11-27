@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { useViewport } from "@/lib/viewport";
 import { stationDateLabel } from "@/lib/constants";
 import type { RepairTask } from "@/lib/types";
+import { lockScroll } from "@/lib/scrollLock";
 
 /**
  * Adding a job, and correcting one — the same sheet.
@@ -70,12 +71,11 @@ export function TaskSheet({
     };
     window.addEventListener("keydown", onKeyDown);
 
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockScroll();
 
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = overflow;
+      unlockScroll();
     };
   }, [onClose]);
 

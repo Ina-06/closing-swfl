@@ -9,6 +9,7 @@ import { uploadRegistration } from "@/lib/db/vanRegistration";
 import { REG_ACCEPT, activeRegistration, guessKind, regFileProblem } from "@/lib/regDocs";
 import { vanKey } from "@/lib/vans";
 import type { VanRecord } from "@/lib/types";
+import { lockScroll } from "@/lib/scrollLock";
 
 /**
  * Bulk upload registrations — the vans database's twin of Bulk upload QRs.
@@ -116,11 +117,10 @@ function BulkRegSheet({
       if (event.key === "Escape" && !running) onClose();
     };
     window.addEventListener("keydown", onKey);
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockScroll();
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = overflow;
+      unlockScroll();
     };
   }, [mounted, onClose, running]);
 

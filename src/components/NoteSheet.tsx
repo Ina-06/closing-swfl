@@ -17,6 +17,7 @@ import { nameKey } from "@/lib/names";
 import { pendingNote } from "@/lib/notes";
 import { useViewport } from "@/lib/viewport";
 import type { Entry, RosterEntry, Session } from "@/lib/types";
+import { lockScroll } from "@/lib/scrollLock";
 
 /**
  * A note about a driver, for when the van pulls in.
@@ -89,12 +90,11 @@ export function NoteSheet({
     };
     window.addEventListener("keydown", onKeyDown);
 
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockScroll();
 
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = overflow;
+      unlockScroll();
     };
   }, [onClose]);
 

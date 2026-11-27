@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DocViewer, warmPdfRenderer } from "@/components/DocViewer";
+import { DocViewer, readDocBytes, warmPdfRenderer } from "@/components/DocViewer";
 
 /**
  * The driver's registration lookup — reg.swfl.app.
@@ -50,7 +50,7 @@ async function fetchSearch(query: string): Promise<{ results: Result[]; tooMany:
   return { results: body.results ?? [], tooMany: !!body.tooMany };
 }
 
-async function fetchDoc(doc: Doc): Promise<Blob> {
+async function fetchDoc(doc: Doc): Promise<ArrayBuffer> {
   const response = await fetch(doc.path, {
     headers: { "X-Reg-View": "1", "X-Reg-Token": doc.token },
     cache: "no-store",
@@ -60,7 +60,7 @@ async function fetchDoc(doc: Doc): Promise<Blob> {
     if (body.pin) throw new PinNeeded();
     throw new Error(body.error ?? "The document could not be opened. Try again.");
   }
-  return response.blob();
+  return readDocBytes(response);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -175,7 +175,7 @@ function Lookup({ onPinNeeded }: { onPinNeeded: () => void }) {
   const [viewing, setViewing] = useState<{ result: Result; kind: "registration" | "qr" } | null>(null);
   const input = useRef<HTMLInputElement>(null);
   /** Documents already on their way, by path: opened the moment they are tapped. */
-  const fetched = useRef(new Map<string, { token: string; blob: Promise<Blob> }>());
+  const fetched = useRef(new Map<string, { token: string; blob: Promise<ArrayBuffer> }>());
 
   useEffect(() => input.current?.focus(), []);
 
@@ -219,7 +219,7 @@ function Lookup({ onPinNeeded }: { onPinNeeded: () => void }) {
    * swapped for a fresh one by searching again, so a page left open since
    * the morning still works.
    */
-  async function load(result: Result, kind: "registration" | "qr"): Promise<Blob> {
+  async function load(result: Result, kind: "registration" | "qr"): Promise<ArrayBuffer> {
     let doc = result[kind];
     if (!doc) throw new Error("Nothing on file.");
 

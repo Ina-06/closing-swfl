@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { ErrorNote } from "@/components/ui/Field";
 import { saveYard } from "@/lib/db/closer";
 import type { Entry } from "@/lib/types";
+import { lockScroll } from "@/lib/scrollLock";
 
 /**
  * What is wrong with tonight, on one grid at the bottom of the screen.
@@ -204,12 +205,11 @@ function IssuesSheet({
     };
     window.addEventListener("keydown", onKeyDown);
 
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockScroll();
 
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = overflow;
+      unlockScroll();
     };
   }, [onClose]);
 

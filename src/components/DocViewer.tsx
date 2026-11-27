@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import { lockScroll } from "@/lib/scrollLock";
 
 /**
  * "Show officer" mode: one document, full screen, on black.
@@ -51,6 +52,27 @@ function newCanvas(): HTMLCanvasElement {
   return canvas;
 }
 
+/**
+ * A document response's bytes.
+ *
+ * Read straight off the response, not through response.blob(). Safari can
+ * keep a downloaded Blob in a temporary file and later fail to read it back —
+ * "NotReadableError: The I/O read operation failed." — on some iPhones every
+ * time (seen on an iPhone 15 Pro Max). An ArrayBuffer is plain memory.
+ */
+export async function readDocBytes(response: Response): Promise<ArrayBuffer> {
+  return response.arrayBuffer();
+}
+
+/** What to say when the document did not show — words for a driver, not a browser's error name. */
+function viewerMessage(error: unknown) {
+  if (error instanceof DOMException && (error.name === "NotReadableError" || error.name === "AbortError")) {
+    return "The document didn't finish downloading. Check the signal and try again.";
+  }
+  if (error instanceof TypeError && /load failed|failed to fetch|network/i.test(error.message)) return "No connection. Check the signal and try again.";
+  return error instanceof Error && error.message ? error.message : "The document could not be shown.";
+}
+
 /** Start fetching the PDF renderer before it is needed, so opening a registration doesn't wait on it. */
 export function warmPdfRenderer() {
   void import("pdfjs-dist/legacy/build/pdf.mjs").catch(() => {});
@@ -88,8 +110,9 @@ async function paintPdf(bytes: Uint8Array, into: HTMLElement, cssWidth: number, 
   }
 }
 
-async function paintImage(blob: Blob, into: HTMLElement) {
-  const url = URL.createObjectURL(blob);
+async function paintImage(bytes: Uint8Array<ArrayBuffer>, into: HTMLElement) {
+  // A Blob built from bytes already in memory: nothing for Safari to read back from disk.
+  const url = URL.createObjectURL(new Blob([bytes]));
   try {
     const image = new Image();
     image.decoding = "async";
@@ -118,8 +141,11 @@ export function DocViewer({
   label,
   onClose,
 }: {
-  /** The document's bytes. Called once when the viewer opens. */
-  load: () => Promise<Blob>;
+  /**
+   * The document's bytes — read with response.arrayBuffer(), never through a
+   * Blob (see readDocBytes). Called when the viewer opens, and again on Try again.
+   */
+  load: () => Promise<ArrayBuffer>;
   /** When set, a red EXPIRED banner naming this date sits over the top. */
   expiredOn?: string | null;
   /** What the document is, for screen readers: "Registration for RT.56". */
@@ -134,7 +160,14 @@ export function DocViewer({
     status: "loading",
   });
 
-  // Load and paint, once.
+  /** Bumped by Try again, which loads and paints from the start. */
+  const [attempt, setAttempt] = useState(0);
+  const retry = () => {
+    setState({ status: "loading" });
+    setAttempt((was) => was + 1);
+  };
+
+  // Load and paint, once per attempt.
   const loadRef = useRef(load);
   useEffect(() => {
     if (!mounted) return;
@@ -144,25 +177,25 @@ export function DocViewer({
     const cssWidth = Math.min(into.clientWidth || window.innerWidth, 1100);
 
     (async () => {
-      const blob = await loadRef.current();
-      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const buffer = await loadRef.current();
+      // A copy: pdf.js hands its bytes to a worker, which empties them, and a
+      // held download has to stay whole for the next time it is opened.
+      const bytes = new Uint8Array(buffer.slice(0));
       if (!live) return;
       if (isPdf(bytes)) await paintPdf(bytes, into, cssWidth, () => live);
-      else await paintImage(blob, into);
+      else await paintImage(bytes, into);
       if (live) setState({ status: "ready" });
     })().catch((error: unknown) => {
       if (!live) return;
-      setState({
-        status: "error",
-        message: error instanceof Error && error.message ? error.message : "The document could not be shown.",
-      });
+      into.replaceChildren();
+      setState({ status: "error", message: viewerMessage(error) });
     });
 
     return () => {
       live = false;
       into.replaceChildren();
     };
-  }, [mounted]);
+  }, [mounted, attempt]);
 
   // Esc closes, the page behind holds still, focus starts on Close.
   useEffect(() => {
@@ -171,12 +204,11 @@ export function DocViewer({
       if (event.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockScroll();
     closeButton.current?.focus();
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = overflow;
+      unlockScroll();
     };
   }, [mounted, onClose]);
 
@@ -307,7 +339,16 @@ export function DocViewer({
           </div>
         ) : state.status === "error" ? (
           <div className="absolute inset-0 grid place-items-center px-8" role="alert">
-            <p className="max-w-sm text-center text-[16px] font-semibold leading-snug">{state.message}</p>
+            <div className="flex max-w-sm flex-col items-center gap-5 text-center">
+              <p className="text-[16px] font-semibold leading-snug">{state.message}</p>
+              <button
+                type="button"
+                onClick={retry}
+                className="min-h-12 rounded-full bg-white px-6 text-[15px] font-bold text-black focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-white active:scale-95"
+              >
+                Try again
+              </button>
+            </div>
           </div>
         ) : null}
       </div>

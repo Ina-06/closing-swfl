@@ -25,6 +25,7 @@ import {
 } from "@/lib/qrImage";
 import { QR_ACCEPT, qrDownloadName, qrFileProblem, vanKeyOfFilename } from "@/lib/vanQr";
 import type { VanRecord } from "@/lib/types";
+import { lockScroll } from "@/lib/scrollLock";
 
 /**
  * Van QR codes on the vans database: the icon in the table, the field in the
@@ -89,11 +90,10 @@ function useSheetChrome(onClose: () => void, closable = true) {
       if (event.key === "Escape" && closable) onClose();
     };
     window.addEventListener("keydown", onKeyDown);
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
+    const unlockScroll = lockScroll();
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = overflow;
+      unlockScroll();
     };
   }, [onClose, closable]);
 }
