@@ -78,6 +78,22 @@ export function warmPdfRenderer() {
   void import("pdfjs-dist/legacy/build/pdf.mjs").catch(() => {});
 }
 
+/**
+ * Where pdf.js finds its helper files, copied into public/pdfjs by
+ * scripts/copy-pdfjs-assets.mjs. Most registrations are scans, and a scan's
+ * image is often JBIG2 or JPEG 2000 — decoded by the WebAssembly in wasm/.
+ * Without these the page paints as its background alone: blank white, or
+ * blank yellow on a yellow form. Root-relative, so they load the same on
+ * swfl.app and on reg.swfl.app (proxy.ts lets /pdfjs through there).
+ */
+const PDF_ASSETS = {
+  wasmUrl: "/pdfjs/wasm/",
+  iccUrl: "/pdfjs/iccs/",
+  cMapUrl: "/pdfjs/cmaps/",
+  cMapPacked: true,
+  standardFontDataUrl: "/pdfjs/standard_fonts/",
+} as const;
+
 async function paintPdf(bytes: Uint8Array, into: HTMLElement, cssWidth: number, live: () => boolean) {
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -85,7 +101,7 @@ async function paintPdf(bytes: Uint8Array, into: HTMLElement, cssWidth: number, 
     import.meta.url,
   ).toString();
 
-  const task = pdfjs.getDocument({ data: bytes });
+  const task = pdfjs.getDocument({ data: bytes, ...PDF_ASSETS });
   const pdf = await task.promise;
   try {
     for (let number = 1; number <= pdf.numPages && live(); number++) {

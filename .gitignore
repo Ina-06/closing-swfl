@@ -45,3 +45,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pdf.js helper files, copied from node_modules before dev and build
+/public/pdfjs/

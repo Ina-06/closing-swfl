@@ -45,9 +45,10 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Every request on the reg host, bar the build's own files.
+    // Every request on the reg host, bar the build's own files and the PDF
+    // viewer's decoders (public/pdfjs), which the registration preview loads.
     {
-      source: "/((?!_next/static|_next/image|favicon.ico).*)",
+      source: "/((?!_next/static|_next/image|favicon.ico|pdfjs/).*)",
       has: [{ type: "host", value: "reg\\..*" }],
     },
     // And the driver paths on any host.
